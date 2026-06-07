@@ -1,0 +1,17 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+allowBuilds:
+  '@reown/appkit': true
+  bufferutil: true
+  esbuild: true
+  keccak: true
+  msw: true
+  protobufjs: true
+  sharp: true
+  tiny-secp256k1: true
+  unrs-resolver: true
+  utf-8-validate: true
+minimumReleaseAgeExclude:
+  - '@web3auth/modal@11.0.2'
+  - '@web3auth/no-modal@11.0.2'

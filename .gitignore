@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.yarn/
+
+# Testing
+coverage/
+
+# Next.js
+.next/
+out/
+.output/
+
+# Production
+build/
+dist/
+
+# Misc
+.DS_Store
+*.pem
+*.log
+.eslintcache
+.npmrc-builds-tmp
+.cache/
+.temp/
+.tmp/
+
+# Env files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Turbo
+.turbo/
+
+# Local IDE settings
+.vscode/
+.idea/
+
+# PNPM
+# Ignore subdirectory lockfiles in a workspace
+**/pnpm-lock.yaml
+# But keep the root lockfile
+!/pnpm-lock.yaml

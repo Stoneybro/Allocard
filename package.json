@@ -1,0 +1,29 @@
+{
+  "name": "allocard-workspace",
+  "version": "1.0.0",
+  "description": "Allocard - Trustless Corporate Expense Cards",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter allocard dev",
+    "build": "pnpm --filter allocard build",
+    "start": "pnpm --filter allocard start",
+    "lint": "pnpm --filter allocard lint",
+    "typecheck": "pnpm --filter allocard typecheck"
+  },
+  "keywords": [
+    "web3",
+    "metamask",
+    "smart-accounts",
+    "delegation"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.5.1",
+      "onFail": "download"
+    }
+  },
+  "type": "module"
+}
