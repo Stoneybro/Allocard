@@ -8,7 +8,11 @@
     "build": "pnpm --filter allocard build",
     "start": "pnpm --filter allocard start",
     "lint": "pnpm --filter allocard lint",
-    "typecheck": "pnpm --filter allocard typecheck"
+    "typecheck": "pnpm --filter allocard typecheck",
+    "db:generate": "pnpm --filter allocard db:generate",
+    "db:migrate": "pnpm --filter allocard db:migrate",
+    "db:push": "pnpm --filter allocard db:push",
+    "db:studio": "pnpm --filter allocard db:studio"
   },
   "keywords": [
     "web3",

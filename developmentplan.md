@@ -92,7 +92,7 @@ Steps:
 
 1. Define the authenticated user lifecycle.
    - Map MetaMask Embedded Wallet identity to `users.embedded_wallet_address`.
-   - Decide whether email is required at signup or optional depending on Web3Auth provider data.
+   - Map connected wallet identity to an Allocard user without requiring email.
    - Create server-side helpers for loading the current user.
 
 2. Build employer signup.
@@ -109,7 +109,7 @@ Steps:
 4. Build invite creation.
    - Employer can create invite links.
    - Insert `invites` rows with `pending` status.
-   - Support optional invite email if the product requires it.
+   - Show a copyable invite link in a modal; the invite link is only needed for first-time employee association.
 
 5. Build employee signup through invite.
    - Validate invite code.
@@ -152,7 +152,7 @@ Steps:
    - Agent node.
    - EOA node.
    - Pending configuration state.
-   - Active, paused, and revoked visual states.
+   - Active and revoked visual states.
 
 5. Persist canvas positions.
    - Store x/y values on the `delegations` row as described in the README.
@@ -175,8 +175,7 @@ Steps:
    - Support direct EOA entry with address validation and optional label.
 
 2. Build caveat configuration drawer.
-   - Token type.
-   - Token address or native token selector.
+   - Native ETH allowance type.
    - Maximum amount.
    - Period for recurring allowances.
    - Optional allowed targets.
@@ -334,14 +333,14 @@ These gaps should be resolved as implementation decisions are made:
 6. Open delegation is risky and not product-defined.
    - Keep it out of the MVP unless a concrete use case is defined.
 
-7. Pause behavior is not defined.
-   - Decide whether pause is manual, automatic, on-chain, database-only, or just a UI status.
+7. Pause behavior is intentionally out of scope.
+   - The MVP uses `pending_config`, `active`, and `revoked` only.
 
 8. Real-time tree updates are not defined.
    - Decide between polling, server-sent events, websockets, or manual refresh.
 
-9. Token support needs narrowing for MVP.
-   - Choose native token only, USDC only, or a small allowlist.
+9. Token support is narrowed for MVP.
+   - Use native Base Sepolia ETH for the demo and leave USDC as a future production target.
 
 10. Spending/redemption records are missing from the schema.
     - The README describes delegation setup, but not how actual spend history is stored and audited.
@@ -349,8 +348,8 @@ These gaps should be resolved as implementation decisions are made:
 11. Chain and deployment environments need to be explicit.
     - The code uses Base Sepolia. The README should state whether this is the MVP chain and what changes for production.
 
-12. User email requirement needs clarification.
-    - The schema requires unique email, but Web3 wallet auth may not always provide one.
+12. User email is intentionally removed.
+    - Wallet identity and invite-link association are enough for the MVP.
 
 13. Company ownership model may be too narrow.
     - The README says one employer account per company. If multiple admins are needed later, this should become a company membership model.
@@ -362,7 +361,7 @@ For the first usable milestone, keep the scope narrow:
 1. Employer signup and company creation.
 2. Company smart account activation on Base Sepolia.
 3. Manual employee invite and employee signup.
-4. Employer creates one USDC or native-token periodic delegation to an employee.
+4. Employer creates one native ETH periodic delegation to an employee.
 5. Employee redelegates a smaller amount to an EOA.
 6. Employer can view the resulting tree.
 7. Revocation marks the delegation and child delegations revoked in the database.

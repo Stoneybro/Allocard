@@ -53,3 +53,4 @@ next-env.d.ts
 **/pnpm-lock.yaml
 # But keep the root lockfile
 !/pnpm-lock.yaml
+.env*

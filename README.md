@@ -43,23 +43,17 @@ An open delegation is one where the delegatee field is left unspecified, meaning
 
 ### Caveat enforcers
 
-Caveats are the rule layer of a delegation. The MetaMask Smart Accounts Kit ships with the following built-in caveat enforcers relevant to Allocard:
+Caveats are the rule layer of a delegation. For the MVP, Allocard uses native Base Sepolia ETH only and keeps the caveat set narrow:
 
-- `erc20TransferAmount` — a total cumulative spending cap on a specific ERC-20 token
-- `erc20PeriodTransfer` — a recurring allowance that resets each period (e.g. $500 per month)
-- `erc20Streaming` — a continuously accruing allowance over time
-- `nativeTokenTransferAmount` — same as erc20TransferAmount but for native ETH
-- `nativeTokenPeriodTransfer` — periodic allowance for native ETH
-- `nativeTokenStreaming` — streaming allowance for native ETH
+- `nativeTokenTransferAmount` — total cumulative native ETH spending cap
+- `nativeTokenPeriodTransfer` — recurring native ETH allowance that resets each period
 - `valueLte` — caps the value of any single transaction
 - `allowedTargets` — restricts which contract addresses can be called
-- `allowedMethods` — restricts which function selectors can be called
-- `allowedCalldata` / `exactCalldata` — fine-grained calldata restrictions
 - `redeemer` — locks which address can redeem the delegation
 - `limitedCalls` — caps the total number of times a delegation can be redeemed
-- `multiTokenPeriod` — periodic allowance across multiple token types at once
+- `custom` — reserved for future custom caveat enforcers
 
-Custom caveat enforcers can also be written in Solidity if needed for advanced scenarios.
+ERC-20 caveats, calldata restrictions, method restrictions, streaming allowances, and multi-token allowances are intentionally out of scope for the first demo.
 
 ---
 
@@ -109,7 +103,7 @@ An employee is a member of a company who has accepted an invite. They have their
 ### Employee onboarding
 
 1. The employer generates an invite link from their dashboard. An `invites` row is created with `status='pending'`.
-2. The employee clicks the invite link. The invite code in the URL is validated against the `invites` table to find the correct company.
+2. The employee clicks the invite link. The invite code in the URL is validated against the `invites` table to find the correct company. This link is only required for first-time onboarding; after acceptance, the employee's `company_id` persists on their user record and future visits can route directly to the employee dashboard.
 3. The employee signs up via MetaMask Embedded Wallets. A `users` row is created with `role='employee'` and `company_id` set to the company from the invite. The employee's smart account is deployed at this point. The `invites` row is updated to `status='accepted'`.
 4. The employee's profile now appears in the employer's contact list in the sidebar, making them available to drag onto the delegation canvas.
 
@@ -203,7 +197,6 @@ The employer owns any agents they create. Agents belong to a company via `compan
 | Column | Type | Notes |
 |---|---|---|
 | id | uuid PK | |
-| email | text unique | |
 | embedded_wallet_address | text | From MetaMask Embedded Wallets |
 | smart_account_address | text nullable | Null until account activated |
 | role | enum | employer \| employee |
@@ -228,7 +221,6 @@ The employer owns any agents they create. Agents belong to a company via `compan
 | id | uuid PK | |
 | company_id | uuid FK → companies | |
 | invite_code | text unique | |
-| email | text nullable | Can pre-fill or leave open |
 | status | enum | pending \| accepted \| expired |
 | created_at | timestamp | |
 | accepted_at | timestamp nullable | |
@@ -238,6 +230,7 @@ The employer owns any agents they create. Agents belong to a company via `compan
 | Column | Type | Notes |
 |---|---|---|
 | id | uuid PK | |
+| parent_delegation_id | uuid FK → delegations nullable | Parent delegation for redelegation chains |
 | delegator_type | enum | company \| user \| agent |
 | delegator_id | uuid | References companies, users, or agents depending on type |
 | delegatee_type | enum | user \| agent \| eoa |
@@ -245,7 +238,7 @@ The employer owns any agents they create. Agents belong to a company via `compan
 | delegatee_address | text nullable | Populated only for eoa delegatees |
 | delegatee_label | text nullable | Optional human-readable name for EOA recipients |
 | delegation_hash | text | On-chain hash after activation |
-| status | enum | pending_config \| active \| paused \| revoked |
+| status | enum | pending_config \| active \| revoked |
 | canvas_position_x | float | React Flow canvas x position |
 | canvas_position_y | float | React Flow canvas y position |
 | created_at | timestamp | |
@@ -258,8 +251,8 @@ The employer owns any agents they create. Agents belong to a company via `compan
 |---|---|---|
 | id | uuid PK | |
 | delegation_id | uuid FK → delegations | |
-| caveat_type | enum | erc20TransferAmount \| erc20PeriodTransfer \| nativeTokenTransferAmount \| limitedCalls \| allowedTargets \| redeemer \| valueLte \| etc. |
-| caveat_value | jsonb | Parameters for the caveat (token address, amount, period, etc.) |
+| caveat_type | enum | nativeTokenTransferAmount \| nativeTokenPeriodTransfer \| valueLte \| allowedTargets \| redeemer \| limitedCalls \| custom |
+| caveat_value | jsonb | Parameters for the caveat (amount, period, target addresses, redeemer address, etc.) |
 | created_at | timestamp | |
 
 ### Key schema decisions
