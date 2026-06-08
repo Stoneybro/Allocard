@@ -1,33 +1,50 @@
-'use client'
+"use client";
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { useWeb3AuthConnect } from "@web3auth/modal/react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { ShieldCheck, Workflow, Wallet } from "lucide-react"
+import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { useWeb3AuthConnect } from "@web3auth/modal/react";
+import { useAccount } from "wagmi";
+import { getWalletProfile } from "@/app/actions/identity";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { ShieldCheck, Workflow, Wallet } from "lucide-react";
+
+function routeForStatus(status: "new" | "employer" | "employee") {
+  if (status === "employer") return "/employer";
+  if (status === "employee") return "/employee";
+  return "/onboarding";
+}
 
 export default function LandingPage() {
-  const router = useRouter()
-  const { connect, loading, isConnected } = useWeb3AuthConnect()
-  const [isConnecting, setIsConnecting] = useState(false)
+  const router = useRouter();
+  const { connect, loading, isConnected } = useWeb3AuthConnect();
+  const { address } = useAccount();
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isRouting, startRouting] = useTransition();
 
   useEffect(() => {
-    // Only automatically redirect if the user initiated the connection process
-    // from this landing page to avoid unwanted auto-redirects on page load.
-    if (isConnecting && isConnected) {
-      router.push('/choose-role')
+    if (!isConnecting || !isConnected || !address) {
+      return;
     }
-  }, [isConnected, isConnecting, router])
+
+    startRouting(async () => {
+      const profile = await getWalletProfile(address);
+      router.push(routeForStatus(profile.status));
+    });
+  }, [address, isConnected, isConnecting, router]);
 
   const handleConnect = () => {
-    if (isConnected) {
-      router.push('/choose-role')
-    } else {
-      setIsConnecting(true)
-      connect()
+    if (isConnected && address) {
+      startRouting(async () => {
+        const profile = await getWalletProfile(address);
+        router.push(routeForStatus(profile.status));
+      });
+      return;
     }
-  }
+
+    setIsConnecting(true);
+    connect();
+  };
 
   return (
     <div className="flex h-full flex-col bg-background text-foreground overflow-y-auto">
@@ -42,9 +59,9 @@ export default function LandingPage() {
           <Button 
             variant="outline" 
             onClick={handleConnect} 
-            disabled={loading && !isConnecting}
+              disabled={(loading && isConnecting) || isRouting}
           >
-            {loading && isConnecting ? 'Connecting...' : 'Login'}
+            {loading && isConnecting ? "Connecting..." : "Login"}
           </Button>
         </nav>
       </header>
@@ -65,10 +82,10 @@ export default function LandingPage() {
             <Button 
               size="lg" 
               onClick={handleConnect} 
-              disabled={loading && !isConnecting}
+              disabled={(loading && isConnecting) || isRouting}
               className="px-8 h-12 text-base"
             >
-              {loading && isConnecting ? 'Connecting...' : 'Get Started'}
+              {loading && isConnecting || isRouting ? "Checking access..." : "Get Started"}
             </Button>
           </div>
         </section>

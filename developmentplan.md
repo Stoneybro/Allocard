@@ -9,38 +9,35 @@ The intended product has two primary modules:
 - Employer module: company onboarding, master card activation, employee invites, agent management, delegation tree management, caveat configuration, activation, revocation, and full-tree visibility.
 - Employee module: employee onboarding through invites, viewing received authority, redelegating to agents or EOAs, and managing only delegations created from the employee's authority.
 
-The current codebase is an early Next.js dashboard scaffold. It has useful pieces in place, but most of the product behavior described in the README is not implemented yet.
+The current codebase is a Next.js app with Phase 1 database setup and Phase 2 wallet-based onboarding in place. It can resolve connected wallets, create employer/company records, generate invite links, accept employee invites, and route users to role-specific dashboards. Delegation configuration, smart account activation in the dashboard, and agent execution still belong to later phases.
 
 ## Current Codebase State
 
 Implemented or partially implemented:
 
 - Next.js app under `apps/web`.
-- shadcn-based dashboard shell with sidebar, header, summary cards, and React Flow canvas.
-- Placeholder dashboard data and placeholder canvas nodes.
+- shadcn-based dashboard shell with role-specific employer and employee pages.
 - MetaMask Embedded Wallet / Web3Auth provider configuration.
-- Wagmi and React Query provider setup exists in `components/Web3Providers.tsx`, but it is not currently mounted in `app/layout.tsx`.
+- Wagmi and React Query provider setup mounted in `app/layout.tsx`.
+- Drizzle schema and initial Neon PostgreSQL migration.
+- Wallet-based user lookup, employer onboarding, invite creation, invite acceptance, and role-aware client routing.
 - Smart account helper code using `@metamask/smart-accounts-kit`, Viem, Base Sepolia, bundler, and paymaster configuration.
 - `WalletDashboard.tsx` can connect a wallet and attempt smart account deployment, but it is not wired into the active dashboard page.
 
 Not implemented yet:
 
-- Persistent database layer.
-- User, company, invite, agent, delegation, or caveat models.
-- Employer and employee route separation.
-- Onboarding flows.
-- Role-aware auth/session handling.
-- Invite link validation and acceptance.
-- Real sidebar recipient lists.
+- Running the migration against Neon in this workspace.
+- Signed session/cookie middleware; current routing depends on connected wallet state in the browser.
+- Smart account activation wired into the employer/employee dashboards.
 - Drag-and-drop recipient creation on the canvas.
 - Canvas persistence.
 - Delegation configuration drawer.
-- Delegation creation, signing, storage, redemption, pause, or revoke flows.
+- Delegation creation, signing, storage, redemption, or revoke flows.
 - Caveat generation and validation.
 - Redelegation rules and parent/child delegation constraints.
 - AI agent runtime or backend signer management.
 - Real dashboard metrics.
-- Tests.
+- Business-logic tests beyond the current smoke test.
 - Production deployment documentation.
 
 ## Phase 1: Project Foundation and Product Alignment
@@ -101,10 +98,10 @@ Steps:
    - Create `companies` row with owner relationship and invite code.
    - Start with `companies.smart_account_address = null`.
 
-3. Build company card activation.
-   - Reuse the existing smart account deployment logic.
-   - Store the deployed smart account address in `companies.smart_account_address`.
-   - Show concealed card state before activation and revealed address after activation.
+3. Route existing connected wallets.
+   - Employer wallets route to `/employer`.
+   - Employee wallets route to `/employee`.
+   - New wallets route to `/onboarding`.
 
 4. Build invite creation.
    - Employer can create invite links.
@@ -114,13 +111,13 @@ Steps:
 5. Build employee signup through invite.
    - Validate invite code.
    - Create `users` row with `role='employee'` and `company_id`.
-   - Deploy or activate the employee smart account at the agreed point in the flow.
-   - Mark invite as accepted.
+   - Mark invite as accepted with `accepted_at` and `accepted_by_user_id`.
+   - Route future visits by wallet identity instead of requiring the invite link again.
 
 Acceptance checkpoint:
 
 - Employers and employees can be created through the intended flows.
-- Company and employee smart account addresses can be persisted.
+- Invite links are only needed for first-time employee association.
 - The app knows which dashboard a connected user should see.
 
 ## Phase 3: Employer Dashboard MVP

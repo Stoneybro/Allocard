@@ -1,5 +1,5 @@
 {
-  "id": "c1d6436a-b94c-4166-bc0d-5f5ffa13fbdf",
+  "id": "e306e26a-16f7-40ec-bb2a-930fb38d6dca",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -523,6 +523,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "accepted_by_user_id": {
+          "name": "accepted_by_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "status": {
           "name": "status",
           "type": "invite_status",
@@ -576,6 +582,21 @@
           "method": "btree",
           "with": {}
         },
+        "invites_accepted_by_user_id_idx": {
+          "name": "invites_accepted_by_user_id_idx",
+          "columns": [
+            {
+              "expression": "accepted_by_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "invites_status_idx": {
           "name": "invites_status_idx",
           "columns": [
@@ -604,6 +625,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "invites_accepted_by_user_id_users_id_fk": {
+          "name": "invites_accepted_by_user_id_users_id_fk",
+          "tableFrom": "invites",
+          "tableTo": "users",
+          "columnsFrom": [
+            "accepted_by_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },

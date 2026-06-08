@@ -120,6 +120,9 @@ export const invites = pgTable(
       .notNull()
       .references(() => companies.id, { onDelete: "cascade" }),
     inviteCode: text("invite_code").notNull(),
+    acceptedByUserId: uuid("accepted_by_user_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
     status: inviteStatusEnum("status").notNull().default("pending"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -129,6 +132,7 @@ export const invites = pgTable(
   (table) => [
     uniqueIndex("invites_invite_code_unique").on(table.inviteCode),
     index("invites_company_id_idx").on(table.companyId),
+    index("invites_accepted_by_user_id_idx").on(table.acceptedByUserId),
     index("invites_status_idx").on(table.status),
   ],
 );

@@ -52,6 +52,7 @@ CREATE TABLE "invites" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"company_id" uuid NOT NULL,
 	"invite_code" text NOT NULL,
+	"accepted_by_user_id" uuid,
 	"status" "invite_status" DEFAULT 'pending' NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"accepted_at" timestamp with time zone
@@ -71,6 +72,7 @@ ALTER TABLE "companies" ADD CONSTRAINT "companies_owner_id_users_id_fk" FOREIGN 
 ALTER TABLE "delegation_caveats" ADD CONSTRAINT "delegation_caveats_delegation_id_delegations_id_fk" FOREIGN KEY ("delegation_id") REFERENCES "public"."delegations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "delegations" ADD CONSTRAINT "delegations_parent_delegation_id_delegations_id_fk" FOREIGN KEY ("parent_delegation_id") REFERENCES "public"."delegations"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "invites" ADD CONSTRAINT "invites_company_id_companies_id_fk" FOREIGN KEY ("company_id") REFERENCES "public"."companies"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "invites" ADD CONSTRAINT "invites_accepted_by_user_id_users_id_fk" FOREIGN KEY ("accepted_by_user_id") REFERENCES "public"."users"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "users" ADD CONSTRAINT "users_company_id_companies_id_fk" FOREIGN KEY ("company_id") REFERENCES "public"."companies"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "agents_company_id_idx" ON "agents" USING btree ("company_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "agents_smart_account_address_unique" ON "agents" USING btree ("smart_account_address");--> statement-breakpoint
@@ -85,6 +87,7 @@ CREATE INDEX "delegations_status_idx" ON "delegations" USING btree ("status");--
 CREATE UNIQUE INDEX "delegations_delegation_hash_unique" ON "delegations" USING btree ("delegation_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "invites_invite_code_unique" ON "invites" USING btree ("invite_code");--> statement-breakpoint
 CREATE INDEX "invites_company_id_idx" ON "invites" USING btree ("company_id");--> statement-breakpoint
+CREATE INDEX "invites_accepted_by_user_id_idx" ON "invites" USING btree ("accepted_by_user_id");--> statement-breakpoint
 CREATE INDEX "invites_status_idx" ON "invites" USING btree ("status");--> statement-breakpoint
 CREATE UNIQUE INDEX "users_embedded_wallet_address_unique" ON "users" USING btree ("embedded_wallet_address");--> statement-breakpoint
 CREATE INDEX "users_company_id_idx" ON "users" USING btree ("company_id");--> statement-breakpoint

@@ -2,7 +2,6 @@
 
 import * as React from "react"
 
-import { NavDocuments } from "@/components/nav-documents"
 import { NavMain } from "@/components/nav-main"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
@@ -15,15 +14,31 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { LayoutDashboardIcon, ListIcon, ChartBarIcon, FolderIcon, UsersIcon, CameraIcon, FileTextIcon, Settings2Icon, CircleHelpIcon, SearchIcon, DatabaseIcon, FileChartColumnIcon, FileIcon, CommandIcon } from "lucide-react"
+import {
+  BotIcon,
+  CircleHelpIcon,
+  CommandIcon,
+  CreditCardIcon,
+  LayoutDashboardIcon,
+  LinkIcon,
+  Settings2Icon,
+  UsersIcon,
+} from "lucide-react"
 
-const data = {
-  user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
-  },
-  navMain: [
+function getData({
+  roleLabel,
+  walletAddress,
+}: {
+  roleLabel: string
+  walletAddress: string
+}) {
+  return {
+    user: {
+      name: roleLabel,
+      walletAddress,
+      avatar: "/avatars/allocard.jpg",
+    },
+    navMain: [
     {
       title: "Dashboard",
       url: "#",
@@ -33,96 +48,39 @@ const data = {
       ),
     },
     {
-      title: "Lifecycle",
-      url: "#",
-      icon: (
-        <ListIcon
-        />
-      ),
-    },
-    {
-      title: "Analytics",
-      url: "#",
-      icon: (
-        <ChartBarIcon
-        />
-      ),
-    },
-    {
-      title: "Projects",
-      url: "#",
-      icon: (
-        <FolderIcon
-        />
-      ),
-    },
-    {
-      title: "Team",
+      title: "Employees",
       url: "#",
       icon: (
         <UsersIcon
         />
       ),
     },
-  ],
-  navClouds: [
     {
-      title: "Capture",
+      title: "Invites",
+      url: "#",
       icon: (
-        <CameraIcon
+        <LinkIcon
         />
       ),
-      isActive: true,
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
     },
     {
-      title: "Proposal",
+      title: "Agents",
+      url: "#",
       icon: (
-        <FileTextIcon
+        <BotIcon
         />
       ),
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
     },
     {
-      title: "Prompts",
+      title: "Master Card",
+      url: "#",
       icon: (
-        <FileTextIcon
+        <CreditCardIcon
         />
       ),
-      url: "#",
-      items: [
-        {
-          title: "Active Proposals",
-          url: "#",
-        },
-        {
-          title: "Archived",
-          url: "#",
-        },
-      ],
     },
   ],
-  navSecondary: [
+    navSecondary: [
     {
       title: "Settings",
       url: "#",
@@ -139,44 +97,22 @@ const data = {
         />
       ),
     },
-    {
-      title: "Search",
-      url: "#",
-      icon: (
-        <SearchIcon
-        />
-      ),
-    },
   ],
-  documents: [
-    {
-      name: "Data Library",
-      url: "#",
-      icon: (
-        <DatabaseIcon
-        />
-      ),
-    },
-    {
-      name: "Reports",
-      url: "#",
-      icon: (
-        <FileChartColumnIcon
-        />
-      ),
-    },
-    {
-      name: "Word Assistant",
-      url: "#",
-      icon: (
-        <FileIcon
-        />
-      ),
-    },
-  ],
+  }
 }
 
-export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar({
+  companyName,
+  walletAddress,
+  roleLabel,
+  ...props
+}: React.ComponentProps<typeof Sidebar> & {
+  companyName: string
+  walletAddress: string
+  roleLabel: string
+}) {
+  const data = getData({ roleLabel, walletAddress })
+
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -188,7 +124,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             >
               <a href="#">
                 <CommandIcon className="size-5!" />
-                <span className="text-base font-semibold">Acme Inc.</span>
+                <span className="text-base font-semibold">{companyName}</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -196,7 +132,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavDocuments items={data.documents} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>

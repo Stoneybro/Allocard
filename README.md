@@ -95,17 +95,30 @@ An employee is a member of a company who has accepted an invite. They have their
 
 ### Company onboarding
 
-1. The accounting team visits Allocard and signs up. They connect via MetaMask Embedded Wallets, providing their company name.
-2. A `users` row is created with `role='employer'` and a `companies` row is created with the company name and a generated unique invite code.
-3. The employer is taken to their dashboard. The master card node is shown on the canvas in a concealed state (displaying `**** ****` like a real card before activation).
-4. The employer clicks to activate the card. This deploys the company's smart account on-chain and writes the resulting address back to `companies.smart_account_address`. The card on the canvas is now revealed with the real smart account address.
+1. The accounting team visits Allocard and authenticates with MetaMask Embedded Wallets.
+2. If the connected wallet already belongs to an employer or employee, the app routes directly to the matching dashboard.
+3. If the wallet is new, the app routes to `/onboarding`, where the user can create a company or read the employee invite instructions.
+4. When the user creates a company, a `users` row is created with `role='employer'`, and a `companies` row is created with the formatted company name and generated invite code.
+5. The employer is routed to `/employer`. The company smart account remains null until the card activation flow deploys it.
 
 ### Employee onboarding
 
-1. The employer generates an invite link from their dashboard. An `invites` row is created with `status='pending'`.
-2. The employee clicks the invite link. The invite code in the URL is validated against the `invites` table to find the correct company. This link is only required for first-time onboarding; after acceptance, the employee's `company_id` persists on their user record and future visits can route directly to the employee dashboard.
-3. The employee signs up via MetaMask Embedded Wallets. A `users` row is created with `role='employee'` and `company_id` set to the company from the invite. The employee's smart account is deployed at this point. The `invites` row is updated to `status='accepted'`.
-4. The employee's profile now appears in the employer's contact list in the sidebar, making them available to drag onto the delegation canvas.
+1. The employer generates an invite link from `/employer`. An `invites` row is created with `status='pending'`.
+2. The employee opens `/invite/[inviteCode]`. The invite code is validated against the `invites` table to find the correct company.
+3. The employee authenticates with MetaMask Embedded Wallets. A `users` row is created with `role='employee'` and `company_id` set to the company from the invite.
+4. The invite is updated to `status='accepted'`, `accepted_at` is set, and `accepted_by_user_id` is set to the employee user.
+5. The invite link is only required for first-time onboarding. Future visits resolve the employee from `embedded_wallet_address` and route directly to `/employee`.
+6. The employee's profile appears in the employer's employee list, making them available for future delegation workflows.
+
+### Active routes
+
+| Route | Purpose |
+|---|---|
+| `/` | Landing page and authentication CTA |
+| `/onboarding` | New connected wallets create a company or see employee invite instructions |
+| `/invite/[inviteCode]` | First-time employee company association |
+| `/employer` | Employer dashboard |
+| `/employee` | Employee dashboard |
 
 ---
 
@@ -221,6 +234,7 @@ The employer owns any agents they create. Agents belong to a company via `compan
 | id | uuid PK | |
 | company_id | uuid FK → companies | |
 | invite_code | text unique | |
+| accepted_by_user_id | uuid FK → users nullable | User that accepted the invite |
 | status | enum | pending \| accepted \| expired |
 | created_at | timestamp | |
 | accepted_at | timestamp nullable | |
