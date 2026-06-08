@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheckIcon, WalletCardsIcon } from "lucide-react";
 import { getWalletProfile, type WalletProfile } from "@/app/actions/identity";
@@ -42,11 +42,6 @@ export function EmployeeClient() {
     });
   }, [address, isConnected, router]);
 
-  const displayWallet = useMemo(
-    () => (address ? formatWalletAddress(address) : "Unknown wallet"),
-    [address],
-  );
-
   if (!isConnected || !address) {
     return <ConnectRequiredCard />;
   }
@@ -61,11 +56,15 @@ export function EmployeeClient() {
     );
   }
 
+  const smartAccountLabel = profile.user.smartAccountAddress
+    ? formatWalletAddress(profile.user.smartAccountAddress)
+    : "Smart account pending";
+
   return (
     <DashboardShell
       companyName={profile.company.name}
+      smartAccountLabel={smartAccountLabel}
       title="Employee dashboard"
-      walletAddress={displayWallet}
       roleLabel="Employee"
     >
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
@@ -80,9 +79,9 @@ export function EmployeeClient() {
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <div className="rounded-lg border bg-muted/30 p-4">
-              <p className="text-sm text-muted-foreground">Connected wallet</p>
+              <p className="text-sm text-muted-foreground">Smart account</p>
               <p className="mt-1 break-all font-mono text-sm">
-                {profile.user.walletAddress}
+                {smartAccountLabel}
               </p>
             </div>
             <div className="rounded-lg border bg-muted/30 p-4">

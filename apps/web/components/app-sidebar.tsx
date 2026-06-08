@@ -1,118 +1,193 @@
-"use client"
+"use client";
 
-import * as React from "react"
+import * as React from "react";
+import {
+  BotIcon,
+  Building2Icon,
+  CopyIcon,
+  LinkIcon,
+  PlusIcon,
+  UserRoundIcon,
+  WalletCardsIcon,
+} from "lucide-react";
 
-import { NavMain } from "@/components/nav-main"
-import { NavSecondary } from "@/components/nav-secondary"
-import { NavUser } from "@/components/nav-user"
+import { NavUser } from "@/components/nav-user";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
-import {
-  BotIcon,
-  CircleHelpIcon,
-  CommandIcon,
-  CreditCardIcon,
-  LayoutDashboardIcon,
-  LinkIcon,
-  Settings2Icon,
-  UsersIcon,
-} from "lucide-react"
+  SidebarSeparator,
+} from "@/components/ui/sidebar";
 
-function getData({
-  roleLabel,
-  walletAddress,
+export type SidebarEmployee = {
+  id: string;
+  label: string;
+  detail: string;
+};
+
+export type SidebarAgent = {
+  id: string;
+  name: string;
+  detail: string;
+  isPlaceholder?: boolean;
+};
+
+function EmptySidebarItem({ label }: { label: string }) {
+  return (
+    <div className="rounded-md border border-sidebar-border px-3 py-2 text-xs text-muted-foreground">
+      {label}
+    </div>
+  );
+}
+
+function InvitePanel({
+  copiedInvite,
+  inviteError,
+  inviteLink,
+  invitePending,
+  onCopyInvite,
+  onCreateInvite,
 }: {
-  roleLabel: string
-  walletAddress: string
+  copiedInvite?: boolean;
+  inviteError?: string | null;
+  inviteLink?: string | null;
+  invitePending?: boolean;
+  onCopyInvite?: () => void;
+  onCreateInvite?: () => void;
 }) {
-  return {
-    user: {
-      name: roleLabel,
-      walletAddress,
-      avatar: "/avatars/allocard.jpg",
-    },
-    navMain: [
-    {
-      title: "Dashboard",
-      url: "#",
-      icon: (
-        <LayoutDashboardIcon
-        />
-      ),
-    },
-    {
-      title: "Employees",
-      url: "#",
-      icon: (
-        <UsersIcon
-        />
-      ),
-    },
-    {
-      title: "Invites",
-      url: "#",
-      icon: (
-        <LinkIcon
-        />
-      ),
-    },
-    {
-      title: "Agents",
-      url: "#",
-      icon: (
-        <BotIcon
-        />
-      ),
-    },
-    {
-      title: "Master Card",
-      url: "#",
-      icon: (
-        <CreditCardIcon
-        />
-      ),
-    },
-  ],
-    navSecondary: [
-    {
-      title: "Settings",
-      url: "#",
-      icon: (
-        <Settings2Icon
-        />
-      ),
-    },
-    {
-      title: "Get Help",
-      url: "#",
-      icon: (
-        <CircleHelpIcon
-        />
-      ),
-    },
-  ],
-  }
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel>
+        <LinkIcon />
+        Invite
+      </SidebarGroupLabel>
+      <SidebarGroupContent className="flex flex-col gap-3">
+        <Button onClick={onCreateInvite} disabled={invitePending} size="sm">
+          <PlusIcon data-icon="inline-start" />
+          {invitePending ? "Creating..." : "Create invite"}
+        </Button>
+        {inviteLink ? (
+          <div className="flex flex-col gap-2 rounded-md border border-sidebar-border bg-background/70 p-2">
+            <p className="break-all font-mono text-xs text-muted-foreground">
+              {inviteLink}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onCopyInvite}
+              disabled={!onCopyInvite}
+            >
+              <CopyIcon data-icon="inline-start" />
+              {copiedInvite ? "Copied" : "Copy link"}
+            </Button>
+          </div>
+        ) : null}
+        {inviteError ? (
+          <p className="text-xs font-medium text-destructive">{inviteError}</p>
+        ) : null}
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
+
+function EmployeeList({ employees }: { employees: SidebarEmployee[] }) {
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel>
+        <UserRoundIcon />
+        Employees
+      </SidebarGroupLabel>
+      <SidebarGroupContent>
+        {employees.length === 0 ? (
+          <EmptySidebarItem label="No employees have accepted an invite yet." />
+        ) : (
+          <SidebarMenu>
+            {employees.map((employee) => (
+              <SidebarMenuItem key={employee.id}>
+                <SidebarMenuButton tooltip={employee.label}>
+                  <UserRoundIcon />
+                  <span>{employee.label}</span>
+                </SidebarMenuButton>
+                <div className="px-2 pb-2 text-xs text-muted-foreground">
+                  {employee.detail}
+                </div>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        )}
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
+
+function AgentList({ agents }: { agents: SidebarAgent[] }) {
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel>
+        <BotIcon />
+        AI agents
+      </SidebarGroupLabel>
+      <SidebarGroupContent>
+        {agents.length === 0 ? (
+          <EmptySidebarItem label="Agent creation is not wired yet." />
+        ) : (
+          <SidebarMenu>
+            {agents.map((agent) => (
+              <SidebarMenuItem key={agent.id}>
+                <SidebarMenuButton tooltip={agent.name}>
+                  <BotIcon />
+                  <span>{agent.name}</span>
+                </SidebarMenuButton>
+                <div className="flex items-center justify-between gap-2 px-2 pb-2 text-xs text-muted-foreground">
+                  <span className="truncate">{agent.detail}</span>
+                  {agent.isPlaceholder ? (
+                    <Badge variant="outline">Demo</Badge>
+                  ) : null}
+                </div>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        )}
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
 }
 
 export function AppSidebar({
+  agents,
   companyName,
-  walletAddress,
+  copiedInvite,
+  employees,
+  inviteError,
+  inviteLink,
+  invitePending,
+  onCopyInvite,
+  onCreateInvite,
   roleLabel,
+  smartAccountLabel,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
-  companyName: string
-  walletAddress: string
-  roleLabel: string
+  agents: SidebarAgent[];
+  companyName: string;
+  copiedInvite?: boolean;
+  employees: SidebarEmployee[];
+  inviteError?: string | null;
+  inviteLink?: string | null;
+  invitePending?: boolean;
+  onCopyInvite?: () => void;
+  onCreateInvite?: () => void;
+  roleLabel: string;
+  smartAccountLabel: string;
 }) {
-  const data = getData({ roleLabel, walletAddress })
-
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -123,20 +198,39 @@ export function AppSidebar({
               className="data-[slot=sidebar-menu-button]:p-1.5!"
             >
               <a href="#">
-                <CommandIcon className="size-5!" />
+                <Building2Icon />
                 <span className="text-base font-semibold">{companyName}</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
+        <div className="flex items-center gap-2 rounded-md border border-sidebar-border px-2 py-2 text-xs text-muted-foreground">
+          <WalletCardsIcon />
+          <span className="truncate">{smartAccountLabel}</span>
+        </div>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
+        <InvitePanel
+          copiedInvite={copiedInvite}
+          inviteError={inviteError}
+          inviteLink={inviteLink}
+          invitePending={invitePending}
+          onCopyInvite={onCopyInvite}
+          onCreateInvite={onCreateInvite}
+        />
+        <SidebarSeparator />
+        <EmployeeList employees={employees} />
+        <AgentList agents={agents} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={data.user} />
+        <NavUser
+          user={{
+            name: roleLabel,
+            smartAccountLabel,
+            avatar: "/avatars/allocard.jpg",
+          }}
+        />
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }

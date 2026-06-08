@@ -1,9 +1,13 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
+import { formatEther } from "viem";
 import { db } from "@/lib/db";
 import {
+  agents,
   companies,
+  delegationCaveats,
+  delegations,
   invites,
   users,
 } from "@/lib/db/schema";
@@ -29,6 +33,51 @@ type ProfileCompany = {
   ownerId: string;
   smartAccountAddress: string | null;
   inviteCode: string;
+};
+
+type CompanyEmployee = {
+  id: string;
+  walletAddress: string;
+  smartAccountAddress: string | null;
+  createdAt: string;
+};
+
+type CompanyAgent = {
+  id: string;
+  name: string;
+  smartAccountAddress: string;
+  createdAt: string;
+};
+
+type CompanyDelegation = {
+  id: string;
+  parentDelegationId: string | null;
+  delegatorType: "company" | "user" | "agent";
+  delegatorId: string;
+  delegateeType: "user" | "agent" | "eoa";
+  delegateeId: string | null;
+  delegateeAddress: string | null;
+  delegateeLabel: string | null;
+  delegationHash: string | null;
+  status: "pending_config" | "active" | "revoked";
+  canvasPositionX: number;
+  canvasPositionY: number;
+  createdAt: string;
+  activatedAt: string | null;
+  revokedAt: string | null;
+};
+
+export type CompanyDashboardState = {
+  company: ProfileCompany;
+  employees: CompanyEmployee[];
+  agents: CompanyAgent[];
+  delegations: CompanyDelegation[];
+  summary: {
+    employeeCount: number;
+    activeAgentCount: number;
+    activeDelegationCount: number;
+    delegatedNativeEthAllowance: string;
+  };
 };
 
 export type WalletProfile =
@@ -76,6 +125,98 @@ function toProfileCompany(company: typeof companies.$inferSelect): ProfileCompan
     smartAccountAddress: company.smartAccountAddress,
     inviteCode: company.inviteCode,
   };
+}
+
+function toCompanyDelegation(
+  delegation: typeof delegations.$inferSelect,
+): CompanyDelegation {
+  return {
+    id: delegation.id,
+    parentDelegationId: delegation.parentDelegationId,
+    delegatorType: delegation.delegatorType,
+    delegatorId: delegation.delegatorId,
+    delegateeType: delegation.delegateeType,
+    delegateeId: delegation.delegateeId,
+    delegateeAddress: delegation.delegateeAddress,
+    delegateeLabel: delegation.delegateeLabel,
+    delegationHash: delegation.delegationHash,
+    status: delegation.status,
+    canvasPositionX: delegation.canvasPositionX,
+    canvasPositionY: delegation.canvasPositionY,
+    createdAt: delegation.createdAt.toISOString(),
+    activatedAt: delegation.activatedAt?.toISOString() ?? null,
+    revokedAt: delegation.revokedAt?.toISOString() ?? null,
+  };
+}
+
+function extractNativeAllowanceWei(value: unknown): bigint {
+  if (typeof value === "bigint") {
+    return value;
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return BigInt(Math.trunc(value));
+  }
+
+  if (typeof value === "string" && /^\d+$/.test(value)) {
+    return BigInt(value);
+  }
+
+  if (!value || typeof value !== "object") {
+    return 0n;
+  }
+
+  const record = value as Record<string, unknown>;
+  const amount =
+    record.amount ??
+    record.maxAmount ??
+    record.allowance ??
+    record.limit ??
+    record.value ??
+    record.valueWei;
+
+  return extractNativeAllowanceWei(amount);
+}
+
+function formatEthAllowance(wei: bigint) {
+  const formatted = formatEther(wei);
+
+  if (!formatted.includes(".")) {
+    return formatted;
+  }
+
+  return formatted.replace(/(\.\d*?[1-9])0+$/, "$1").replace(/\.0+$/, "");
+}
+
+async function getCompanyDelegationTree(companyId: string) {
+  const rootDelegations = await db
+    .select()
+    .from(delegations)
+    .where(
+      and(
+        eq(delegations.delegatorType, "company"),
+        eq(delegations.delegatorId, companyId),
+      ),
+    );
+
+  const delegationTree = [...rootDelegations];
+  let parentIds = rootDelegations.map((delegation) => delegation.id);
+
+  while (parentIds.length > 0) {
+    const childDelegations = await db
+      .select()
+      .from(delegations)
+      .where(inArray(delegations.parentDelegationId, parentIds));
+
+    if (childDelegations.length === 0) {
+      break;
+    }
+
+    delegationTree.push(...childDelegations);
+    parentIds = childDelegations.map((delegation) => delegation.id);
+  }
+
+  return delegationTree;
 }
 
 async function getCompanyForUser(user: typeof users.$inferSelect) {
@@ -326,4 +467,91 @@ export async function getCompanyEmployees(walletAddress: string) {
     ...employee,
     createdAt: employee.createdAt.toISOString(),
   }));
+}
+
+export async function getCompanyDashboardState(
+  walletAddress: string,
+): Promise<CompanyDashboardState> {
+  const profile = await getWalletProfile(walletAddress);
+
+  if (profile.status !== "employer" || !profile.company) {
+    throw new Error("Only a company owner can view the company dashboard");
+  }
+
+  const [companyEmployees, companyAgents, companyDelegations] =
+    await Promise.all([
+      db
+        .select({
+          id: users.id,
+          walletAddress: users.embeddedWalletAddress,
+          smartAccountAddress: users.smartAccountAddress,
+          createdAt: users.createdAt,
+        })
+        .from(users)
+        .where(
+          and(eq(users.companyId, profile.company.id), eq(users.role, "employee")),
+        ),
+      db
+        .select({
+          id: agents.id,
+          name: agents.name,
+          smartAccountAddress: agents.smartAccountAddress,
+          createdAt: agents.createdAt,
+        })
+        .from(agents)
+        .where(eq(agents.companyId, profile.company.id)),
+      getCompanyDelegationTree(profile.company.id),
+    ]);
+
+  const activeDelegations = companyDelegations.filter(
+    (delegation) => delegation.status === "active",
+  );
+  let delegatedNativeEthAllowanceWei = 0n;
+
+  if (activeDelegations.length > 0) {
+    const activeDelegationIds = activeDelegations.map(
+      (delegation) => delegation.id,
+    );
+    const nativeAllowanceCaveats = await db
+      .select({
+        caveatValue: delegationCaveats.caveatValue,
+      })
+      .from(delegationCaveats)
+      .where(
+        and(
+          inArray(delegationCaveats.delegationId, activeDelegationIds),
+          inArray(delegationCaveats.caveatType, [
+            "nativeTokenTransferAmount",
+            "nativeTokenPeriodTransfer",
+            "valueLte",
+          ]),
+        ),
+      );
+
+    delegatedNativeEthAllowanceWei = nativeAllowanceCaveats.reduce(
+      (total, caveat) => total + extractNativeAllowanceWei(caveat.caveatValue),
+      0n,
+    );
+  }
+
+  return {
+    company: profile.company,
+    employees: companyEmployees.map((employee) => ({
+      ...employee,
+      createdAt: employee.createdAt.toISOString(),
+    })),
+    agents: companyAgents.map((agent) => ({
+      ...agent,
+      createdAt: agent.createdAt.toISOString(),
+    })),
+    delegations: companyDelegations.map(toCompanyDelegation),
+    summary: {
+      employeeCount: companyEmployees.length,
+      activeAgentCount: companyAgents.length,
+      activeDelegationCount: activeDelegations.length,
+      delegatedNativeEthAllowance: formatEthAllowance(
+        delegatedNativeEthAllowanceWei,
+      ),
+    },
+  };
 }

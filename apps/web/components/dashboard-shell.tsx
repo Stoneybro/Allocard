@@ -1,21 +1,41 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { AppSidebar } from "@/components/app-sidebar";
+import {
+  AppSidebar,
+  type SidebarAgent,
+  type SidebarEmployee,
+} from "@/components/app-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 
 export function DashboardShell({
   children,
   companyName,
+  copiedInvite,
+  employees,
+  agents,
+  inviteError,
+  inviteLink,
+  invitePending,
+  onCopyInvite,
+  onCreateInvite,
+  smartAccountLabel,
   title,
-  walletAddress,
   roleLabel,
 }: {
   children: ReactNode;
   companyName: string;
+  copiedInvite?: boolean;
+  employees?: SidebarEmployee[];
+  agents?: SidebarAgent[];
+  inviteError?: string | null;
+  inviteLink?: string | null;
+  invitePending?: boolean;
+  onCopyInvite?: () => void;
+  onCreateInvite?: () => void;
+  smartAccountLabel: string;
   title: string;
-  walletAddress: string;
   roleLabel: string;
 }) {
   return (
@@ -30,8 +50,16 @@ export function DashboardShell({
       <AppSidebar
         variant="inset"
         companyName={companyName}
-        walletAddress={walletAddress}
+        copiedInvite={copiedInvite}
+        employees={employees ?? []}
+        agents={agents ?? []}
+        inviteError={inviteError}
+        inviteLink={inviteLink}
+        invitePending={invitePending}
+        onCopyInvite={onCopyInvite}
+        onCreateInvite={onCreateInvite}
         roleLabel={roleLabel}
+        smartAccountLabel={smartAccountLabel}
       />
       <SidebarInset className="h-dvh overflow-hidden">
         <SiteHeader title={title} />

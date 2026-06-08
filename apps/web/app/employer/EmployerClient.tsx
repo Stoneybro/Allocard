@@ -3,37 +3,52 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  CopyIcon,
-  LinkIcon,
-  UserRoundIcon,
-  WalletCardsIcon,
-} from "lucide-react";
-import {
   createCompanyInvite,
-  getCompanyEmployees,
+  getCompanyDashboardState,
   getWalletProfile,
+  type CompanyDashboardState,
   type WalletProfile,
 } from "@/app/actions/identity";
-import { ConnectRequiredCard, useConnectedWalletAddress } from "@/components/auth-state";
-import { DashboardShell } from "@/components/dashboard-shell";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  ConnectRequiredCard,
+  useConnectedWalletAddress,
+} from "@/components/auth-state";
+import { DashboardFlowCanvas } from "@/components/dashboard-flow-canvas";
+import { DashboardShell } from "@/components/dashboard-shell";
+import { SectionCards } from "@/components/section-cards";
 import { formatWalletAddress } from "@/lib/wallet";
 
-type Employee = Awaited<ReturnType<typeof getCompanyEmployees>>[number];
+const placeholderAgents = [
+  {
+    id: "placeholder-policy-agent",
+    name: "Policy reviewer",
+    smartAccountAddress: null,
+    createdAt: new Date(0).toISOString(),
+    isPlaceholder: true,
+  },
+  {
+    id: "placeholder-travel-agent",
+    name: "Travel booking agent",
+    smartAccountAddress: null,
+    createdAt: new Date(0).toISOString(),
+    isPlaceholder: true,
+  },
+];
+
+type DashboardAgent = Omit<
+  CompanyDashboardState["agents"][number],
+  "smartAccountAddress"
+> & {
+  smartAccountAddress: string | null;
+  isPlaceholder?: boolean;
+};
 
 export function EmployerClient() {
   const router = useRouter();
   const { address, isConnected } = useConnectedWalletAddress();
   const [profile, setProfile] = useState<WalletProfile | null>(null);
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [dashboardState, setDashboardState] =
+    useState<CompanyDashboardState | null>(null);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -56,21 +71,28 @@ export function EmployerClient() {
       }
 
       setProfile(nextProfile);
-      setEmployees(await getCompanyEmployees(address));
+      setDashboardState(await getCompanyDashboardState(address));
     });
   }, [address, isConnected, router]);
 
-  const companyName = profile?.company?.name ?? "Allocard";
-  const displayWallet = useMemo(
-    () => (address ? formatWalletAddress(address) : "Unknown wallet"),
-    [address],
-  );
+  const company = dashboardState?.company ?? profile?.company ?? null;
+  const companyName = company?.name ?? "Allocard";
+  const agents: DashboardAgent[] = useMemo(() => {
+    if (!dashboardState) return placeholderAgents;
+
+    return dashboardState.agents.length > 0
+      ? dashboardState.agents
+      : placeholderAgents;
+  }, [dashboardState]);
+  const smartAccountLabel = company?.smartAccountAddress
+    ? formatWalletAddress(company.smartAccountAddress)
+    : "Smart account pending";
 
   if (!isConnected || !address) {
     return <ConnectRequiredCard />;
   }
 
-  if (!profile || profile.status !== "employer" || !profile.company) {
+  if (!profile || profile.status !== "employer" || !company || !dashboardState) {
     return (
       <div className="flex h-full items-center justify-center">
         <p className="text-sm text-muted-foreground">
@@ -108,117 +130,55 @@ export function EmployerClient() {
   return (
     <DashboardShell
       companyName={companyName}
-      title="Company dashboard"
-      walletAddress={displayWallet}
+      copiedInvite={copied}
+      employees={dashboardState.employees.map((employee, index) => ({
+        id: employee.id,
+        label: `Employee ${index + 1}`,
+        detail: employee.smartAccountAddress
+          ? formatWalletAddress(employee.smartAccountAddress)
+          : "Smart account pending",
+      }))}
+      agents={agents.map((agent) => ({
+        id: agent.id,
+        name: agent.name,
+        detail: agent.smartAccountAddress
+          ? formatWalletAddress(agent.smartAccountAddress)
+          : "Smart account pending",
+        isPlaceholder: agent.isPlaceholder,
+      }))}
+      inviteError={error}
+      inviteLink={inviteLink}
+      invitePending={isPending}
+      onCopyInvite={handleCopyInvite}
+      onCreateInvite={handleCreateInvite}
       roleLabel="Company owner"
+      smartAccountLabel={smartAccountLabel}
+      title="Company dashboard"
     >
-      <div className="flex flex-col gap-6">
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader>
-              <CardDescription>Company</CardDescription>
-              <CardTitle>{companyName}</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardDescription>Employees</CardDescription>
-              <CardTitle>{employees.length}</CardTitle>
-            </CardHeader>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardDescription>Master card</CardDescription>
-              <CardTitle>
-                {profile.company.smartAccountAddress ? "Active" : "Not active"}
-              </CardTitle>
-            </CardHeader>
-          </Card>
-        </div>
-
-        <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
-          <Card>
-            <CardHeader>
-              <CardTitle>Employees</CardTitle>
-              <CardDescription>
-                Employees appear here after accepting an invite link with their
-                wallet.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              {employees.length === 0 ? (
-                <div className="rounded-lg border bg-muted/30 p-6 text-sm text-muted-foreground">
-                  No employees have joined this company yet.
-                </div>
-              ) : (
-                employees.map((employee) => (
-                  <div
-                    key={employee.id}
-                    className="flex items-center justify-between rounded-lg border p-4"
-                  >
-                    <div className="flex items-center gap-3">
-                      <UserRoundIcon />
-                      <div className="flex flex-col">
-                        <span className="font-medium">
-                          {formatWalletAddress(employee.walletAddress)}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          Joined {new Date(employee.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-                    <Badge variant="secondary">Employee</Badge>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-
-          <div className="flex flex-col gap-6">
-            <Card>
-              <CardHeader>
-                <LinkIcon />
-                <CardTitle>Invite employee</CardTitle>
-                <CardDescription>
-                  Create a single-use invite link and send it to an employee.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-4">
-                <Button onClick={handleCreateInvite} disabled={isPending}>
-                  {isPending ? "Creating invite..." : "Create invite link"}
-                </Button>
-                {inviteLink ? (
-                  <div className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-3">
-                    <p className="break-all font-mono text-xs">{inviteLink}</p>
-                    <Button variant="outline" onClick={handleCopyInvite}>
-                      <CopyIcon />
-                      {copied ? "Copied" : "Copy link"}
-                    </Button>
-                  </div>
-                ) : null}
-                {error ? (
-                  <p className="text-sm font-medium text-destructive">{error}</p>
-                ) : null}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <WalletCardsIcon />
-                <CardTitle>Smart account</CardTitle>
-                <CardDescription>
-                  Card activation will deploy and store the company smart
-                  account address.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Badge variant="outline">
-                  {profile.company.smartAccountAddress ?? "Not deployed"}
-                </Badge>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+      <div className="flex min-h-full flex-col gap-4">
+        <SectionCards
+          employeeCount={dashboardState.summary.employeeCount}
+          activeAgentCount={dashboardState.summary.activeAgentCount}
+          activeDelegationCount={dashboardState.summary.activeDelegationCount}
+          delegatedNativeEthAllowance={
+            dashboardState.summary.delegatedNativeEthAllowance
+          }
+        />
+        <DashboardFlowCanvas
+          company={company}
+          employees={dashboardState.employees.map((employee, index) => ({
+            id: employee.id,
+            label: `Employee ${index + 1}`,
+            smartAccountAddress: employee.smartAccountAddress,
+          }))}
+          agents={agents.map((agent) => ({
+            id: agent.id,
+            name: agent.name,
+            smartAccountAddress: agent.smartAccountAddress,
+            isPlaceholder: agent.isPlaceholder,
+          }))}
+          delegations={dashboardState.delegations}
+        />
       </div>
     </DashboardShell>
   );

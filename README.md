@@ -297,6 +297,12 @@ These rules must be enforced in both the UI and backend:
 
 The application uses shadcn as the primary UI component library. The layout for both modules follows a standard shadcn dashboard pattern: a fixed sidebar on the left containing navigation and recipient lists, and a main content area to the right containing the React Flow canvas and the summary cards above it.
 
+Current Phase 3 dashboard assets:
+
+- `apps/web/components/section-cards.tsx` exists and should be refactored into real Allocard summary cards.
+- `apps/web/components/dashboard-flow-canvas.tsx` exists and should be refactored into the React Flow delegation tree.
+- These files are intentionally kept for Phase 3 and should not be deleted as placeholder cleanup.
+
 The React Flow canvas is the primary interactive surface of the application. Node types are:
 
 - Master card node (employer module only) — styled to look like a physical corporate card. Shows `**** ****` before activation, real address after.
@@ -315,4 +321,33 @@ The following areas were flagged during planning and will need to be worked out 
 - Open delegation usage, if any, and how it appears in the canvas UI.
 - The exact mechanism by which agents autonomously redeem delegations (what triggers them, how they authenticate their backend signer, what the agent runtime looks like).
 - How the employer canvas handles real-time updates when an employee creates a redelegation (polling, websockets, or manual refresh).
-- Paused delegation status — what triggers a pause vs a revoke, and whether pausing is employer-initiated or automatic.
+- Signed session/cookie middleware. Current route protection depends on the connected wallet state in the browser.
+
+---
+
+## Current Implementation Handoff
+
+Phase 1 and Phase 2 are complete.
+
+Implemented:
+
+- Drizzle + Neon PostgreSQL schema and migration.
+- The current migration is `apps/web/drizzle/0000_perpetual_big_bertha.sql`.
+- The migration has been applied to the configured Neon database.
+- `/` is the landing page and authentication CTA.
+- `/onboarding` handles new connected wallets.
+- `/invite/[inviteCode]` handles first-time employee company association.
+- `/employer` is the employer dashboard shell.
+- `/employee` is the employee dashboard shell.
+- `app/actions/identity.ts` contains the server actions for wallet lookup, employer creation, invite creation, invite details, invite acceptance, and employee lookup.
+- `users.embedded_wallet_address` is the identity key. Emails are intentionally not used.
+- `invites.accepted_by_user_id` and `invites.accepted_at` record invite acceptance.
+- Delegation statuses are `pending_config`, `active`, and `revoked`; there is no `paused` status.
+- MVP token scope is native Base Sepolia ETH only.
+
+Phase 3 should continue from the existing `/employer` shell:
+
+- Keep `section-cards.tsx` and convert it from placeholder metrics to real employer metrics.
+- Keep `dashboard-flow-canvas.tsx` and convert it from placeholder nodes to the company delegation tree.
+- Keep the current Phase 2 invite creation and employee list behavior.
+- Next work should focus on real employer sidebar recipients, summary cards, master card node, employee nodes, agent placeholders or model-backed agents, and canvas persistence.

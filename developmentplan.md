@@ -9,7 +9,7 @@ The intended product has two primary modules:
 - Employer module: company onboarding, master card activation, employee invites, agent management, delegation tree management, caveat configuration, activation, revocation, and full-tree visibility.
 - Employee module: employee onboarding through invites, viewing received authority, redelegating to agents or EOAs, and managing only delegations created from the employee's authority.
 
-The current codebase is a Next.js app with Phase 1 database setup and Phase 2 wallet-based onboarding in place. It can resolve connected wallets, create employer/company records, generate invite links, accept employee invites, and route users to role-specific dashboards. Delegation configuration, smart account activation in the dashboard, and agent execution still belong to later phases.
+The current codebase is a Next.js app with Phase 1 database setup and Phase 2 wallet-based onboarding in place. It can resolve connected wallets, create employer/company records, generate invite links, accept employee invites, and route users to role-specific dashboards. The initial Drizzle migration has been applied to Neon. Delegation configuration, smart account activation in the dashboard, and agent execution still belong to later phases.
 
 ## Current Codebase State
 
@@ -17,16 +17,18 @@ Implemented or partially implemented:
 
 - Next.js app under `apps/web`.
 - shadcn-based dashboard shell with role-specific employer and employee pages.
+- Phase 3 dashboard assets exist and should be refactored instead of deleted:
+  - `components/section-cards.tsx`
+  - `components/dashboard-flow-canvas.tsx`
 - MetaMask Embedded Wallet / Web3Auth provider configuration.
 - Wagmi and React Query provider setup mounted in `app/layout.tsx`.
-- Drizzle schema and initial Neon PostgreSQL migration.
+- Drizzle schema and initial Neon PostgreSQL migration. The current migration file is `apps/web/drizzle/0000_perpetual_big_bertha.sql`.
 - Wallet-based user lookup, employer onboarding, invite creation, invite acceptance, and role-aware client routing.
 - Smart account helper code using `@metamask/smart-accounts-kit`, Viem, Base Sepolia, bundler, and paymaster configuration.
 - `WalletDashboard.tsx` can connect a wallet and attempt smart account deployment, but it is not wired into the active dashboard page.
 
 Not implemented yet:
 
-- Running the migration against Neon in this workspace.
 - Signed session/cookie middleware; current routing depends on connected wallet state in the browser.
 - Smart account activation wired into the employer/employee dashboards.
 - Drag-and-drop recipient creation on the canvas.
@@ -85,6 +87,8 @@ Acceptance checkpoint:
 
 Goal: implement the identity foundation that every delegation flow depends on.
 
+Status: complete.
+
 Steps:
 
 1. Define the authenticated user lifecycle.
@@ -119,50 +123,74 @@ Acceptance checkpoint:
 - Employers and employees can be created through the intended flows.
 - Invite links are only needed for first-time employee association.
 - The app knows which dashboard a connected user should see.
+- Existing employer wallets route to `/employer`; existing employee wallets route to `/employee`; new connected wallets route to `/onboarding`.
+- Employees who open `/invite/[inviteCode]` are linked to the invite's company through `users.company_id`.
+- Invites record `accepted_at` and `accepted_by_user_id`.
 
 ## Phase 3: Employer Dashboard MVP
 
-Goal: replace the placeholder dashboard with a real employer workspace.
+Goal: convert the Phase 2 employer shell into a real read-only employer workspace while preserving and refactoring the restored dashboard assets. Phase 3 displays the company state and delegation tree shape; creation, caveat editing, activation, and drag persistence remain Phase 4.
+
+Implemented Phase 3 scope:
+
+- `/employer` remains guarded by connected-wallet role lookup in the browser.
+- The employer dashboard now loads a consolidated company dashboard state with company, employees, agents, delegations, and summary metrics.
+- Invite creation moved into the sidebar.
+- Employee recipients moved into the sidebar.
+- Agent recipients are shown in the sidebar and canvas; when no real agents exist, UI-only demo placeholders are shown so the layout reflects the intended product shape.
+- Embedded wallet/signer addresses are no longer primary dashboard UI; the sidebar and account footer show smart account status/address because the smart account is the funded/delegating account.
+- `components/section-cards.tsx` was retained and refactored into Allocard summary cards.
+- `components/dashboard-flow-canvas.tsx` was retained and refactored into a typed React Flow delegation tree.
 
 Steps:
 
-1. Rework dashboard routing.
-   - Add employer routes, likely under `/dashboard` or `/employer`.
-   - Add employee routes separately, likely under `/employee`.
-   - Redirect users based on `role`.
+1. Keep and harden dashboard routing.
+   - Use `/employer` for the employer workspace.
+   - Use `/employee` for the employee workspace.
+   - Keep role redirects based on wallet profile in the browser.
+   - Defer middleware until signed sessions/cookies exist.
 
-2. Replace placeholder sidebar content.
-   - Show company name instead of `Acme Inc.`
-   - Show employees from the database.
-   - Show company AI agents from the database.
-   - Add clear affordances for creating invites, adding EOAs, and creating agents.
+2. Finish employer sidebar content.
+   - Show the company name and company smart account status/address.
+   - Remove generic navigation that is not part of the Allocard dashboard.
+   - Show invite creation in the sidebar.
+   - Show employees from the database in a recipient list that can later be dragged to the canvas.
+   - Show real company AI agents when they exist.
+   - Show UI-only agent placeholders when no agents exist, so the intended layout remains visible before agent creation is implemented.
 
-3. Replace placeholder summary cards.
-   - Employees count.
-   - Active delegations count.
-   - Active agents count.
-   - Total delegated amount, scoped by selected token or clearly marked if multi-token.
+3. Refactor `SectionCards` into real employer summary cards.
+   - Use three cards to keep the dashboard compact.
+   - Combine employees and agents into one team recipients card.
+   - Show active delegations.
+   - Show total delegated native ETH allowance.
+   - Sum active native ETH allowance caveats from `delegation_caveats` when they exist; otherwise show `0 ETH`.
 
-4. Build employer React Flow node types.
+4. Refactor `DashboardFlowCanvas` into the employer delegation tree.
    - Master card node.
    - Employee node.
    - Agent node.
    - EOA node.
    - Pending configuration state.
    - Active and revoked visual states.
+   - Initially load the company root node and employee nodes even before delegation activation exists.
+   - Show demo agent nodes when no real agent records exist.
+   - Load stored delegation edges from the database.
 
-5. Persist canvas positions.
-   - Store x/y values on the `delegations` row as described in the README.
-   - Load nodes and edges from the database rather than constants.
+5. Load canvas positions.
+   - Use `delegations.canvas_position_x` and `delegations.canvas_position_y` for stored delegation nodes.
+   - Derive deterministic positions for available employees, agents, and placeholders that do not yet have delegation rows.
+   - Defer drag/drop placement and position persistence to Phase 4, where delegation rows are created.
 
 Acceptance checkpoint:
 
 - Employer dashboard reflects real company state.
-- Employer can see company card, employees, agents, and stored delegation relationships on the canvas.
+- Employer can create invite links from the sidebar.
+- Employer can see company card, employees, agent placeholders or real agents, and stored delegation relationships on the canvas.
+- Main content contains the summary cards and primary canvas only.
 
 ## Phase 4: Delegation Configuration and Activation
 
-Goal: make employer-created delegations real.
+Goal: make employer-created delegations real and interactive.
 
 Steps:
 
@@ -170,6 +198,8 @@ Steps:
    - Drag or click employee/agent/sidebar entries onto the canvas.
    - Create a `delegations` row with `pending_config` status.
    - Support direct EOA entry with address validation and optional label.
+   - Persist initial x/y canvas position when the row is created.
+   - Persist updated x/y canvas positions when nodes are moved.
 
 2. Build caveat configuration drawer.
    - Native ETH allowance type.
@@ -181,7 +211,8 @@ Steps:
 
 3. Implement caveat persistence.
    - Store caveats in `delegation_caveats.caveat_value`.
-   - Normalize amounts using token decimals.
+   - Normalize native ETH amounts to wei.
+   - Keep the caveat value shape compatible with the Phase 3 allowance summary parser or update the parser at the same time.
    - Validate required caveat fields before activation.
 
 4. Generate MetaMask Smart Accounts Kit delegation objects.
@@ -189,15 +220,15 @@ Steps:
    - Sign delegations from the company smart account.
    - Store `delegation_hash` and mark delegation `active`.
 
-5. Add revocation and pause semantics.
+5. Add revocation behavior.
    - Implement revoke first because the README has clear chain invalidation rules.
-   - Defer pause until the product semantics are finalized.
    - When a parent is revoked, update affected child delegation statuses.
 
 Acceptance checkpoint:
 
 - Employer can create a configured delegation to an employee, agent, or EOA.
 - The delegation is signed, stored, and reflected as active in the UI.
+- Canvas positions persist across sessions after node placement or movement.
 - Invalid or incomplete caveat configurations cannot be activated.
 
 ## Phase 5: Employee Redelegation
