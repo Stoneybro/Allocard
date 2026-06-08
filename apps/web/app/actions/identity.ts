@@ -107,6 +107,63 @@ export type InviteDetails =
       };
     };
 
+export async function activateSmartAccount(input: {
+  walletAddress: string;
+  smartAccountAddress: string;
+}) {
+  const walletAddress = normalizeWalletAddress(input.walletAddress);
+  const smartAccountAddress = normalizeWalletAddress(input.smartAccountAddress);
+  const profile = await getWalletProfile(walletAddress);
+
+  if (profile.status === "new" || !profile.user) {
+    throw new Error("Create an Allocard profile before activating a smart account");
+  }
+
+  if (profile.status === "employer") {
+    if (!profile.company) {
+      throw new Error("Create a company before activating the company account");
+    }
+
+    if (
+      profile.company.smartAccountAddress &&
+      profile.company.smartAccountAddress.toLowerCase() !==
+        smartAccountAddress.toLowerCase()
+    ) {
+      throw new Error("This company already has a different smart account");
+    }
+
+    const [company] = await db
+      .update(companies)
+      .set({ smartAccountAddress })
+      .where(eq(companies.id, profile.company.id))
+      .returning();
+
+    return {
+      target: "company" as const,
+      smartAccountAddress: company.smartAccountAddress,
+    };
+  }
+
+  if (
+    profile.user.smartAccountAddress &&
+    profile.user.smartAccountAddress.toLowerCase() !==
+      smartAccountAddress.toLowerCase()
+  ) {
+    throw new Error("This employee already has a different smart account");
+  }
+
+  const [user] = await db
+    .update(users)
+    .set({ smartAccountAddress })
+    .where(eq(users.id, profile.user.id))
+    .returning();
+
+  return {
+    target: "user" as const,
+    smartAccountAddress: user.smartAccountAddress,
+  };
+}
+
 function toProfileUser(user: typeof users.$inferSelect): ProfileUser {
   return {
     id: user.id,

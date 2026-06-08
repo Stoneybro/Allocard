@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 import {
   Background,
   Controls,
@@ -206,11 +206,13 @@ export function DashboardFlowCanvas({
   employees,
   agents,
   delegations,
+  headerAction,
 }: {
   company: DelegationCanvasCompany;
   employees: DelegationCanvasEmployee[];
   agents: DelegationCanvasAgent[];
   delegations: DelegationCanvasDelegation[];
+  headerAction?: ReactNode;
 }) {
   const { nodes, edges } = useMemo(() => {
     const delegationByDelegatee = new Map<string, DelegationCanvasDelegation>();
@@ -339,15 +341,18 @@ export function DashboardFlowCanvas({
   }, [agents, company, delegations, employees]);
 
   return (
-    <div className="flex min-h-[520px] flex-1 flex-col overflow-hidden rounded-lg border bg-card shadow-sm">
+    <div className="flex h-[620px] min-h-[520px] flex-col overflow-hidden rounded-lg border bg-card shadow-sm">
       <div className="flex items-center justify-between gap-4 border-b px-5 py-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-            Delegation tree
-          </p>
-          <h3 className="mt-1 text-base font-semibold text-card-foreground">
-            Company authority map
-          </h3>
+        <div className="flex min-w-0 items-center gap-3">
+          {headerAction}
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+              Delegation tree
+            </p>
+            <h3 className="mt-1 text-base font-semibold text-card-foreground">
+              Company authority map
+            </h3>
+          </div>
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <CircleDotIcon />

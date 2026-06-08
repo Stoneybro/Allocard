@@ -14,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { SmartAccountActivationButton } from "@/components/smart-account-activation-button";
 import { formatWalletAddress } from "@/lib/wallet";
 
 export function EmployeeClient() {
@@ -60,6 +61,24 @@ export function EmployeeClient() {
     ? formatWalletAddress(profile.user.smartAccountAddress)
     : "Smart account pending";
 
+  const handleSmartAccountActivated = (smartAccountAddress: string | null) => {
+    if (!smartAccountAddress) return;
+
+    setProfile((currentProfile) => {
+      if (!currentProfile || currentProfile.status !== "employee") {
+        return currentProfile;
+      }
+
+      return {
+        ...currentProfile,
+        user: {
+          ...currentProfile.user,
+          smartAccountAddress,
+        },
+      };
+    });
+  };
+
   return (
     <DashboardShell
       companyName={profile.company.name}
@@ -70,12 +89,23 @@ export function EmployeeClient() {
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <Card>
           <CardHeader>
-            <ShieldCheckIcon />
-            <CardTitle>Employee access is active</CardTitle>
-            <CardDescription>
-              This wallet is linked to {profile.company.name}. Future visits
-              load this company automatically, without the invite link.
-            </CardDescription>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <ShieldCheckIcon />
+                <CardTitle className="mt-2">Employee access is active</CardTitle>
+                <CardDescription>
+                  This wallet is linked to {profile.company.name}. Future visits
+                  load this company automatically, without the invite link.
+                </CardDescription>
+              </div>
+              <SmartAccountActivationButton
+                walletAddress={address}
+                existingSmartAccountAddress={profile.user.smartAccountAddress}
+                onActivated={(result) =>
+                  handleSmartAccountActivated(result.smartAccountAddress)
+                }
+              />
+            </div>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <div className="rounded-lg border bg-muted/30 p-4">

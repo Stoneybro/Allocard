@@ -16,6 +16,7 @@ import {
 import { DashboardFlowCanvas } from "@/components/dashboard-flow-canvas";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { SectionCards } from "@/components/section-cards";
+import { SmartAccountActivationButton } from "@/components/smart-account-activation-button";
 import { formatWalletAddress } from "@/lib/wallet";
 
 const placeholderAgents = [
@@ -127,6 +128,37 @@ export function EmployerClient() {
     setCopied(true);
   };
 
+  const handleSmartAccountActivated = (smartAccountAddress: string | null) => {
+    if (!smartAccountAddress) return;
+
+    setProfile((currentProfile) => {
+      if (!currentProfile || currentProfile.status !== "employer") {
+        return currentProfile;
+      }
+
+      return {
+        ...currentProfile,
+        company: currentProfile.company
+          ? {
+              ...currentProfile.company,
+              smartAccountAddress,
+            }
+          : currentProfile.company,
+      };
+    });
+    setDashboardState((currentState) => {
+      if (!currentState) return currentState;
+
+      return {
+        ...currentState,
+        company: {
+          ...currentState.company,
+          smartAccountAddress,
+        },
+      };
+    });
+  };
+
   return (
     <DashboardShell
       companyName={companyName}
@@ -178,6 +210,15 @@ export function EmployerClient() {
             isPlaceholder: agent.isPlaceholder,
           }))}
           delegations={dashboardState.delegations}
+          headerAction={
+            <SmartAccountActivationButton
+              walletAddress={address}
+              existingSmartAccountAddress={company.smartAccountAddress}
+              onActivated={(result) =>
+                handleSmartAccountActivated(result.smartAccountAddress)
+              }
+            />
+          }
         />
       </div>
     </DashboardShell>
