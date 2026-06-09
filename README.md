@@ -128,19 +128,19 @@ The employer module is a shadcn-styled dashboard with a sidebar and a main canva
 
 ### Sidebar
 
-The sidebar contains two lists: employees and AI agents. These are the potential recipients of delegation. Each item can be clicked or dragged onto the canvas. There is a visual distinction between employee items and agent items.
+The sidebar contains employee recipients, invite creation, and an external-address entry form. Employees can be clicked or dragged onto the canvas. AI agents remain in the data model, but the employer UI hides agent recipients until the Phase 6 agent lifecycle is implemented.
 
 ### Canvas
 
 The canvas is built with React Flow. It has a permanent node representing the company's master card (styled to look like a physical corporate card). All delegation relationships branch out from this node as a tree.
 
-Above the canvas, there are summary cards showing: number of employees, number of active delegations, number of active agents, and total delegated funds.
+Above the canvas, there are summary cards showing: number of employees, active delegations, active agents, and total delegated funds. Agent metrics currently remain zero in the employer UI until Phase 6.
 
 ### Delegation flow on the employer canvas
 
-1. The employer drags a recipient (employee or agent) from the sidebar onto the canvas. A new node appears in a `pending_config` state. A `delegations` row is inserted with `status='pending_config'` and the canvas position.
-2. The employer opens the configuration drawer (slides in from the right, shadcn Drawer component) for that node. They configure the delegation caveats — at minimum: token type, maximum amount, and period if recurring. Caveat rows are written to `delegation_caveats`.
-3. The employer clicks Activate on the node. The delegation is created and signed on-chain using the Smart Accounts Kit. The `delegations` row is updated with the `delegation_hash` and `status='active'`.
+1. The employer clicks or drags an employee from the sidebar onto the canvas, or adds an EOA with the external-address form. A new node appears in a `pending_config` state. A `delegations` row is inserted with `status='pending_config'` and the canvas position.
+2. The employer opens the configuration drawer for that node. They configure native ETH caveats: maximum amount, optional recurring period amount, optional allowed targets, optional redeemers, optional limited call count, optional per-transaction cap, and optional custom caveat enforcer data. Caveat rows are written to `delegation_caveats`.
+3. The employer clicks Activate. The delegation is created and signed with the company smart account using the Smart Accounts Kit. The `delegations` row is updated with `delegation_hash`, `signed_delegation`, `status='active'`, and `activated_at`.
 
 ### Viewing the full tree
 
@@ -152,7 +152,7 @@ The employer can also delegate to an external address (EOA) directly from the ca
 
 ### Limitations on the employer canvas
 
-If the employer has delegated to an employee, the employer cannot extend that delegation further on their own canvas. Only the employee can redelegate from their own module. AI agent nodes are different: since the platform controls the agent's signing key, the employer can redelegate on behalf of agents they own.
+If the employer has delegated to an employee, the employer cannot extend that delegation further on their own canvas. Only the employee can redelegate from their own module. Employer-to-agent delegation is intentionally deferred until Phase 6.
 
 ---
 
@@ -252,6 +252,7 @@ The employer owns any agents they create. Agents belong to a company via `compan
 | delegatee_address | text nullable | Populated only for eoa delegatees |
 | delegatee_label | text nullable | Optional human-readable name for EOA recipients |
 | delegation_hash | text | On-chain hash after activation |
+| signed_delegation | jsonb nullable | Signed delegation object stored for later redemption |
 | status | enum | pending_config \| active \| revoked |
 | canvas_position_x | float | React Flow canvas x position |
 | canvas_position_y | float | React Flow canvas y position |
@@ -307,7 +308,7 @@ The React Flow canvas is the primary interactive surface of the application. Nod
 
 - Master card node (employer module only) — styled to look like a physical corporate card. Shows `**** ****` before activation, real address after.
 - Employee nodes — distinct visual style, purple-toned.
-- Agent nodes — distinct visual style, coral-toned, visually different from employee nodes.
+- Agent nodes — deferred until Phase 6; current employer canvas does not render agent placeholders.
 - EOA nodes — minimal style, terminal indicator, no branching UI.
 
 Configuration for a delegation node is done via a shadcn Drawer component that slides in from the right side of the screen. This preserves canvas context while the user configures caveats.

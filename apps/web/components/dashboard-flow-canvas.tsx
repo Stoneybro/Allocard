@@ -1,6 +1,12 @@
 "use client";
 
-import { type ReactNode, useMemo } from "react";
+import {
+  type DragEvent,
+  type ReactNode,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
 import {
   Background,
   Controls,
@@ -13,14 +19,15 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import {
-  BotIcon,
   CircleDotIcon,
   CreditCardIcon,
+  Settings2Icon,
   TerminalIcon,
   UserRoundIcon,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatWalletAddress } from "@/lib/wallet";
 
@@ -58,12 +65,15 @@ export type DelegationCanvasDelegation = {
 };
 
 type DelegationNodeData = {
+  delegationId?: string;
   title: string;
   subtitle: string;
   detail: string;
   status: "root" | "pending_config" | "active" | "revoked" | "available";
   kind: "master" | "employee" | "agent" | "eoa";
   isPlaceholder?: boolean;
+  canConfigure?: boolean;
+  onConfigure?: (delegationId: string) => void;
 };
 
 function StatusBadge({
@@ -100,9 +110,7 @@ function DelegationNode({ data }: NodeProps<Node<DelegationNodeData>>) {
       ? CreditCardIcon
       : data.kind === "employee"
         ? UserRoundIcon
-        : data.kind === "agent"
-          ? BotIcon
-          : TerminalIcon;
+        : TerminalIcon;
 
   return (
     <div
@@ -147,6 +155,18 @@ function DelegationNode({ data }: NodeProps<Node<DelegationNodeData>>) {
       >
         {data.detail}
       </div>
+      {data.canConfigure && data.delegationId ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="mt-3"
+          onClick={() => data.onConfigure?.(data.delegationId as string)}
+        >
+          <Settings2Icon data-icon="inline-start" />
+          Configure
+        </Button>
+      ) : null}
       <Handle
         type="source"
         position={Position.Right}
@@ -204,16 +224,29 @@ function buildDelegatorNodeId(delegation: DelegationCanvasDelegation) {
 export function DashboardFlowCanvas({
   company,
   employees,
-  agents,
   delegations,
   headerAction,
+  onConfigureDelegation,
+  onDropEmployee,
+  onMoveDelegation,
 }: {
   company: DelegationCanvasCompany;
   employees: DelegationCanvasEmployee[];
-  agents: DelegationCanvasAgent[];
   delegations: DelegationCanvasDelegation[];
   headerAction?: ReactNode;
+  onConfigureDelegation?: (delegationId: string) => void;
+  onDropEmployee?: (input: {
+    employeeId: string;
+    canvasPositionX: number;
+    canvasPositionY: number;
+  }) => void;
+  onMoveDelegation?: (input: {
+    delegationId: string;
+    canvasPositionX: number;
+    canvasPositionY: number;
+  }) => void;
 }) {
+  const canvasRef = useRef<HTMLDivElement | null>(null);
   const { nodes, edges } = useMemo(() => {
     const delegationByDelegatee = new Map<string, DelegationCanvasDelegation>();
     const nextNodes: Node<DelegationNodeData>[] = [
@@ -251,6 +284,7 @@ export function DashboardFlowCanvas({
             }
           : { x: 420, y: 80 + index * 150 },
         data: {
+          delegationId: delegation?.id,
           title: employee.label,
           subtitle: "Employee smart account",
           detail: employee.smartAccountAddress
@@ -258,32 +292,8 @@ export function DashboardFlowCanvas({
             : "Smart account pending",
           status: delegation?.status ?? "available",
           kind: "employee",
-        },
-      });
-    });
-
-    agents.forEach((agent, index) => {
-      const nodeId = `agent:${agent.id}`;
-      const delegation = delegationByDelegatee.get(nodeId);
-
-      nextNodes.push({
-        id: nodeId,
-        type: "delegation",
-        position: delegation
-          ? {
-              x: delegation.canvasPositionX,
-              y: delegation.canvasPositionY,
-            }
-          : { x: 760, y: 100 + index * 150 },
-        data: {
-          title: agent.name,
-          subtitle: "Agent smart account",
-          detail: agent.smartAccountAddress
-            ? formatWalletAddress(agent.smartAccountAddress)
-            : "Smart account pending",
-          status: delegation?.status ?? "available",
-          kind: "agent",
-          isPlaceholder: agent.isPlaceholder,
+          canConfigure: Boolean(delegation),
+          onConfigure: onConfigureDelegation,
         },
       });
     });
@@ -299,6 +309,7 @@ export function DashboardFlowCanvas({
             y: delegation.canvasPositionY || 100 + index * 150,
           },
           data: {
+            delegationId: delegation.id,
             title: delegation.delegateeLabel ?? "External address",
             subtitle: "Terminal EOA",
             detail: delegation.delegateeAddress
@@ -306,6 +317,8 @@ export function DashboardFlowCanvas({
               : "Address pending",
             status: delegation.status,
             kind: "eoa",
+            canConfigure: true,
+            onConfigure: onConfigureDelegation,
           },
         });
       });
@@ -338,7 +351,29 @@ export function DashboardFlowCanvas({
       }, []);
 
     return { nodes: nextNodes, edges: nextEdges };
-  }, [agents, company, delegations, employees]);
+  }, [company, delegations, employees, onConfigureDelegation]);
+
+  const handleDrop = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      const employeeId = event.dataTransfer.getData(
+        "application/allocard-employee-id",
+      );
+
+      if (!employeeId || !canvasRef.current) {
+        return;
+      }
+
+      const bounds = canvasRef.current.getBoundingClientRect();
+
+      onDropEmployee?.({
+        employeeId,
+        canvasPositionX: event.clientX - bounds.left,
+        canvasPositionY: event.clientY - bounds.top,
+      });
+    },
+    [onDropEmployee],
+  );
 
   return (
     <div className="flex h-[620px] min-h-[520px] flex-col overflow-hidden rounded-lg border bg-card shadow-sm">
@@ -360,16 +395,37 @@ export function DashboardFlowCanvas({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1">
+      <div
+        ref={canvasRef}
+        className="min-h-0 flex-1"
+        onDragOver={(event) => {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "copy";
+        }}
+        onDrop={handleDrop}
+      >
         <ReactFlow
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
           fitView
           fitViewOptions={{ padding: 0.18 }}
-          nodesDraggable={false}
+          nodesDraggable
           nodesConnectable={false}
           elementsSelectable={false}
+          onNodeDragStop={(_, node) => {
+            const delegationId = node.data.delegationId;
+
+            if (typeof delegationId !== "string") {
+              return;
+            }
+
+            onMoveDelegation?.({
+              delegationId,
+              canvasPositionX: node.position.x,
+              canvasPositionY: node.position.y,
+            });
+          }}
           panOnDrag
           zoomOnScroll
           minZoom={0.55}

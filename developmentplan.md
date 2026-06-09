@@ -134,10 +134,10 @@ Goal: convert the Phase 2 employer shell into a real read-only employer workspac
 Implemented Phase 3 scope:
 
 - `/employer` remains guarded by connected-wallet role lookup in the browser.
-- The employer dashboard now loads a consolidated company dashboard state with company, employees, agents, delegations, and summary metrics.
+- The employer dashboard now loads a consolidated company dashboard state with company, employees, delegations, caveats, and summary metrics.
 - Invite creation moved into the sidebar.
 - Employee recipients moved into the sidebar.
-- Agent recipients are shown in the sidebar and canvas; when no real agents exist, UI-only demo placeholders are shown so the layout reflects the intended product shape.
+- Agent recipients were deferred out of the employer canvas/sidebar until Phase 6. The schema still contains agents, but current employer delegation UI supports employees and EOAs only.
 - Embedded wallet/signer addresses are no longer primary dashboard UI; the sidebar and account footer show smart account status/address because the smart account is the funded/delegating account.
 - `components/section-cards.tsx` was retained and refactored into Allocard summary cards.
 - `components/dashboard-flow-canvas.tsx` was retained and refactored into a typed React Flow delegation tree.
@@ -155,37 +155,32 @@ Steps:
    - Remove generic navigation that is not part of the Allocard dashboard.
    - Show invite creation in the sidebar.
    - Show employees from the database in a recipient list that can later be dragged to the canvas.
-   - Show real company AI agents when they exist.
-   - Show UI-only agent placeholders when no agents exist, so the intended layout remains visible before agent creation is implemented.
+   - Defer AI agent recipients until Phase 6.
 
 3. Refactor `SectionCards` into real employer summary cards.
-   - Use three cards to keep the dashboard compact.
-   - Combine employees and agents into one team recipients card.
-   - Show active delegations.
-   - Show total delegated native ETH allowance.
-   - Sum active native ETH allowance caveats from `delegation_caveats` when they exist; otherwise show `0 ETH`.
+   - Use 4 cards to keep the dashboard compact.
+   - Use to display the number of employees, active delegations, active agents, and total delegated native ETH allowance.
+   
 
 4. Refactor `DashboardFlowCanvas` into the employer delegation tree.
    - Master card node.
    - Employee node.
-   - Agent node.
    - EOA node.
    - Pending configuration state.
    - Active and revoked visual states.
    - Initially load the company root node and employee nodes even before delegation activation exists.
-   - Show demo agent nodes when no real agent records exist.
    - Load stored delegation edges from the database.
 
 5. Load canvas positions.
    - Use `delegations.canvas_position_x` and `delegations.canvas_position_y` for stored delegation nodes.
-   - Derive deterministic positions for available employees, agents, and placeholders that do not yet have delegation rows.
+   - Derive deterministic positions for available employees that do not yet have delegation rows.
    - Defer drag/drop placement and position persistence to Phase 4, where delegation rows are created.
 
 Acceptance checkpoint:
 
 - Employer dashboard reflects real company state.
 - Employer can create invite links from the sidebar.
-- Employer can see company card, employees, agent placeholders or real agents, and stored delegation relationships on the canvas.
+- Employer can see company card, employees, EOAs, and stored delegation relationships on the canvas.
 - Main content contains the summary cards and primary canvas only.
 
 ## Phase 4: Delegation Configuration and Activation
@@ -194,39 +189,21 @@ Goal: make employer-created delegations real and interactive.
 
 Steps:
 
-1. Build recipient placement.
-   - Drag or click employee/agent/sidebar entries onto the canvas.
-   - Create a `delegations` row with `pending_config` status.
-   - Support direct EOA entry with address validation and optional label.
-   - Persist initial x/y canvas position when the row is created.
-   - Persist updated x/y canvas positions when nodes are moved.
+Implemented Phase 4 scope:
 
-2. Build caveat configuration drawer.
-   - Native ETH allowance type.
-   - Maximum amount.
-   - Period for recurring allowances.
-   - Optional allowed targets.
-   - Optional limited call count.
-   - Optional per-transaction cap.
-
-3. Implement caveat persistence.
-   - Store caveats in `delegation_caveats.caveat_value`.
-   - Normalize native ETH amounts to wei.
-   - Keep the caveat value shape compatible with the Phase 3 allowance summary parser or update the parser at the same time.
-   - Validate required caveat fields before activation.
-
-4. Generate MetaMask Smart Accounts Kit delegation objects.
-   - Convert stored caveats into Smart Accounts Kit caveat enforcer config.
-   - Sign delegations from the company smart account.
-   - Store `delegation_hash` and mark delegation `active`.
-
-5. Add revocation behavior.
-   - Implement revoke first because the README has clear chain invalidation rules.
-   - When a parent is revoked, update affected child delegation statuses.
+- Employee recipients can be clicked or dragged from the sidebar onto the React Flow canvas.
+- EOAs can be added from the sidebar with address validation and an optional label.
+- New delegation rows are created with `pending_config` status and initial canvas positions.
+- Dragged delegation node positions are persisted to `delegations.canvas_position_x/y`.
+- The configuration drawer supports native ETH max amount, recurring period amount, allowed targets, redeemers, limited call count, per-transaction cap, and one custom caveat enforcer.
+- Caveats are stored in `delegation_caveats.caveat_value` with wei values serialized as decimal strings.
+- Employer activation builds a MetaMask Smart Accounts Kit delegation, signs it from the company smart account, stores `delegation_hash`, stores the full signed delegation in `delegations.signed_delegation`, and marks the delegation `active`.
+- Revocation marks the selected delegation and descendant delegations `revoked`.
+- Agent recipients are intentionally excluded from the Phase 4 employer canvas and sidebar until Phase 6.
 
 Acceptance checkpoint:
 
-- Employer can create a configured delegation to an employee, agent, or EOA.
+- Employer can create a configured delegation to an employee or EOA.
 - The delegation is signed, stored, and reflected as active in the UI.
 - Canvas positions persist across sessions after node placement or movement.
 - Invalid or incomplete caveat configurations cannot be activated.

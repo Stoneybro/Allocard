@@ -152,6 +152,7 @@ export const delegations = pgTable(
     delegateeAddress: text("delegatee_address"),
     delegateeLabel: text("delegatee_label"),
     delegationHash: text("delegation_hash"),
+    signedDelegation: jsonb("signed_delegation"),
     status: delegationStatusEnum("status").notNull().default("pending_config"),
     canvasPositionX: doublePrecision("canvas_position_x").notNull().default(0),
     canvasPositionY: doublePrecision("canvas_position_y").notNull().default(0),

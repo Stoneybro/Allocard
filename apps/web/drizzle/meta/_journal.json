@@ -8,6 +8,13 @@
       "when": 1780882513681,
       "tag": "0000_perpetual_big_bertha",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1780890000000,
+      "tag": "0001_phase4_signed_delegations",
+      "breakpoints": true
     }
   ]
 }

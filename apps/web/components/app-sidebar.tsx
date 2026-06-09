@@ -12,8 +12,8 @@ import {
 } from "lucide-react";
 
 import { NavUser } from "@/components/nav-user";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Sidebar,
   SidebarContent,
@@ -27,6 +27,7 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
+import { Badge } from "@/components/ui/badge";
 
 export type SidebarEmployee = {
   id: string;
@@ -99,7 +100,13 @@ function InvitePanel({
   );
 }
 
-function EmployeeList({ employees }: { employees: SidebarEmployee[] }) {
+function EmployeeList({
+  employees,
+  onAddEmployee,
+}: {
+  employees: SidebarEmployee[];
+  onAddEmployee?: (employeeId: string) => void;
+}) {
   return (
     <SidebarGroup>
       <SidebarGroupLabel>
@@ -113,7 +120,18 @@ function EmployeeList({ employees }: { employees: SidebarEmployee[] }) {
           <SidebarMenu>
             {employees.map((employee) => (
               <SidebarMenuItem key={employee.id}>
-                <SidebarMenuButton tooltip={employee.label}>
+                <SidebarMenuButton
+                  tooltip={employee.label}
+                  draggable
+                  onClick={() => onAddEmployee?.(employee.id)}
+                  onDragStart={(event) => {
+                    event.dataTransfer.setData(
+                      "application/allocard-employee-id",
+                      employee.id,
+                    );
+                    event.dataTransfer.effectAllowed = "copy";
+                  }}
+                >
                   <UserRoundIcon />
                   <span>{employee.label}</span>
                 </SidebarMenuButton>
@@ -124,6 +142,50 @@ function EmployeeList({ employees }: { employees: SidebarEmployee[] }) {
             ))}
           </SidebarMenu>
         )}
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
+
+function EoaDelegationPanel({
+  eoaPending,
+  onAddEoa,
+}: {
+  eoaPending?: boolean;
+  onAddEoa?: (input: { address: string; label: string }) => void;
+}) {
+  const [address, setAddress] = React.useState("");
+  const [label, setLabel] = React.useState("");
+
+  return (
+    <SidebarGroup>
+      <SidebarGroupLabel>
+        <WalletCardsIcon />
+        External address
+      </SidebarGroupLabel>
+      <SidebarGroupContent className="flex flex-col gap-2">
+        <Input
+          value={address}
+          onChange={(event) => setAddress(event.target.value)}
+          placeholder="0x..."
+        />
+        <Input
+          value={label}
+          onChange={(event) => setLabel(event.target.value)}
+          placeholder="Label"
+        />
+        <Button
+          size="sm"
+          onClick={() => {
+            onAddEoa?.({ address, label });
+            setAddress("");
+            setLabel("");
+          }}
+          disabled={eoaPending || !address.trim()}
+        >
+          <PlusIcon data-icon="inline-start" />
+          {eoaPending ? "Adding..." : "Add address"}
+        </Button>
       </SidebarGroupContent>
     </SidebarGroup>
   );
@@ -166,10 +228,13 @@ export function AppSidebar({
   agents,
   companyName,
   copiedInvite,
+  eoaPending,
   employees,
   inviteError,
   inviteLink,
   invitePending,
+  onAddEmployee,
+  onAddEoa,
   onCopyInvite,
   onCreateInvite,
   roleLabel,
@@ -179,10 +244,13 @@ export function AppSidebar({
   agents: SidebarAgent[];
   companyName: string;
   copiedInvite?: boolean;
+  eoaPending?: boolean;
   employees: SidebarEmployee[];
   inviteError?: string | null;
   inviteLink?: string | null;
   invitePending?: boolean;
+  onAddEmployee?: (employeeId: string) => void;
+  onAddEoa?: (input: { address: string; label: string }) => void;
   onCopyInvite?: () => void;
   onCreateInvite?: () => void;
   roleLabel: string;
@@ -219,8 +287,9 @@ export function AppSidebar({
           onCreateInvite={onCreateInvite}
         />
         <SidebarSeparator />
-        <EmployeeList employees={employees} />
-        <AgentList agents={agents} />
+        <EmployeeList employees={employees} onAddEmployee={onAddEmployee} />
+        <EoaDelegationPanel eoaPending={eoaPending} onAddEoa={onAddEoa} />
+        {agents.length > 0 ? <AgentList agents={agents} /> : null}
       </SidebarContent>
       <SidebarFooter>
         <NavUser
