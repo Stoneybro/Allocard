@@ -85,6 +85,7 @@ export function EmployeeClient() {
       smartAccountLabel={smartAccountLabel}
       title="Employee dashboard"
       roleLabel="Employee"
+      role="employee"
     >
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <Card>

@@ -23,6 +23,7 @@ export function DashboardShell({
   onAddEoa,
   onCopyInvite,
   onCreateInvite,
+  role,
   smartAccountLabel,
   title,
   roleLabel,
@@ -40,6 +41,7 @@ export function DashboardShell({
   onAddEoa?: (input: { address: string; label: string }) => void;
   onCopyInvite?: () => void;
   onCreateInvite?: () => void;
+  role?: "employer" | "employee";
   smartAccountLabel: string;
   title: string;
   roleLabel: string;
@@ -67,6 +69,7 @@ export function DashboardShell({
         onAddEoa={onAddEoa}
         onCopyInvite={onCopyInvite}
         onCreateInvite={onCreateInvite}
+        role={role}
         roleLabel={roleLabel}
         smartAccountLabel={smartAccountLabel}
       />

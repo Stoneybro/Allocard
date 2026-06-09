@@ -419,9 +419,9 @@ export function EmployerClient() {
 
   const canvasEmployees = useMemo(
     () =>
-      dashboardState?.employees.map((employee, index) => ({
+      dashboardState?.employees.map((employee) => ({
         id: employee.id,
-        label: `Employee ${index + 1}`,
+        label: formatWalletAddress(employee.walletAddress),
         smartAccountAddress: employee.smartAccountAddress,
       })) ?? [],
     [dashboardState?.employees],
@@ -671,9 +671,9 @@ export function EmployerClient() {
     <DashboardShell
       companyName={companyName}
       copiedInvite={copied}
-      employees={dashboardState.employees.map((employee, index) => ({
+      employees={dashboardState.employees.map((employee) => ({
         id: employee.id,
-        label: `Employee ${index + 1}`,
+        label: formatWalletAddress(employee.walletAddress),
         detail: employee.smartAccountAddress
           ? formatWalletAddress(employee.smartAccountAddress)
           : "Smart account pending",

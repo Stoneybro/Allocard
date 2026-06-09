@@ -386,7 +386,7 @@ export function DashboardFlowCanvas({
         data: {
           delegationId: delegation?.id,
           title: employee.label,
-          subtitle: "Employee smart account",
+          subtitle: "Smart account",
           address: employee.smartAccountAddress ?? undefined,
           balance: delegation?.allowance !== undefined ? `${delegation.allowance} ETH` : undefined,
           balanceLabel: "Spending limit",

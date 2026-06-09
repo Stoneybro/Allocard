@@ -210,10 +210,12 @@ function CanvasSection({
   agents,
   employees,
   onAddEmployee,
+  role,
 }: {
   agents: SidebarAgent[];
   employees: SidebarEmployee[];
   onAddEmployee?: (employeeId: string) => void;
+  role?: "employer" | "employee";
 }) {
   const displayAgents = agents.length > 0 ? agents : PLACEHOLDER_AGENTS;
   const hasLiveAgents = agents.length > 0;
@@ -221,80 +223,91 @@ function CanvasSection({
   return (
     <SidebarGroup className="flex flex-col gap-0">
       {/* Section header */}
-      <SidebarGroupLabel>Recipients</SidebarGroupLabel>
+      <SidebarGroupLabel>
+        {role === "employee" ? "Your AI Agents" : "Recipients"}
+      </SidebarGroupLabel>
 
       <SidebarGroupContent className="flex flex-col gap-4">
-        {/* Single shared hint — terse, covers both employees and agents */}
-        <p className="px-1 text-[11px] text-muted-foreground bg-muted p-2  rounded-md">
-          Click or drag and drop any Recipient (Employee or AI Agent) to place it on the
-          canvas
-        </p>
+        {/* Hint — only shown to employers who use the canvas */}
+        {role !== "employee" && (
+          <p className="px-1 text-[11px] text-muted-foreground bg-muted p-2  rounded-md">
+            Click or drag and drop any Recipient (Employee or AI Agent) to place it on the
+            canvas
+          </p>
+        )}
+        {role === "employee" && (
+          <p className="px-1 text-[11px] text-muted-foreground bg-muted p-2 rounded-md">
+            AI agents can autonomously manage and execute approved transactions on your behalf.
+          </p>
+        )}
 
-        {/* ── Employees ────────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-1">
-          {/* Sub-label row */}
-          <div className="flex items-center justify-between px-1">
-            <span className="flex items-center gap-1.5 text-[11px] font-medium text-foreground/70">
-              <UserRoundIcon className="size-3" />
-              Employees
-            </span>
-            {employees.length > 0 && (
-              <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
-                {employees.length}
-              </Badge>
-            )}
-          </div>
-
-          {/* Scrollable list — shows ~3 rows before scrolling */}
-          {employees.length === 0 ? (
-            <div className="flex items-center justify-center rounded-md border border-dashed border-border px-3 py-4">
-              <p className="text-[11px] text-muted-foreground">
-                No employees yet — send an invite.
-              </p>
-            </div>
-          ) : (
-            <div className="relative">
-              <div className="max-h-[9.5rem] overflow-y-auto rounded-md">
-                <SidebarMenu>
-                  {employees.map((employee) => (
-                    <SidebarMenuItem key={employee.id}>
-                      <SidebarMenuButton
-                        id={`recipient-${employee.id}`}
-                        tooltip={`${employee.label} — click or drag`}
-                        draggable
-                        onClick={() => onAddEmployee?.(employee.id)}
-                        onDragStart={(event) => {
-                          event.dataTransfer.setData(
-                            "application/allocard-employee-id",
-                            employee.id,
-                          );
-                          event.dataTransfer.effectAllowed = "copy";
-                        }}
-                        className="h-auto cursor-grab py-2 active:cursor-grabbing"
-                      >
-                        <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-foreground/70">
-                          <UserRoundIcon className="size-3" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-medium leading-none">
-                            {employee.label}
-                          </p>
-                          <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
-                            {employee.detail}
-                          </p>
-                        </div>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </div>
-              {/* Fade mask — signals overflow */}
-              {employees.length > 3 && (
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 rounded-b-md bg-gradient-to-t from-sidebar to-transparent" />
+        {/* ── Employees — employer only ──────────────────────────────── */}
+        {role !== "employee" && (
+          <div className="flex flex-col gap-1">
+            {/* Sub-label row */}
+            <div className="flex items-center justify-between px-1">
+              <span className="flex items-center gap-1.5 text-[11px] font-medium text-foreground/70">
+                <UserRoundIcon className="size-3" />
+                Employees
+              </span>
+              {employees.length > 0 && (
+                <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
+                  {employees.length}
+                </Badge>
               )}
             </div>
-          )}
-        </div>
+
+            {/* Scrollable list — shows ~3 rows before scrolling */}
+            {employees.length === 0 ? (
+              <div className="flex items-center justify-center rounded-md border border-dashed border-border px-3 py-4">
+                <p className="text-[11px] text-muted-foreground">
+                  No employees yet — send an invite.
+                </p>
+              </div>
+            ) : (
+              <div className="relative">
+                <div className="max-h-[9.5rem] overflow-y-auto rounded-md">
+                  <SidebarMenu>
+                    {employees.map((employee) => (
+                      <SidebarMenuItem key={employee.id}>
+                        <SidebarMenuButton
+                          id={`recipient-${employee.id}`}
+                          tooltip={`${employee.label} — click or drag`}
+                          draggable
+                          onClick={() => onAddEmployee?.(employee.id)}
+                          onDragStart={(event) => {
+                            event.dataTransfer.setData(
+                              "application/allocard-employee-id",
+                              employee.id,
+                            );
+                            event.dataTransfer.effectAllowed = "copy";
+                          }}
+                          className="h-auto cursor-grab py-2 active:cursor-grabbing"
+                        >
+                          <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-foreground/70">
+                            <UserRoundIcon className="size-3" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[13px] font-medium leading-none">
+                              {employee.label}
+                            </p>
+                            <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
+                              {employee.detail}
+                            </p>
+                          </div>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </div>
+                {/* Fade mask — signals overflow */}
+                {employees.length > 3 && (
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 rounded-b-md bg-gradient-to-t from-sidebar to-transparent" />
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* ── AI Agents ─────────────────────────────────────────────────── */}
         <div className="flex flex-col gap-1">
@@ -396,6 +409,7 @@ export function AppSidebar({
   onAddEmployee,
   onCopyInvite,
   onCreateInvite,
+  role,
   smartAccountLabel,
   // Kept for API compatibility — feature removed
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -418,6 +432,7 @@ export function AppSidebar({
   onAddEoa?: (input: { address: string; label: string }) => void;
   onCopyInvite?: () => void;
   onCreateInvite?: () => void;
+  role?: "employer" | "employee";
   roleLabel: string;
   smartAccountLabel: string;
 }) {
@@ -428,11 +443,14 @@ export function AppSidebar({
       <SidebarHeader className="gap-3 pb-4">
         <div className="px-1 pt-1">
           <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-            Workspace
+            {role === "employee" ? "Your Workspace" : "Workspace"}
           </p>
           <h2 className="mt-0.5 truncate text-base font-semibold text-foreground">
             {companyName}
           </h2>
+          {role === "employee" && (
+            <p className="mt-0.5 text-[11px] text-muted-foreground">Employee</p>
+          )}
         </div>
         <SmartAccountAddress label={smartAccountLabel} />
       </SidebarHeader>
@@ -440,23 +458,27 @@ export function AppSidebar({
       {/* ── CONTENT ────────────────────────────────────────────────────── */}
       <SidebarContent className="gap-0">
 
-        {/* Invite */}
-        <InviteSection
-          copiedInvite={copiedInvite}
-          inviteError={inviteError}
-          inviteLink={inviteLink}
-          invitePending={invitePending}
-          onCopyInvite={onCopyInvite}
-          onCreateInvite={onCreateInvite}
-        />
-
-        <SidebarSeparator />
+        {/* Invite — employer only */}
+        {role !== "employee" && (
+          <>
+            <InviteSection
+              copiedInvite={copiedInvite}
+              inviteError={inviteError}
+              inviteLink={inviteLink}
+              invitePending={invitePending}
+              onCopyInvite={onCopyInvite}
+              onCreateInvite={onCreateInvite}
+            />
+            <SidebarSeparator />
+          </>
+        )}
 
         {/* Canvas — employees + AI agents */}
         <CanvasSection
           agents={agents}
           employees={employees}
           onAddEmployee={onAddEmployee}
+          role={role}
         />
 
       </SidebarContent>
