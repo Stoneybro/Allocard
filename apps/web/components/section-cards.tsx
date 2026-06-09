@@ -39,6 +39,9 @@ export function SectionCards({
             </Badge>
           </CardAction>
         </CardHeader>
+        <p className="px-4 text-[11px] text-muted-foreground">
+          Total onboarded team members.
+        </p>
       </Card>
 
       <Card size="sm" className="@container/card">
@@ -53,6 +56,9 @@ export function SectionCards({
             </Badge>
           </CardAction>
         </CardHeader>
+        <p className="px-4 text-[11px] text-muted-foreground">
+          Active Ai agents with delegations.
+        </p>
       </Card>
 
       <Card size="sm" className="@container/card">
@@ -67,11 +73,14 @@ export function SectionCards({
             </Badge>
           </CardAction>
         </CardHeader>
+        <p className="px-4 text-[11px] text-muted-foreground">
+          Total employees and AI agents with active delegations.
+        </p>
       </Card>
 
       <Card size="sm" className="@container/card">
         <CardHeader>
-          <CardDescription>Delegated native ETH</CardDescription>
+          <CardDescription>Delegated ETH</CardDescription>
           <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
             {delegatedNativeEthAllowance} ETH
           </CardTitle>
@@ -81,6 +90,9 @@ export function SectionCards({
             </Badge>
           </CardAction>
         </CardHeader>
+        <p className="px-4 text-[11px] text-muted-foreground">
+          Total ETH approved for spending.
+        </p>
       </Card>
     </div>
   );
