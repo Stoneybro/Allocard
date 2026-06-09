@@ -1097,11 +1097,7 @@ export async function getCompanyDashboardState(
       .where(
         and(
           inArray(delegationCaveats.delegationId, activeDelegationIds),
-          inArray(delegationCaveats.caveatType, [
-            "nativeTokenTransferAmount",
-            "nativeTokenPeriodTransfer",
-            "valueLte",
-          ]),
+          eq(delegationCaveats.caveatType, "nativeTokenTransferAmount"),
         ),
       );
 

@@ -7,6 +7,7 @@ import {
   useEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import {
   Background,
@@ -22,7 +23,10 @@ import {
   type NodeProps,
 } from "@xyflow/react";
 import {
+  CheckIcon,
+  CopyIcon,
   CreditCardIcon,
+  EyeIcon,
   Settings2Icon,
   TerminalIcon,
   UserRoundIcon,
@@ -30,6 +34,12 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { formatWalletAddress } from "@/lib/wallet";
 
@@ -37,6 +47,7 @@ export type DelegationCanvasCompany = {
   id: string;
   name: string;
   smartAccountAddress: string | null;
+  ethBalance?: string;
 };
 
 export type DelegationCanvasEmployee = {
@@ -64,18 +75,22 @@ export type DelegationCanvasDelegation = {
   status: "pending_config" | "active" | "revoked";
   canvasPositionX: number;
   canvasPositionY: number;
+  allowance?: string;
 };
 
 type DelegationNodeData = {
   delegationId?: string;
   title: string;
   subtitle: string;
-  detail: string;
+  address?: string;
+  balance?: string;
+  balanceLabel?: string;
   status: "root" | "pending_config" | "active" | "revoked" | "available";
   kind: "master" | "employee" | "agent" | "eoa";
   isPlaceholder?: boolean;
   canConfigure?: boolean;
   onConfigure?: (delegationId: string) => void;
+  onRevoke?: (delegationId: string) => void;
 };
 
 function StatusBadge({
@@ -96,13 +111,51 @@ function StatusBadge({
   return (
     <Badge variant={status === "active" ? "secondary" : "outline"}>
       {status === "pending_config"
-        ? "Pending"
+        ? "Pending Configuration"
         : status === "revoked"
           ? "Revoked"
           : status === "available"
             ? "Available"
             : "Active"}
     </Badge>
+  );
+}
+
+function CopyAddressButton({ address, isMaster }: { address?: string; isMaster?: boolean }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    if (!address) return;
+    navigator.clipboard.writeText(address).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, [address]);
+
+  if (!address) return null;
+
+  const Icon = copied ? CheckIcon : CopyIcon;
+
+  return (
+    <TooltipProvider delayDuration={300}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={handleCopy}
+            className={cn(
+              "inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:bg-white/10",
+              isMaster ? "text-primary-foreground/60 hover:text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Icon className="h-3 w-3" />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="top">
+          <p>{copied ? "Copied!" : "Copy address"}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -113,6 +166,8 @@ function DelegationNode({ data }: NodeProps<Node<DelegationNodeData>>) {
       : data.kind === "employee"
         ? UserRoundIcon
         : TerminalIcon;
+
+  const formattedAddress = data.address ? formatWalletAddress(data.address) : null;
 
   return (
     <div
@@ -148,26 +203,68 @@ function DelegationNode({ data }: NodeProps<Node<DelegationNodeData>>) {
         </div>
         <StatusBadge status={data.status} isPlaceholder={data.isPlaceholder} />
       </div>
+
+      {/* Address chip */}
       <div
         className={cn(
-          "mt-5 rounded-md border bg-background/70 px-3 py-2 font-mono text-xs text-muted-foreground",
+          "mt-3 flex items-center justify-between rounded-md border bg-background/70 px-3 py-1.5 font-mono text-xs text-muted-foreground",
           data.kind === "master" &&
-            "border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground",
+            "border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground/80",
         )}
       >
-        {data.detail}
+        <span>{formattedAddress ?? "Address pending"}</span>
+        <CopyAddressButton address={data.address} isMaster={data.kind === "master"} />
       </div>
-      {data.canConfigure && data.delegationId ? (
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="mt-3"
-          onClick={() => data.onConfigure?.(data.delegationId as string)}
+
+      {/* Balance / allowance */}
+      {data.balance !== undefined && (
+        <div
+          className={cn(
+            "mt-2 flex items-center justify-between rounded-md px-3 py-1.5 text-xs",
+            data.kind === "master"
+              ? "bg-primary-foreground/10 text-primary-foreground/90"
+              : "bg-muted/50 text-muted-foreground",
+          )}
         >
-          <Settings2Icon data-icon="inline-start" />
-          Configure
-        </Button>
+          <span className="font-medium">{data.balanceLabel ?? "Balance"}</span>
+          <span className="font-mono font-semibold">{data.balance}</span>
+        </div>
+      )}
+
+      {data.canConfigure && data.delegationId ? (
+        data.status === "active" ? (
+          <div className="mt-3 flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="flex-1"
+              onClick={() => data.onConfigure?.(data.delegationId as string)}
+            >
+              <EyeIcon data-icon="inline-start" />
+              View Rules
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              onClick={() => data.onRevoke?.(data.delegationId as string)}
+            >
+              Revoke
+            </Button>
+          </div>
+        ) : data.status !== "revoked" ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="mt-3"
+            onClick={() => data.onConfigure?.(data.delegationId as string)}
+          >
+            <Settings2Icon data-icon="inline-start" />
+            Configure
+          </Button>
+        ) : null
       ) : null}
       <Handle
         type="source"
@@ -178,9 +275,7 @@ function DelegationNode({ data }: NodeProps<Node<DelegationNodeData>>) {
   );
 }
 
-const nodeTypes = {
-  delegation: DelegationNode,
-};
+
 
 function statusEdgeStyle(status: DelegationCanvasDelegation["status"]) {
   if (status === "active") {
@@ -231,6 +326,7 @@ export function DashboardFlowCanvas({
   onConfigureDelegation,
   onDropEmployee,
   onMoveDelegation,
+  onRevokeDelegation,
 }: {
   company: DelegationCanvasCompany;
   employees: DelegationCanvasEmployee[];
@@ -247,7 +343,9 @@ export function DashboardFlowCanvas({
     canvasPositionX: number;
     canvasPositionY: number;
   }) => void;
+  onRevokeDelegation?: (delegationId: string) => void;
 }) {
+  const nodeTypes = useMemo(() => ({ delegation: DelegationNode }), []);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const { nodes: derivedNodes, edges: derivedEdges } = useMemo(() => {
     const delegationByDelegatee = new Map<string, DelegationCanvasDelegation>();
@@ -259,9 +357,9 @@ export function DashboardFlowCanvas({
         data: {
           title: company.name,
           subtitle: "Company smart account",
-          detail: company.smartAccountAddress
-            ? formatWalletAddress(company.smartAccountAddress)
-            : "**** **** **** ****",
+          address: company.smartAccountAddress ?? undefined,
+          balance: company.ethBalance !== undefined ? `${company.ethBalance} ETH` : undefined,
+          balanceLabel: "Balance",
           status: "root",
           kind: "master",
         },
@@ -289,13 +387,14 @@ export function DashboardFlowCanvas({
           delegationId: delegation?.id,
           title: employee.label,
           subtitle: "Employee smart account",
-          detail: employee.smartAccountAddress
-            ? formatWalletAddress(employee.smartAccountAddress)
-            : "Smart account pending",
+          address: employee.smartAccountAddress ?? undefined,
+          balance: delegation?.allowance !== undefined ? `${delegation.allowance} ETH` : undefined,
+          balanceLabel: "Spending limit",
           status: delegation?.status ?? "available",
           kind: "employee",
           canConfigure: Boolean(delegation),
           onConfigure: onConfigureDelegation,
+          onRevoke: onRevokeDelegation,
         },
       });
     });
@@ -314,13 +413,12 @@ export function DashboardFlowCanvas({
             delegationId: delegation.id,
             title: delegation.delegateeLabel ?? "External address",
             subtitle: "Terminal EOA",
-            detail: delegation.delegateeAddress
-              ? formatWalletAddress(delegation.delegateeAddress)
-              : "Address pending",
+            address: delegation.delegateeAddress ?? undefined,
             status: delegation.status,
             kind: "eoa",
             canConfigure: true,
             onConfigure: onConfigureDelegation,
+            onRevoke: onRevokeDelegation,
           },
         });
       });
@@ -353,7 +451,7 @@ export function DashboardFlowCanvas({
       }, []);
 
     return { nodes: nextNodes, edges: nextEdges };
-  }, [company, delegations, employees, onConfigureDelegation]);
+  }, [company, delegations, employees, onConfigureDelegation, onRevokeDelegation]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(derivedNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(derivedEdges);
