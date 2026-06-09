@@ -4,6 +4,7 @@ import {
   type DragEvent,
   type ReactNode,
   useCallback,
+  useEffect,
   useMemo,
   useRef,
 } from "react";
@@ -14,6 +15,8 @@ import {
   MarkerType,
   Position,
   ReactFlow,
+  useEdgesState,
+  useNodesState,
   type Edge,
   type Node,
   type NodeProps,
@@ -182,7 +185,7 @@ const nodeTypes = {
 function statusEdgeStyle(status: DelegationCanvasDelegation["status"]) {
   if (status === "active") {
     return {
-      stroke: "hsl(var(--foreground))",
+      stroke: "var(--foreground)",
       strokeWidth: 2,
       opacity: 0.42,
     };
@@ -190,14 +193,14 @@ function statusEdgeStyle(status: DelegationCanvasDelegation["status"]) {
 
   if (status === "revoked") {
     return {
-      stroke: "hsl(var(--muted-foreground))",
+      stroke: "var(--muted-foreground)",
       strokeWidth: 2,
       opacity: 0.2,
     };
   }
 
   return {
-    stroke: "hsl(var(--muted-foreground))",
+    stroke: "var(--muted-foreground)",
     strokeWidth: 2,
     strokeDasharray: "6 6",
     opacity: 0.34,
@@ -246,7 +249,7 @@ export function DashboardFlowCanvas({
   }) => void;
 }) {
   const canvasRef = useRef<HTMLDivElement | null>(null);
-  const { nodes, edges } = useMemo(() => {
+  const { nodes: derivedNodes, edges: derivedEdges } = useMemo(() => {
     const delegationByDelegatee = new Map<string, DelegationCanvasDelegation>();
     const nextNodes: Node<DelegationNodeData>[] = [
       {
@@ -342,7 +345,7 @@ export function DashboardFlowCanvas({
           style: statusEdgeStyle(delegation.status),
           markerEnd: {
             type: MarkerType.ArrowClosed,
-            color: "hsl(var(--foreground))",
+            color: "var(--foreground)",
           },
         });
 
@@ -351,6 +354,23 @@ export function DashboardFlowCanvas({
 
     return { nodes: nextNodes, edges: nextEdges };
   }, [company, delegations, employees, onConfigureDelegation]);
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(derivedNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(derivedEdges);
+
+  useEffect(() => {
+    setNodes((prevNodes) => {
+      const positionMap = new Map(prevNodes.map((n) => [n.id, n.position]));
+      return derivedNodes.map((node) => {
+        const currentPosition = positionMap.get(node.id);
+        // Preserve the current canvas position for existing nodes so React Flow's
+        // internal state (width, height, measured dimensions) is never clobbered.
+        // Only new nodes use the server-provided position.
+        return currentPosition ? { ...node, position: currentPosition } : node;
+      });
+    });
+    setEdges(derivedEdges);
+  }, [derivedNodes, derivedEdges, setNodes, setEdges]);
 
   const handleDrop = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
@@ -404,6 +424,8 @@ export function DashboardFlowCanvas({
         <ReactFlow
           nodes={nodes}
           edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
           nodeTypes={nodeTypes}
           fitView
           fitViewOptions={{ padding: 0.18 }}

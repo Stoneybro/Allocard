@@ -312,6 +312,16 @@ export function EmployerClient() {
     [dashboardState?.delegations, selectedDelegationId],
   );
 
+  const canvasEmployees = useMemo(
+    () =>
+      dashboardState?.employees.map((employee, index) => ({
+        id: employee.id,
+        label: `Employee ${index + 1}`,
+        smartAccountAddress: employee.smartAccountAddress,
+      })) ?? [],
+    [dashboardState?.employees],
+  );
+
   const updateDashboard = useCallback((state: CompanyDashboardState) => {
     setDashboardState(state);
   }, []);
@@ -332,6 +342,42 @@ export function EmployerClient() {
       });
     },
     [updateDashboard],
+  );
+
+  const handleConfigureDelegation = useCallback(
+    (delegationId: string) => {
+      const delegation =
+        dashboardState?.delegations.find((item) => item.id === delegationId) ??
+        null;
+
+      setSelectedDelegationId(delegationId);
+      setCaveatForm(formFromDelegation(delegation));
+    },
+    [dashboardState?.delegations],
+  );
+
+  const handleDropEmployee = useCallback(
+    (input: {
+      employeeId: string;
+      canvasPositionX: number;
+      canvasPositionY: number;
+    }) =>
+      runDashboardMutation(() =>
+        createEmployeeDelegation({ walletAddress: address ?? "", ...input }),
+      ),
+    [runDashboardMutation, address],
+  );
+
+  const handleMoveDelegation = useCallback(
+    (input: {
+      delegationId: string;
+      canvasPositionX: number;
+      canvasPositionY: number;
+    }) =>
+      runDashboardMutation(() =>
+        updateDelegationPosition({ walletAddress: address ?? "", ...input }),
+      ),
+    [runDashboardMutation, address],
   );
 
   if (!isConnected || !address) {
@@ -396,14 +442,6 @@ export function EmployerClient() {
           }
         : currentState,
     );
-  };
-
-  const handleConfigureDelegation = (delegationId: string) => {
-    const delegation =
-      dashboardState.delegations.find((item) => item.id === delegationId) ?? null;
-
-    setSelectedDelegationId(delegationId);
-    setCaveatForm(formFromDelegation(delegation));
   };
 
   const resolveDelegateAddress = (delegation: DelegationRow) => {
@@ -548,11 +586,7 @@ export function EmployerClient() {
         />
         <DashboardFlowCanvas
           company={company}
-          employees={dashboardState.employees.map((employee, index) => ({
-            id: employee.id,
-            label: `Employee ${index + 1}`,
-            smartAccountAddress: employee.smartAccountAddress,
-          }))}
+          employees={canvasEmployees}
           delegations={dashboardState.delegations}
           headerAction={
             <SmartAccountActivationButton
@@ -564,22 +598,8 @@ export function EmployerClient() {
             />
           }
           onConfigureDelegation={handleConfigureDelegation}
-          onDropEmployee={(input) =>
-            runDashboardMutation(() =>
-              createEmployeeDelegation({
-                walletAddress: address,
-                ...input,
-              }),
-            )
-          }
-          onMoveDelegation={(input) =>
-            runDashboardMutation(() =>
-              updateDelegationPosition({
-                walletAddress: address,
-                ...input,
-              }),
-            )
-          }
+          onDropEmployee={handleDropEmployee}
+          onMoveDelegation={handleMoveDelegation}
         />
       </div>
 
