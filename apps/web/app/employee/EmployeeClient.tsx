@@ -29,6 +29,7 @@ import {
 import { DashboardShell } from "@/components/dashboard-shell";
 import { EmployeeSectionCards } from "@/components/employee-section-cards";
 import { EmployeeFlowCanvas } from "@/components/employee-flow-canvas";
+import { ReimbursementAgentDrawer } from "./ReimbursementAgentDrawer";
 import { SmartAccountActivationButton } from "@/components/smart-account-activation-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -381,7 +382,16 @@ export function EmployeeClient() {
   // Agents come from identity.ts getEmployeeDashboardState — not yet returned in
   // EmployeeDashboardState, but the sidebar will use company agents once Phase 6
   // adds the catalog. For now we pass an empty array (placeholder agents show).
-  const sidebarAgents = useMemo(() => [], []);
+  // Platform agents come from dashboardState.agents (populated by getEmployeeDashboardState).
+  const sidebarAgents = useMemo(
+    () =>
+      (dashboardState?.agents ?? []).map((agent) => ({
+        id: agent.id,
+        name: agent.name,
+        detail: agent.description ?? "Platform AI agent",
+      })),
+    [dashboardState?.agents],
+  );
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -419,11 +429,20 @@ export function EmployeeClient() {
     });
   };
 
+  const [isReimbursementDrawerOpen, setIsReimbursementDrawerOpen] = useState(false);
+
   // Task 4: agent picker — creates a new redelegation row then opens the drawer
   const handleSelectAgent = useCallback(
     (agentId: string) => {
-      if (!address) return;
+      if (!address || !dashboardState) return;
       setError(null);
+
+      const selectedAgent = dashboardState.agents.find(a => a.id === agentId);
+      if (selectedAgent?.name === "Reimbursement Agent") {
+        setIsReimbursementDrawerOpen(true);
+        return;
+      }
+
       startTransition(async () => {
         try {
           const state = await createAgentRedelegation({ walletAddress: address, agentId });
@@ -854,6 +873,16 @@ export function EmployeeClient() {
           )}
         </DrawerContent>
       </Drawer>
+
+      {dashboardState && (
+        <ReimbursementAgentDrawer
+          isOpen={isReimbursementDrawerOpen}
+          onOpenChange={setIsReimbursementDrawerOpen}
+          companyId={dashboardState.company.id}
+          employeeId={dashboardState.employee.id}
+          agentId={dashboardState.agents.find(a => a.name === "Reimbursement Agent")?.id || ""}
+        />
+      )}
     </DashboardShell>
   );
 }

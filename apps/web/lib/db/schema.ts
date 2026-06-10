@@ -1,4 +1,5 @@
 import {
+  boolean,
   doublePrecision,
   index,
   jsonb,
@@ -46,6 +47,13 @@ export const caveatTypeEnum = pgEnum("caveat_type", [
   "custom",
 ]);
 
+export const claimStatusEnum = pgEnum("claim_status", [
+  "pending",
+  "approved",
+  "rejected",
+  "failed",
+]);
+
 export const users = pgTable(
   "users",
   {
@@ -89,22 +97,28 @@ export const companies = pgTable(
   ],
 );
 
+/**
+ * Platform-owned AI agents. Not scoped to any company — all companies see
+ * the same catalog. The backend signer key is stored in env vars; only the
+ * signer's EOA address is stored here for reference.
+ */
 export const agents = pgTable(
   "agents",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
+    description: text("description"),
+    /** The deployed smart account that receives delegations and redeems them. */
     smartAccountAddress: text("smart_account_address").notNull(),
-    backendSignerAddress: text("backend_signer_address").notNull(),
+    /** EOA address of the backend signer that controls the smart account. */
+    signerAddress: text("signer_address").notNull(),
+    isActive: boolean("is_active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (table) => [
-    index("agents_company_id_idx").on(table.companyId),
+    index("agents_is_active_idx").on(table.isActive),
     uniqueIndex("agents_smart_account_address_unique").on(
       table.smartAccountAddress,
     ),
@@ -150,6 +164,7 @@ export const delegations = pgTable(
     delegateeId: uuid("delegatee_id"),
     delegationHash: text("delegation_hash"),
     signedDelegation: jsonb("signed_delegation"),
+    policyPrompt: text("policy_prompt"),
     status: delegationStatusEnum("status").notNull().default("pending_config"),
     canvasPositionX: doublePrecision("canvas_position_x").notNull().default(0),
     canvasPositionY: doublePrecision("canvas_position_y").notNull().default(0),
@@ -190,5 +205,49 @@ export const delegationCaveats = pgTable(
   (table) => [
     index("delegation_caveats_delegation_id_idx").on(table.delegationId),
     index("delegation_caveats_caveat_type_idx").on(table.caveatType),
+  ],
+);
+
+/**
+ * Audit log for every agent claim attempt — approved, rejected, or failed.
+ * Stores the full Venice reasoning, prompt, and on-chain tx hash for employer
+ * visibility.
+ */
+export const claimRedemptions = pgTable(
+  "claim_redemptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    agentId: uuid("agent_id").references(() => agents.id, {
+      onDelete: "set null",
+    }),
+    employeeId: uuid("employee_id").references(() => users.id, {
+      onDelete: "set null",
+    }),
+    companyId: uuid("company_id").references(() => companies.id, {
+      onDelete: "set null",
+    }),
+    /** Hash of the delegation that was (or would have been) redeemed. */
+    delegationHash: text("delegation_hash"),
+    claimDescription: text("claim_description").notNull(),
+    amountEth: text("amount_eth").notNull(),
+    /** Vercel Blob URL of the uploaded receipt image, if provided. */
+    receiptUrl: text("receipt_url"),
+    /** Full prompt text sent to Venice, stored for audit. */
+    venicePrompt: text("venice_prompt"),
+    veniceApproved: boolean("venice_approved"),
+    veniceReasoning: text("venice_reasoning"),
+    veniceConfidence: doublePrecision("venice_confidence"),
+    /** On-chain tx hash of the UserOperation that redeemed the delegation. */
+    txHash: text("tx_hash"),
+    status: claimStatusEnum("status").notNull().default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("claim_redemptions_agent_id_idx").on(table.agentId),
+    index("claim_redemptions_employee_id_idx").on(table.employeeId),
+    index("claim_redemptions_company_id_idx").on(table.companyId),
+    index("claim_redemptions_status_idx").on(table.status),
   ],
 );

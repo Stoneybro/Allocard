@@ -42,12 +42,18 @@ type CompanyEmployee = {
   createdAt: string;
 };
 
-type CompanyAgent = {
+type PlatformAgent = {
   id: string;
   name: string;
+  description: string | null;
   smartAccountAddress: string;
+  signerAddress: string;
+  isActive: boolean;
   createdAt: string;
 };
+
+/** @deprecated Use PlatformAgent. Kept for CompanyDashboardState compat. */
+type CompanyAgent = PlatformAgent;
 
 type CompanyDelegation = {
   id: string;
@@ -58,6 +64,7 @@ type CompanyDelegation = {
   delegateeId: string | null;
   delegationHash: string | null;
   signedDelegation: unknown;
+  policyPrompt: string | null;
   status: "pending_config" | "active" | "revoked";
   canvasPositionX: number;
   canvasPositionY: number;
@@ -67,7 +74,7 @@ type CompanyDelegation = {
   revokedAt: string | null;
 };
 
-type CompanyDelegationCaveat = {
+export type CompanyDelegationCaveat = {
   id: string;
   delegationId: string;
   caveatType:
@@ -105,10 +112,12 @@ type CaveatRowWithoutDelegationId = Omit<
 export type CompanyDashboardState = {
   company: ProfileCompany;
   employees: CompanyEmployee[];
-  agents: CompanyAgent[];
+  /** All active platform agents — same catalog regardless of company. */
+  agents: PlatformAgent[];
   delegations: CompanyDelegation[];
   summary: {
     employeeCount: number;
+    /** Number of active company → agent delegations (not total agent count). */
     activeAgentCount: number;
     activeDelegationCount: number;
     delegatedNativeEthAllowance: string;
@@ -237,6 +246,7 @@ function toCompanyDelegation(
     delegateeId: delegation.delegateeId,
     delegationHash: delegation.delegationHash,
     signedDelegation: delegation.signedDelegation,
+    policyPrompt: delegation.policyPrompt,
     status: delegation.status,
     canvasPositionX: delegation.canvasPositionX,
     canvasPositionY: delegation.canvasPositionY,
@@ -825,6 +835,59 @@ export async function createEmployeeDelegation(input: {
   return getCompanyDashboardState(input.walletAddress);
 }
 
+// ---------------------------------------------------------------------------
+// createAgentDelegation — company → platform agent (employer canvas)
+// ---------------------------------------------------------------------------
+
+export async function createAgentDelegation(input: {
+  walletAddress: string;
+  agentId: string;
+  canvasPositionX: number;
+  canvasPositionY: number;
+}): Promise<CompanyDashboardState> {
+  const profile = await getEmployerProfileOrThrow(input.walletAddress);
+
+  const [agent] = await db
+    .select()
+    .from(agents)
+    .where(and(eq(agents.id, input.agentId), eq(agents.isActive, true)))
+    .limit(1);
+
+  if (!agent) {
+    throw new Error("Agent not found or is inactive");
+  }
+
+  // Prevent duplicate active/pending-config delegations to the same agent.
+  const [existingDelegation] = await db
+    .select()
+    .from(delegations)
+    .where(
+      and(
+        eq(delegations.delegatorType, "company"),
+        eq(delegations.delegatorId, profile.company.id),
+        eq(delegations.delegateeType, "agent"),
+        eq(delegations.delegateeId, agent.id),
+        inArray(delegations.status, ["pending_config", "active"]),
+      ),
+    )
+    .limit(1);
+
+  if (existingDelegation) {
+    return getCompanyDashboardState(input.walletAddress);
+  }
+
+  await db.insert(delegations).values({
+    delegatorType: "company",
+    delegatorId: profile.company.id,
+    delegateeType: "agent",
+    delegateeId: agent.id,
+    canvasPositionX: input.canvasPositionX,
+    canvasPositionY: input.canvasPositionY,
+  });
+
+  return getCompanyDashboardState(input.walletAddress);
+}
+
 export async function updateDelegationPosition(input: {
   walletAddress: string;
   delegationId: string;
@@ -848,6 +911,7 @@ export async function saveDelegationCaveats(input: {
   walletAddress: string;
   delegationId: string;
   caveats: DelegationCaveatInput;
+  policyPrompt?: string;
 }) {
   const { delegation } = await getEmployerDelegationOrThrow(
     input.walletAddress,
@@ -873,17 +937,21 @@ export async function saveDelegationCaveats(input: {
     );
   }
 
+  const updatePayload: any = {
+    policyPrompt: input.policyPrompt ?? null,
+  };
+
   if (delegation.status === "active") {
-    await db
-      .update(delegations)
-      .set({
-        status: "pending_config",
-        delegationHash: null,
-        signedDelegation: null,
-        activatedAt: null,
-      })
-      .where(eq(delegations.id, input.delegationId));
+    updatePayload.status = "pending_config";
+    updatePayload.delegationHash = null;
+    updatePayload.signedDelegation = null;
+    updatePayload.activatedAt = null;
   }
+
+  await db
+    .update(delegations)
+    .set(updatePayload)
+    .where(eq(delegations.id, input.delegationId));
 
   return getCompanyDashboardState(input.walletAddress);
 }
@@ -935,6 +1003,29 @@ export async function activateDelegation(input: {
 
     if (!employee?.smartAccountAddress) {
       throw new Error("The employee smart account must be activated first");
+    }
+  }
+
+  if (delegation.delegateeType === "agent") {
+    if (!delegation.delegateeId) {
+      throw new Error("Agent delegation is missing its delegatee");
+    }
+
+    const [agent] = await db
+      .select()
+      .from(agents)
+      .where(eq(agents.id, delegation.delegateeId))
+      .limit(1);
+
+    if (!agent?.smartAccountAddress) {
+      throw new Error("The agent does not have a smart account configured yet");
+    }
+
+    // Reject placeholder addresses — real addresses are set during Piece 3-5 deployment.
+    if (agent.smartAccountAddress.startsWith("0x000000000000000000000000000000000000000")) {
+      throw new Error(
+        `${agent.name} smart account has not been deployed yet. Complete the agent deployment setup first.`,
+      );
     }
   }
 
@@ -1003,7 +1094,7 @@ export async function getCompanyDashboardState(
     throw new Error("Only a company owner can view the company dashboard");
   }
 
-  const [companyEmployees, companyAgents, companyDelegations] =
+  const [companyEmployees, platformAgents, companyDelegations] =
     await Promise.all([
       db
         .select({
@@ -1016,15 +1107,11 @@ export async function getCompanyDashboardState(
         .where(
           and(eq(users.companyId, profile.company.id), eq(users.role, "employee")),
         ),
+      // Platform agents — global catalog, not company-scoped.
       db
-        .select({
-          id: agents.id,
-          name: agents.name,
-          smartAccountAddress: agents.smartAccountAddress,
-          createdAt: agents.createdAt,
-        })
+        .select()
         .from(agents)
-        .where(eq(agents.companyId, profile.company.id)),
+        .where(eq(agents.isActive, true)),
       getCompanyDelegationTree(profile.company.id),
     ]);
   const companyDelegationIds = companyDelegations.map(
@@ -1048,6 +1135,12 @@ export async function getCompanyDashboardState(
   const activeDelegations = companyDelegations.filter(
     (delegation) => delegation.status === "active",
   );
+
+  // Count active company → agent delegations (not total platform agent count).
+  const activeAgentDelegationCount = activeDelegations.filter(
+    (d) => d.delegateeType === "agent",
+  ).length;
+
   let delegatedNativeEthAllowanceWei = 0n;
 
   if (activeDelegations.length > 0) {
@@ -1078,8 +1171,13 @@ export async function getCompanyDashboardState(
       ...employee,
       createdAt: employee.createdAt.toISOString(),
     })),
-    agents: companyAgents.map((agent) => ({
-      ...agent,
+    agents: platformAgents.map((agent) => ({
+      id: agent.id,
+      name: agent.name,
+      description: agent.description,
+      smartAccountAddress: agent.smartAccountAddress,
+      signerAddress: agent.signerAddress,
+      isActive: agent.isActive,
       createdAt: agent.createdAt.toISOString(),
     })),
     delegations: companyDelegations.map((delegation) =>
@@ -1090,7 +1188,7 @@ export async function getCompanyDashboardState(
     ),
     summary: {
       employeeCount: companyEmployees.length,
-      activeAgentCount: companyAgents.length,
+      activeAgentCount: activeAgentDelegationCount,
       activeDelegationCount: activeDelegations.length,
       delegatedNativeEthAllowance: formatEthAllowance(
         delegatedNativeEthAllowanceWei,
@@ -1114,6 +1212,8 @@ export type EmployeeDashboardState = {
   inboundDelegation: CompanyDelegation | null;
   /** Redelegations created BY this employee (delegator_type = 'user', delegator_id = employee.id). */
   outboundDelegations: CompanyDelegation[];
+  /** All active platform agents — available for the employee to redelegate to. */
+  agents: PlatformAgent[];
   summary: {
     /** ETH limit approved by the company (from the inbound delegation caveats). */
     approvedLimitEth: string;
@@ -1211,6 +1311,12 @@ export async function getEmployeeDashboardState(
     (d) => d.delegateeType === "agent",
   ).length;
 
+  // ── Platform agent catalog ────────────────────────────────────────────────
+  const platformAgents = await db
+    .select()
+    .from(agents)
+    .where(eq(agents.isActive, true));
+
   return {
     employee: {
       id: user.id,
@@ -1220,6 +1326,15 @@ export async function getEmployeeDashboardState(
     company,
     inboundDelegation,
     outboundDelegations,
+    agents: platformAgents.map((agent) => ({
+      id: agent.id,
+      name: agent.name,
+      description: agent.description,
+      smartAccountAddress: agent.smartAccountAddress,
+      signerAddress: agent.signerAddress,
+      isActive: agent.isActive,
+      createdAt: agent.createdAt.toISOString(),
+    })),
     summary: {
       approvedLimitEth: formatEthAllowance(approvedLimitWei),
       redelegatedEth: formatEthAllowance(redelegatedWei),

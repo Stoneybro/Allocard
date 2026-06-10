@@ -236,6 +236,9 @@ importers:
       '@tanstack/react-table':
         specifier: ^8.21.3
         version: 8.21.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@vercel/blob':
+        specifier: ^2.4.0
+        version: 2.4.0
       '@web3auth/modal':
         specifier: ^11.0.2
         version: 11.0.2(@babel/runtime@7.29.7)(@edge-runtime/vm@3.2.0)(@sentry/core@10.56.0)(@solana/client@1.7.0(@solana/sysvars@6.9.0(typescript@5.9.3))(@types/react@19.2.16)(immer@11.1.8)(react@19.2.4)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.4)))(@solana/kit@6.9.0(typescript@5.9.3))(@solana/sysvars@6.9.0(typescript@5.9.3))(@types/node@20.19.41)(@types/react@19.2.16)(@vercel/blob@2.4.0)(immer@11.1.8)(jsdom@25.0.1)(msw@2.14.6(@types/node@20.19.41)(typescript@5.9.3))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)(use-sync-external-store@1.4.0(react@19.2.4))(viem@2.52.2(typescript@5.9.3)(zod@4.4.3))(vite@8.0.16(@types/node@20.19.41)(esbuild@0.27.0)(jiti@2.7.0)(tsx@4.21.0))(zod@4.4.3)

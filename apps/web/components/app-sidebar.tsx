@@ -334,17 +334,29 @@ function CanvasSection({
                   <SidebarMenuItem key={agent.id}>
                     <SidebarMenuButton
                       id={`agent-${agent.id}`}
-                      tooltip={agent.isPlaceholder ? agent.detail : (role === "employee" ? `Delegate to ${agent.name}` : agent.detail)}
+                      tooltip={agent.isPlaceholder ? agent.detail : (role === "employee" ? `Delegate to ${agent.name}` : `Drag to canvas: ${agent.name}`)}
+                      draggable={!agent.isPlaceholder && role !== "employee"}
                       className={`h-auto py-2 ${
                         agent.isPlaceholder
                           ? "cursor-default select-none opacity-50"
                           : role === "employee"
                           ? "cursor-pointer"
-                          : ""
+                          : "cursor-grab active:cursor-grabbing"
                       }`}
                       onClick={
                         !agent.isPlaceholder && role === "employee" && onSelectAgent
                           ? () => onSelectAgent(agent.id)
+                          : undefined
+                      }
+                      onDragStart={
+                        !agent.isPlaceholder && role !== "employee"
+                          ? (event) => {
+                              event.dataTransfer.setData(
+                                "application/allocard-agent-id",
+                                agent.id,
+                              );
+                              event.dataTransfer.effectAllowed = "copy";
+                            }
                           : undefined
                       }
                     >

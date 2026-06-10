@@ -315,20 +315,28 @@ function buildDelegatorNodeId(delegation: DelegationCanvasDelegation) {
 export function DashboardFlowCanvas({
   company,
   employees,
+  agents,
   delegations,
   headerAction,
   onConfigureDelegation,
   onDropEmployee,
+  onDropAgent,
   onMoveDelegation,
   onRevokeDelegation,
 }: {
   company: DelegationCanvasCompany;
   employees: DelegationCanvasEmployee[];
+  agents?: DelegationCanvasAgent[];
   delegations: DelegationCanvasDelegation[];
   headerAction?: ReactNode;
   onConfigureDelegation?: (delegationId: string) => void;
   onDropEmployee?: (input: {
     employeeId: string;
+    canvasPositionX: number;
+    canvasPositionY: number;
+  }) => void;
+  onDropAgent?: (input: {
+    agentId: string;
     canvasPositionX: number;
     canvasPositionY: number;
   }) => void;
@@ -393,7 +401,34 @@ export function DashboardFlowCanvas({
       });
     });
 
+    // Render agent nodes for any agent-targeted delegations.
+    (agents ?? []).forEach((agent, index) => {
+      const nodeId = `agent:${agent.id}`;
+      const delegation = delegationByDelegatee.get(nodeId);
 
+      // Only show on canvas if there's a delegation to this agent.
+      if (!delegation) return;
+
+      nextNodes.push({
+        id: nodeId,
+        type: "delegation",
+        position: { x: delegation.canvasPositionX, y: delegation.canvasPositionY },
+        data: {
+          delegationId: delegation.id,
+          title: agent.name,
+          subtitle: "AI Agent",
+          address: agent.smartAccountAddress ?? undefined,
+          status: delegation.status,
+          kind: "agent",
+          isPlaceholder: agent.isPlaceholder,
+          canConfigure: true,
+          onConfigure: onConfigureDelegation,
+          onRevoke: onRevokeDelegation,
+        },
+      });
+
+      void index; // suppress unused var
+    });
 
     const nextEdges = delegations.reduce<Edge[]>((edges, delegation) => {
         const source = buildDelegatorNodeId(delegation);
@@ -423,7 +458,7 @@ export function DashboardFlowCanvas({
       }, []);
 
     return { nodes: nextNodes, edges: nextEdges };
-  }, [company, delegations, employees, onConfigureDelegation, onRevokeDelegation]);
+  }, [company, agents, delegations, employees, onConfigureDelegation, onRevokeDelegation]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(derivedNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(derivedEdges);
@@ -445,23 +480,26 @@ export function DashboardFlowCanvas({
   const handleDrop = useCallback(
     (event: DragEvent<HTMLDivElement>) => {
       event.preventDefault();
+
       const employeeId = event.dataTransfer.getData(
         "application/allocard-employee-id",
       );
+      const agentId = event.dataTransfer.getData(
+        "application/allocard-agent-id",
+      );
 
-      if (!employeeId || !canvasRef.current) {
-        return;
-      }
-
+      if (!canvasRef.current) return;
       const bounds = canvasRef.current.getBoundingClientRect();
+      const canvasPositionX = event.clientX - bounds.left;
+      const canvasPositionY = event.clientY - bounds.top;
 
-      onDropEmployee?.({
-        employeeId,
-        canvasPositionX: event.clientX - bounds.left,
-        canvasPositionY: event.clientY - bounds.top,
-      });
+      if (employeeId) {
+        onDropEmployee?.({ employeeId, canvasPositionX, canvasPositionY });
+      } else if (agentId) {
+        onDropAgent?.({ agentId, canvasPositionX, canvasPositionY });
+      }
     },
-    [onDropEmployee],
+    [onDropEmployee, onDropAgent],
   );
 
   return (

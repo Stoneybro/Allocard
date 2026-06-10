@@ -11,11 +11,12 @@ import {
   type Caveats,
   type Delegation,
 } from "@metamask/smart-accounts-kit";
-import { LoaderCircleIcon, ShieldCheckIcon } from "lucide-react";
+import { LoaderCircleIcon, ShieldCheckIcon, BotIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { parseEther, formatEther, type Hex } from "viem";
 import {
   activateDelegation,
+  createAgentDelegation,
   createCompanyInvite,
   createEmployeeDelegation,
   getCompanyDashboardState,
@@ -38,6 +39,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Drawer,
   DrawerContent,
@@ -70,6 +73,7 @@ type CaveatForm = {
   allowedTargets: string;
   limitedCallsEnabled: boolean;
   limitedCalls: string;
+  policyPrompt: string;
 };
 
 const emptyCaveatForm: CaveatForm = {
@@ -80,6 +84,7 @@ const emptyCaveatForm: CaveatForm = {
   allowedTargets: "",
   limitedCallsEnabled: false,
   limitedCalls: "1",
+  policyPrompt: "",
 };
 
 const periodDurations = {
@@ -144,9 +149,9 @@ function formFromDelegation(delegation: DelegationRow | null): CaveatForm {
       nextForm.limitedCalls =
         typeof value.limit === "number" ? String(value.limit) : "1";
     }
-
-
   }
+
+  nextForm.policyPrompt = delegation.policyPrompt ?? "";
 
   return nextForm;
 }
@@ -596,6 +601,18 @@ export function EmployerClient() {
       return employee.smartAccountAddress as `0x${string}`;
     }
 
+    if (delegation.delegateeType === "agent" && delegation.delegateeId) {
+      const agent = dashboardState.agents.find(
+        (item) => item.id === delegation.delegateeId,
+      );
+
+      if (!agent?.smartAccountAddress) {
+        throw new Error("The agent smart account is not configured yet");
+      }
+
+      return agent.smartAccountAddress as `0x${string}`;
+    }
+
     throw new Error("Delegation target is incomplete");
   };
 
@@ -616,6 +633,7 @@ export function EmployerClient() {
           walletAddress: address,
           delegationId: selectedDelegation.id,
           caveats: buildServerCaveats(caveatForm),
+          policyPrompt: caveatForm.policyPrompt,
         });
         updateDashboard(savedState);
 
@@ -673,7 +691,11 @@ export function EmployerClient() {
           ? formatWalletAddress(employee.smartAccountAddress)
           : "Smart account pending",
       }))}
-      agents={[]}
+      agents={dashboardState.agents.map((agent) => ({
+        id: agent.id,
+        name: agent.name,
+        detail: agent.description ?? "Platform AI agent",
+      }))}
       inviteError={error}
       inviteLink={inviteLink}
       invitePending={isPending}
@@ -696,7 +718,7 @@ export function EmployerClient() {
       <div className="flex min-h-full flex-col gap-4">
         <SectionCards
           employeeCount={dashboardState.summary.employeeCount}
-          activeAgentCount={0}
+      activeAgentCount={dashboardState.summary.activeAgentCount}
           activeDelegationCount={dashboardState.summary.activeDelegationCount}
           delegatedNativeEthAllowance={
             dashboardState.summary.delegatedNativeEthAllowance
@@ -705,6 +727,11 @@ export function EmployerClient() {
         <DashboardFlowCanvas
           company={canvasCompany ?? company}
           employees={canvasEmployees}
+          agents={dashboardState.agents.map((agent) => ({
+            id: agent.id,
+            name: agent.name,
+            smartAccountAddress: agent.smartAccountAddress,
+          }))}
           delegations={canvasDelegations}
           headerAction={
             <SmartAccountActivationButton
@@ -717,6 +744,16 @@ export function EmployerClient() {
           }
           onConfigureDelegation={handleConfigureDelegation}
           onDropEmployee={handleDropEmployee}
+          onDropAgent={({ agentId, canvasPositionX, canvasPositionY }) =>
+            runDashboardMutation(() =>
+              createAgentDelegation({
+                walletAddress: address,
+                agentId,
+                canvasPositionX,
+                canvasPositionY,
+              }),
+            )
+          }
           onMoveDelegation={handleMoveDelegation}
           onRevokeDelegation={handleRevokeDelegation}
         />
@@ -925,6 +962,36 @@ export function EmployerClient() {
                 )}
               </div>
             </div>
+
+            <Separator />
+
+            {/* Section 4: AI Policy Prompt */}
+            {selectedDelegation?.delegateeType === "agent" && (
+              <div className="flex flex-col gap-4">
+                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <BotIcon className="h-4 w-4 text-chart-5" />
+                  4. AI Policy Prompt
+                </h4>
+                
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="policy-prompt">Natural Language Rules</Label>
+                  <Textarea
+                    id="policy-prompt"
+                    value={caveatForm.policyPrompt}
+                    disabled={selectedDelegation?.status === "active"}
+                    onChange={(event) =>
+                      setCaveatForm((form) => ({
+                        ...form,
+                        policyPrompt: event.target.value,
+                      }))
+                    }
+                    placeholder="e.g. Do not reimburse alcohol. Limit meals to $50. Flights must be economy."
+                    className="min-h-[100px] resize-none"
+                  />
+                  <p className="text-[0.8rem] text-muted-foreground">These rules will be fed to the AI Agent to evaluate claims. The hard on-chain limits above still apply as a security net.</p>
+                </div>
+              </div>
+            )}
             
             <div className="pb-4"></div>
           </div>
