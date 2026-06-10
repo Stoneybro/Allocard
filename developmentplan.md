@@ -6,7 +6,7 @@ Allocard is intended to be a trustless corporate expense card system built aroun
 
 The intended product has two primary modules:
 
-- Employer module: company onboarding, master card activation, employee invites, agent management, delegation tree management, caveat configuration, activation, revocation, and full-tree visibility.
+- Employer module: company onboarding, master card activation, employee invites, platform agent selection, delegation tree management, caveat configuration, activation, revocation, and full-tree visibility.
 - Employee module: employee onboarding through invites, viewing received authority, redelegating to agents or EOAs, and managing only delegations created from the employee's authority.
 
 The current codebase is a Next.js app with Phase 1 database setup and Phase 2 wallet-based onboarding in place. It can resolve connected wallets, create employer/company records, generate invite links, accept employee invites, and route users to role-specific dashboards. The initial Drizzle migration has been applied to Neon. Delegation configuration, smart account activation in the dashboard, and agent execution still belong to later phases.
@@ -220,7 +220,7 @@ Steps:
    - Show employee-created child delegations.
 
 2. Enforce redelegation target rules.
-   - Allow redelegation to company agents.
+   - Allow redelegation to approved platform agents.
    - Allow redelegation to EOAs.
    - Block redelegation to other employees.
    - Treat EOAs as terminal nodes.
@@ -244,36 +244,65 @@ Acceptance checkpoint:
 
 ## Phase 6: AI Agents and A2A Coordination
 
-Goal: implement the agent story beyond static sidebar entries.
+Goal: implement the platform-owned agent story beyond static sidebar entries, with Venice AI as the reasoning layer and MetaMask Smart Accounts Kit delegations as the execution permission layer.
+
+Product decision:
+
+- Agents are global Allocard platform agents, not company-created agents.
+- Employers and employees can delegate to approved platform agents, but they cannot create or modify the agent catalog.
+- Each agent has a platform-controlled smart account and backend signer. The signer is never exposed to employers, employees, or the browser.
+- Agents can participate as both delegatees and delegators, enabling chains such as:
+  - Company → Agent → Employee
+  - Employee → Agent → Agent
+  - Company → Agent → Employee → Agent
+- 1Shot API is intentionally out of scope for the MVP to keep the architecture focused on MetaMask Smart Accounts Kit, redelegation, and Venice-powered agent behavior.
 
 Steps:
 
-1. Define agent ownership and lifecycle.
-   - Employer can create company agents.
-   - Platform deploys or derives an agent smart account.
-   - Store agent smart account address and backend signer address.
+1. Redefine agent ownership and lifecycle.
+   - Replace company-owned agents with a platform agent catalog.
+   - Only the platform operator can seed or administer agents.
+   - Store agent name, role, description, status, smart account address, backend signer address, and Venice model/tool configuration.
+   - Keep company-specific authority in `delegations`, not in the agent record itself.
 
 2. Define backend signer key management.
    - Decide where signer keys live.
    - Ensure private keys are never exposed to the browser.
    - Add rotation and environment separation guidance.
 
-3. Build delegation redemption service.
-   - Agent process selects an active delegation.
-   - Builds transaction intent.
+3. Define Venice-powered agent reasoning.
+   - Use Venice to interpret expense requests, classify spend category, evaluate policy context, and produce a structured transaction intent.
+   - Persist the Venice prompt, structured output, confidence, and reasoning summary in the audit log.
+   - Treat Venice output as advisory. Caveats and server-side validation decide whether execution is allowed.
+
+4. Build delegation redemption service.
+   - Agent process selects an active delegation or redelegation.
+   - Builds transaction intent from either a user request or Venice-generated plan.
+   - Validates the intent against stored caveats before submission.
    - Redeems through Delegation Manager.
    - Records redemption result in the database.
 
-4. Add agent controls.
+5. Add A2A delegation support.
+   - Allow company → agent delegations.
+   - Allow employee → agent redelegations.
+   - Allow agent → agent redelegations when the active parent delegation and caveats permit it.
+   - Allow company → agent → employee workflows for controlled routing through a platform agent.
+   - Preserve parent/child caveat restriction checks for every redelegation hop.
+
+6. Add agent controls and visibility.
    - Agent enable/disable.
+   - Agent catalog visibility in employer and employee sidebars.
    - Spending logs.
    - Failure states.
    - Clear indication of which caveats constrain each agent.
+   - Clear indication of which Venice output led to each proposed or executed action.
 
 Acceptance checkpoint:
 
 - An agent can redeem a valid delegation using a backend-controlled signer.
-- Employers can audit what the agent did and under which delegation.
+- Venice AI is used in the main agent flow to produce a meaningful expense decision, classification, or transaction intent.
+- Employers can audit what the agent did, which delegation authorized it, which caveats constrained it, and what Venice produced before execution.
+- The demo can show at least one multi-hop A2A chain, ideally Company → Agent → Employee → Agent or Employee → Agent → Agent.
 
 ## Phase 7: Observability, Security, and Production Readiness
 

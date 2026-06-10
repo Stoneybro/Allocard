@@ -411,11 +411,6 @@ export function AppSidebar({
   onCreateInvite,
   role,
   smartAccountLabel,
-  // Kept for API compatibility — feature removed
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  eoaPending: _eoaPending,
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  onAddEoa: _onAddEoa,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   roleLabel: _roleLabel,
   ...props
@@ -423,13 +418,11 @@ export function AppSidebar({
   agents: SidebarAgent[];
   companyName: string;
   copiedInvite?: boolean;
-  eoaPending?: boolean;
   employees: SidebarEmployee[];
   inviteError?: string | null;
   inviteLink?: string | null;
   invitePending?: boolean;
   onAddEmployee?: (employeeId: string) => void;
-  onAddEoa?: (input: { address: string; label: string }) => void;
   onCopyInvite?: () => void;
   onCreateInvite?: () => void;
   role?: "employer" | "employee";

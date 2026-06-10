@@ -34,7 +34,6 @@ export const delegatorTypeEnum = pgEnum("delegator_type", [
 export const delegateeTypeEnum = pgEnum("delegatee_type", [
   "user",
   "agent",
-  "eoa",
 ]);
 
 export const caveatTypeEnum = pgEnum("caveat_type", [
@@ -149,8 +148,6 @@ export const delegations = pgTable(
     delegatorId: uuid("delegator_id").notNull(),
     delegateeType: delegateeTypeEnum("delegatee_type").notNull(),
     delegateeId: uuid("delegatee_id"),
-    delegateeAddress: text("delegatee_address"),
-    delegateeLabel: text("delegatee_label"),
     delegationHash: text("delegation_hash"),
     signedDelegation: jsonb("signed_delegation"),
     status: delegationStatusEnum("status").notNull().default("pending_config"),

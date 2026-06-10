@@ -6,7 +6,7 @@ Allocard is a trustless corporate expense card system built on MetaMask Smart Ac
 
 The problem Allocard solves is a fundamental one in corporate finance: when a company issues an expense card, it is relying entirely on employee integrity. Allocard makes this system trustless. An employee can only spend what the caveat rules allow — the enforcement is on-chain, not policy-based.
 
-The project was built for the MetaMask hackathon and satisfies the requirements for both the Smart Accounts track (delegation, redelegation) and the A2A coordination track (employer-to-agent and employee-to-agent delegation chains).
+The project was built for the MetaMask hackathon and satisfies the requirements for both the Smart Accounts track (delegation, redelegation) and the A2A coordination track through platform-owned AI agents that can participate in multi-hop delegation chains.
 
 ---
 
@@ -29,10 +29,13 @@ Crucially, the funds never leave the delegator's account until a transaction is 
 
 ### Redelegation
 
-Redelegation is when a delegatee re-issues a new delegation from the authority they received. In Allocard, this means an employee who has been delegated spending authority can redelegate a portion of that authority to an AI agent. The chain looks like this:
+Redelegation is when a delegatee re-issues a new delegation from the authority they received. In Allocard, this means an employee or platform agent can redelegate a portion of received authority to another allowed actor. Example chains include:
 
 ```
 Company smart account → Employee smart account → AI agent smart account
+Company smart account → AI agent smart account → Employee smart account
+Employee smart account → AI agent smart account → AI agent smart account
+Company smart account → AI agent smart account → Employee smart account → AI agent smart account
 ```
 
 A redelegation cannot exceed the authority of the parent delegation. If an employee has a $500/month spending limit, they cannot redelegate a $1000/month limit to an agent. This is enforced on-chain by the Delegation Manager.
@@ -172,7 +175,7 @@ The employee can see the delegation they received from the company but cannot mo
 
 ### Redelegation from employee canvas
 
-The employee can redelegate to AI agents (from the company's agent list) or to EOA addresses. The caveat configuration must be equal to or more restrictive than the parent delegation from the company. If the parent delegation allows $500/month in USDC, the employee cannot redelegate $600/month. This is enforced both in the UI (capped inputs) and on-chain by the Delegation Manager.
+The employee can redelegate to approved platform AI agents or to EOA addresses. The caveat configuration must be equal to or more restrictive than the parent delegation from the company. If the parent delegation allows $500/month in USDC, the employee cannot redelegate $600/month. This is enforced both in the UI (capped inputs) and on-chain by the Delegation Manager.
 
 ### EOA delegation from employee canvas
 
@@ -182,13 +185,37 @@ Same as the employer — the employee can add a raw wallet address with an optio
 
 ## AI Agents
 
-AI agents are smart accounts deployed by the platform on behalf of a company. Each agent has its own smart account address and a backend-controlled signer key. The platform manages these keys; they are not exposed to the employer.
+AI agents are global Allocard platform agents. They are not created by employers or employees. The platform operator creates and maintains the agent catalog, and every company can delegate to the approved platform agents that Allocard exposes in the product.
 
-Agents are named entities in the system (e.g. "Procurement Agent", "Travel Agent"). They are listed in the sidebar of both the employer and employee modules and can be delegated to like any other recipient.
+Each agent has its own smart account address and a backend-controlled signer key. The platform manages these keys; they are not exposed to the employer, employee, or browser.
 
-Because the platform controls the agent's signing key, agents can be used to execute on-chain transactions automatically within the bounds of their caveats. This is the A2A coordination story: an employer or employee delegates to an agent, and the agent autonomously redeems the delegation to make purchases or payments without human approval for each transaction.
+Agents are named entities in the system, such as a Procurement Agent, Travel Agent, Policy Agent, Vendor Payment Agent, or Reconciliation Agent. They are listed in the sidebar of both the employer and employee modules and can be delegated to like any other recipient.
 
-The employer owns any agents they create. Agents belong to a company via `company_id` in the `agents` table.
+Because the platform controls the agent's signing key, agents can execute or redelegate on-chain authority automatically within the bounds of their caveats. This is the A2A coordination story: an employer, employee, or agent delegates constrained authority to another agent, and each downstream action remains limited by the parent delegation.
+
+Venice AI is the reasoning layer for the agents. Venice is used to interpret expense requests, classify spend category, inspect policy context, coordinate with other agents, and produce structured transaction intents. Venice output is never treated as authority by itself. Allocard still validates the proposed action against stored caveats, delegation status, and role rules before any redemption is attempted.
+
+1Shot API is intentionally out of scope for the MVP. Allocard's hackathon implementation should stay focused on MetaMask Smart Accounts Kit, redelegation, A2A coordination, and Venice-powered agent behavior.
+
+### Recommended platform agents
+
+| Agent | Role | Venice AI responsibility | On-chain role |
+|---|---|---|---|
+| Policy Agent | Checks whether a spend request matches company expense policy and the active delegation caveats. | Reads the request, summarizes the policy fit, flags missing context, and produces an allow/reject recommendation. | Can receive delegated authority and redelegate a narrower allowance to another agent or employee. |
+| Procurement Agent | Handles approved purchases for software, equipment, and vendor payments. | Converts a purchase request into a structured payment intent with vendor, amount, category, and justification. | Redeems payment delegations or redelegates to the Vendor Payment Agent. |
+| Travel Agent | Handles flights, lodging, transport, and per-diem style expenses. | Classifies travel spend, checks trip context, detects out-of-policy requests, and prepares payment intents. | Redeems travel-specific delegations or redelegates smaller allowances to employees. |
+| Vendor Payment Agent | Executes narrow vendor payments after another agent or employee has approved scope. | Verifies invoice-like details and prepares final payment metadata. | Terminal execution agent for approved target addresses and value caps. |
+| Reconciliation Agent | Reviews completed redemptions and explains how each transaction maps to the delegation chain. | Summarizes logs, categories, policy matches, and exceptions for the employer. | Usually audit-only; may receive read/audit authority rather than spending authority. |
+
+These agents are designed to work together. Useful demo chains include:
+
+```text
+Company → Policy Agent → Employee
+Company → Policy Agent → Employee → Travel Agent
+Company → Procurement Agent → Vendor Payment Agent
+Employee → Travel Agent → Vendor Payment Agent
+Employee → Policy Agent → Procurement Agent
+```
 
 ---
 
@@ -222,7 +249,11 @@ The employer owns any agents they create. Agents belong to a company via `compan
 |---|---|---|
 | id | uuid PK | |
 | name | text | Human-readable agent name |
-| company_id | uuid FK → companies | |
+| slug | text unique | Stable platform identifier |
+| role | text | Agent role, such as policy, procurement, travel, vendor_payment, or reconciliation |
+| description | text | Human-readable explanation of what the agent does |
+| status | enum | enabled \| disabled |
+| venice_config | jsonb | Model, prompt profile, tools, and structured output settings |
 | smart_account_address | text | Platform-deployed |
 | backend_signer_address | text | Platform-controlled signer |
 | created_at | timestamp | |
@@ -289,8 +320,10 @@ These rules must be enforced in both the UI and backend:
 3. An employee cannot redelegate to another employee.
 4. A redelegation's caveats must be equal to or more restrictive than the parent delegation's caveats.
 5. The employer cannot redelegate on behalf of employees. Employees manage their own redelegations from their own module.
-6. The employer can redelegate on behalf of agents they own, because the platform controls the agent's signing key.
-7. Revoking a parent delegation invalidates all child delegations in the chain. This must be reflected in the `status` field of all affected `delegations` rows.
+6. Employers and employees cannot create agents; they can only delegate to approved platform agents.
+7. Agents can redelegate only when the parent delegation and caveat restrictions allow the narrower child delegation.
+8. Agent-created actions must be auditable, including the source delegation, Venice-generated intent, validation result, and transaction result.
+9. Revoking a parent delegation invalidates all child delegations in the chain. This must be reflected in the `status` field of all affected `delegations` rows.
 
 ---
 
@@ -320,7 +353,7 @@ Configuration for a delegation node is done via a shadcn Drawer component that s
 The following areas were flagged during planning and will need to be worked out during implementation:
 
 - Open delegation usage, if any, and how it appears in the canvas UI.
-- The exact mechanism by which agents autonomously redeem delegations (what triggers them, how they authenticate their backend signer, what the agent runtime looks like).
+- The exact mechanism by which agents autonomously redeem delegations, including trigger design, backend signer authentication, Venice prompt design, structured output schema, and audit log shape.
 - How the employer canvas handles real-time updates when an employee creates a redelegation (polling, websockets, or manual refresh).
 - Signed session/cookie middleware. Current route protection depends on the connected wallet state in the browser.
 

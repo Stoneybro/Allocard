@@ -61,7 +61,7 @@ export default function WalletDashboard() {
 
     try {
       if (!address) {
-        throw new Error('No EOA address available after authentication')
+        throw new Error('No wallet address available after authentication')
       }
 
       if (!bundlerUrl) {
@@ -183,7 +183,7 @@ export default function WalletDashboard() {
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-2xl bg-slate-950 p-4 text-white">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-            EOA
+            Wallet Address
           </p>
           <p className="mt-2 break-all font-mono text-sm">
             {address ?? 'Unavailable'}
@@ -224,7 +224,7 @@ export default function WalletDashboard() {
             Network: <span className="font-medium text-slate-900">Base Sepolia</span>
           </p>
           <p>
-            EOA shorthand:{' '}
+            Address:{' '}
             <span className="font-mono text-slate-900">
               {formatAddress(address)}
             </span>

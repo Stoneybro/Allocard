@@ -54,10 +54,8 @@ type CompanyDelegation = {
   parentDelegationId: string | null;
   delegatorType: "company" | "user" | "agent";
   delegatorId: string;
-  delegateeType: "user" | "agent" | "eoa";
+  delegateeType: "user" | "agent";
   delegateeId: string | null;
-  delegateeAddress: string | null;
-  delegateeLabel: string | null;
   delegationHash: string | null;
   signedDelegation: unknown;
   status: "pending_config" | "active" | "revoked";
@@ -237,8 +235,6 @@ function toCompanyDelegation(
     delegatorId: delegation.delegatorId,
     delegateeType: delegation.delegateeType,
     delegateeId: delegation.delegateeId,
-    delegateeAddress: delegation.delegateeAddress,
-    delegateeLabel: delegation.delegateeLabel,
     delegationHash: delegation.delegationHash,
     signedDelegation: delegation.signedDelegation,
     status: delegation.status,
@@ -829,33 +825,6 @@ export async function createEmployeeDelegation(input: {
   return getCompanyDashboardState(input.walletAddress);
 }
 
-export async function createEoaDelegation(input: {
-  walletAddress: string;
-  delegateeAddress: string;
-  delegateeLabel?: string;
-  canvasPositionX: number;
-  canvasPositionY: number;
-}) {
-  const profile = await getEmployerProfileOrThrow(input.walletAddress);
-  const delegateeAddress = normalizeWalletAddress(input.delegateeAddress);
-
-  if (!isAddress(delegateeAddress)) {
-    throw new Error("Enter a valid EOA address");
-  }
-
-  await db.insert(delegations).values({
-    delegatorType: "company",
-    delegatorId: profile.company.id,
-    delegateeType: "eoa",
-    delegateeAddress,
-    delegateeLabel: input.delegateeLabel?.trim() || null,
-    canvasPositionX: input.canvasPositionX,
-    canvasPositionY: input.canvasPositionY,
-  });
-
-  return getCompanyDashboardState(input.walletAddress);
-}
-
 export async function updateDelegationPosition(input: {
   walletAddress: string;
   delegationId: string;
@@ -967,10 +936,6 @@ export async function activateDelegation(input: {
     if (!employee?.smartAccountAddress) {
       throw new Error("The employee smart account must be activated first");
     }
-  }
-
-  if (delegation.delegateeType === "eoa" && !delegation.delegateeAddress) {
-    throw new Error("EOA delegation is missing its delegatee address");
   }
 
   await db
@@ -1130,6 +1095,135 @@ export async function getCompanyDashboardState(
       delegatedNativeEthAllowance: formatEthAllowance(
         delegatedNativeEthAllowanceWei,
       ),
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Employee dashboard state
+// ---------------------------------------------------------------------------
+
+export type EmployeeDashboardState = {
+  employee: {
+    id: string;
+    walletAddress: string;
+    smartAccountAddress: string | null;
+  };
+  company: ProfileCompany;
+  /** The single active inbound delegation from the company to this employee, if any. */
+  inboundDelegation: CompanyDelegation | null;
+  /** Redelegations created BY this employee (delegator_type = 'user', delegator_id = employee.id). */
+  outboundDelegations: CompanyDelegation[];
+  summary: {
+    /** ETH limit approved by the company (from the inbound delegation caveats). */
+    approvedLimitEth: string;
+    /** Sum of nativeTokenTransferAmount across active outbound delegations. */
+    redelegatedEth: string;
+    /** Number of active outbound agent delegations. */
+    activeAgentCount: number;
+  };
+};
+
+export async function getEmployeeDashboardState(
+  walletAddress: string,
+): Promise<EmployeeDashboardState> {
+  const profile = await getWalletProfile(walletAddress);
+
+  if (profile.status !== "employee" || !profile.user || !profile.company) {
+    throw new Error("Only an employee with a company can view this dashboard");
+  }
+
+  const { user } = profile;
+  const company = profile.company;
+
+  // ── Inbound delegation (company → this employee) ─────────────────────────
+  const [inboundRow] = await db
+    .select()
+    .from(delegations)
+    .where(
+      and(
+        eq(delegations.delegatorType, "company"),
+        eq(delegations.delegatorId, company.id),
+        eq(delegations.delegateeType, "user"),
+        eq(delegations.delegateeId, user.id),
+        eq(delegations.status, "active"),
+      ),
+    )
+    .limit(1);
+
+  // ── Outbound delegations (this employee → agents) ────────────────────────
+  const outboundRows = await db
+    .select()
+    .from(delegations)
+    .where(
+      and(
+        eq(delegations.delegatorType, "user"),
+        eq(delegations.delegatorId, user.id),
+      ),
+    );
+
+  // ── Caveats for all relevant delegations ─────────────────────────────────
+  const allDelegationIds = [
+    ...(inboundRow ? [inboundRow.id] : []),
+    ...outboundRows.map((d) => d.id),
+  ];
+
+  const allCaveats =
+    allDelegationIds.length > 0
+      ? await db
+          .select()
+          .from(delegationCaveats)
+          .where(inArray(delegationCaveats.delegationId, allDelegationIds))
+      : [];
+
+  const caveatsByDelegationId = new Map<string, CompanyDelegationCaveat[]>();
+  for (const caveat of allCaveats.map(toCompanyDelegationCaveat)) {
+    const existing = caveatsByDelegationId.get(caveat.delegationId) ?? [];
+    existing.push(caveat);
+    caveatsByDelegationId.set(caveat.delegationId, existing);
+  }
+
+  const inboundDelegation = inboundRow
+    ? toCompanyDelegation(inboundRow, caveatsByDelegationId.get(inboundRow.id) ?? [])
+    : null;
+
+  const outboundDelegations = outboundRows.map((d) =>
+    toCompanyDelegation(d, caveatsByDelegationId.get(d.id) ?? []),
+  );
+
+  // ── Summary metrics ───────────────────────────────────────────────────────
+  const approvedLimitWei = inboundDelegation
+    ? (inboundDelegation.caveats
+        .filter((c) => c.caveatType === "nativeTokenTransferAmount")
+        .reduce((sum, c) => sum + extractNativeAllowanceWei(c.caveatValue), 0n))
+    : 0n;
+
+  const activeOutbound = outboundDelegations.filter((d) => d.status === "active");
+
+  const redelegatedWei = activeOutbound.reduce((sum, d) => {
+    const limitCaveat = d.caveats.find(
+      (c) => c.caveatType === "nativeTokenTransferAmount",
+    );
+    return sum + (limitCaveat ? extractNativeAllowanceWei(limitCaveat.caveatValue) : 0n);
+  }, 0n);
+
+  const activeAgentCount = activeOutbound.filter(
+    (d) => d.delegateeType === "agent",
+  ).length;
+
+  return {
+    employee: {
+      id: user.id,
+      walletAddress: user.walletAddress,
+      smartAccountAddress: user.smartAccountAddress,
+    },
+    company,
+    inboundDelegation,
+    outboundDelegations,
+    summary: {
+      approvedLimitEth: formatEthAllowance(approvedLimitWei),
+      redelegatedEth: formatEthAllowance(redelegatedWei),
+      activeAgentCount,
     },
   };
 }

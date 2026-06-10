@@ -68,10 +68,8 @@ export type DelegationCanvasDelegation = {
   parentDelegationId: string | null;
   delegatorType: "company" | "user" | "agent";
   delegatorId: string;
-  delegateeType: "user" | "agent" | "eoa";
+  delegateeType: "user" | "agent";
   delegateeId: string | null;
-  delegateeAddress: string | null;
-  delegateeLabel: string | null;
   status: "pending_config" | "active" | "revoked";
   canvasPositionX: number;
   canvasPositionY: number;
@@ -86,7 +84,7 @@ type DelegationNodeData = {
   balance?: string;
   balanceLabel?: string;
   status: "root" | "pending_config" | "active" | "revoked" | "available";
-  kind: "master" | "employee" | "agent" | "eoa";
+  kind: "master" | "employee" | "agent";
   isPlaceholder?: boolean;
   canConfigure?: boolean;
   onConfigure?: (delegationId: string) => void;
@@ -177,7 +175,7 @@ function DelegationNode({ data }: NodeProps<Node<DelegationNodeData>>) {
           "min-w-64 border-primary bg-primary text-primary-foreground",
         data.kind === "employee" && "border-chart-4/50 bg-chart-4/10",
         data.kind === "agent" && "border-chart-5/50 bg-chart-5/10",
-        data.kind === "eoa" && "border-dashed",
+
         data.status === "revoked" && "opacity-55",
       )}
     >
@@ -303,10 +301,6 @@ function statusEdgeStyle(status: DelegationCanvasDelegation["status"]) {
 }
 
 function buildDelegateeNodeId(delegation: DelegationCanvasDelegation) {
-  if (delegation.delegateeType === "eoa") {
-    return `eoa:${delegation.id}`;
-  }
-
   return `${delegation.delegateeType}:${delegation.delegateeId}`;
 }
 
@@ -399,29 +393,7 @@ export function DashboardFlowCanvas({
       });
     });
 
-    delegations
-      .filter((delegation) => delegation.delegateeType === "eoa")
-      .forEach((delegation, index) => {
-        nextNodes.push({
-          id: buildDelegateeNodeId(delegation),
-          type: "delegation",
-          position: {
-            x: delegation.canvasPositionX || 1020,
-            y: delegation.canvasPositionY || 100 + index * 150,
-          },
-          data: {
-            delegationId: delegation.id,
-            title: delegation.delegateeLabel ?? "External address",
-            subtitle: "Terminal EOA",
-            address: delegation.delegateeAddress ?? undefined,
-            status: delegation.status,
-            kind: "eoa",
-            canConfigure: true,
-            onConfigure: onConfigureDelegation,
-            onRevoke: onRevokeDelegation,
-          },
-        });
-      });
+
 
     const nextEdges = delegations.reduce<Edge[]>((edges, delegation) => {
         const source = buildDelegatorNodeId(delegation);

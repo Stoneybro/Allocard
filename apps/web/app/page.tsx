@@ -283,8 +283,8 @@ export default function LandingPage() {
                   body: "A master procurement AI delegates specific purchasing tasks to micro-agents targeting different vendors.",
                 },
                 {
-                  chain: "Employee → AI Agent → Contractor (EOA)",
-                  body: "An employee empowers a project management AI to issue a one-time final payment to an external freelancer's standard wallet once work is verified.",
+                  chain: "Employee → AI Agent → Contractor",
+                  body: "An employee empowers a project management AI to issue a one-time final payment to an external freelancer's smart account once work is verified.",
                 },
               ].map(({ chain, body }) => (
                 <div
@@ -372,7 +372,7 @@ export default function LandingPage() {
                     },
                     {
                       label: "Polymorphic Architecture",
-                      body: "A custom Drizzle and PostgreSQL schema elegantly tracks infinite depths of delegations, redelegations, and terminal EOAs on the backend.",
+                      body: "A custom Drizzle and PostgreSQL schema elegantly tracks infinite depths of delegations and redelegations on the backend.",
                     },
                   ].map(({ label, body }, i) => (
                     <div

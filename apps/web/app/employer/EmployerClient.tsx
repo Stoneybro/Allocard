@@ -18,7 +18,6 @@ import {
   activateDelegation,
   createCompanyInvite,
   createEmployeeDelegation,
-  createEoaDelegation,
   getCompanyDashboardState,
   getWalletProfile,
   revokeDelegation,
@@ -585,10 +584,6 @@ export function EmployerClient() {
   };
 
   const resolveDelegateAddress = (delegation: DelegationRow) => {
-    if (delegation.delegateeType === "eoa" && delegation.delegateeAddress) {
-      return delegation.delegateeAddress as `0x${string}`;
-    }
-
     if (delegation.delegateeType === "user" && delegation.delegateeId) {
       const employee = dashboardState.employees.find(
         (item) => item.id === delegation.delegateeId,
@@ -679,7 +674,6 @@ export function EmployerClient() {
           : "Smart account pending",
       }))}
       agents={[]}
-      eoaPending={isPending}
       inviteError={error}
       inviteLink={inviteLink}
       invitePending={isPending}
@@ -689,17 +683,6 @@ export function EmployerClient() {
             walletAddress: address,
             employeeId,
             canvasPositionX: 420,
-            canvasPositionY: 120 + dashboardState.delegations.length * 90,
-          }),
-        )
-      }
-      onAddEoa={(input) =>
-        runDashboardMutation(() =>
-          createEoaDelegation({
-            walletAddress: address,
-            delegateeAddress: input.address,
-            delegateeLabel: input.label,
-            canvasPositionX: 760,
             canvasPositionY: 120 + dashboardState.delegations.length * 90,
           }),
         )

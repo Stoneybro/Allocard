@@ -15,6 +15,13 @@
       "when": 1780890000000,
       "tag": "0001_phase4_signed_delegations",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1780966800000,
+      "tag": "0002_remove_eoa_delegations",
+      "breakpoints": true
     }
   ]
 }

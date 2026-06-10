@@ -2,44 +2,49 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ShieldCheckIcon, WalletCardsIcon } from "lucide-react";
-import { getWalletProfile, type WalletProfile } from "@/app/actions/identity";
-import { ConnectRequiredCard, useConnectedWalletAddress } from "@/components/auth-state";
-import { DashboardShell } from "@/components/dashboard-shell";
-import { Badge } from "@/components/ui/badge";
+import { formatEther } from "viem";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+  getEmployeeDashboardState,
+  type EmployeeDashboardState,
+} from "@/app/actions/identity";
+import {
+  ConnectRequiredCard,
+  useConnectedWalletAddress,
+} from "@/components/auth-state";
+import { DashboardShell } from "@/components/dashboard-shell";
+import { EmployeeSectionCards } from "@/components/employee-section-cards";
+import { EmployeeFlowCanvas } from "@/components/employee-flow-canvas";
 import { SmartAccountActivationButton } from "@/components/smart-account-activation-button";
 import { formatWalletAddress } from "@/lib/wallet";
 
 export function EmployeeClient() {
   const router = useRouter();
   const { address, isConnected } = useConnectedWalletAddress();
-  const [profile, setProfile] = useState<WalletProfile | null>(null);
+  const [dashboardState, setDashboardState] =
+    useState<EmployeeDashboardState | null>(null);
   const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     if (!address || !isConnected) return;
 
     startTransition(async () => {
-      const nextProfile = await getWalletProfile(address);
+      // First check the wallet profile to guard routing
+      const { getWalletProfile } = await import("@/app/actions/identity");
+      const profile = await getWalletProfile(address);
 
-      if (nextProfile.status === "new") {
+      if (profile.status === "new") {
         router.replace("/onboarding");
         return;
       }
 
-      if (nextProfile.status === "employer") {
+      if (profile.status === "employer") {
         router.replace("/employer");
         return;
       }
 
-      setProfile(nextProfile);
+      // Load full employee dashboard state
+      const state = await getEmployeeDashboardState(address);
+      setDashboardState(state);
     });
   }, [address, isConnected, router]);
 
@@ -47,7 +52,7 @@ export function EmployeeClient() {
     return <ConnectRequiredCard />;
   }
 
-  if (!profile || profile.status !== "employee" || !profile.company) {
+  if (!dashboardState) {
     return (
       <div className="flex h-full items-center justify-center">
         <p className="text-sm text-muted-foreground">
@@ -57,83 +62,118 @@ export function EmployeeClient() {
     );
   }
 
-  const smartAccountLabel = profile.user.smartAccountAddress
-    ? formatWalletAddress(profile.user.smartAccountAddress)
+  const { employee, company, summary } = dashboardState;
+
+  const smartAccountLabel = employee.smartAccountAddress
+    ? formatWalletAddress(employee.smartAccountAddress)
     : "Smart account pending";
+
+  // Compute remaining authority: approved - redelegated (floor at 0)
+  const approvedWei = (() => {
+    try {
+      const inbound = dashboardState.inboundDelegation;
+      if (!inbound) return 0n;
+      const caveat = inbound.caveats.find(
+        (c) => c.caveatType === "nativeTokenTransferAmount",
+      );
+      if (!caveat) return 0n;
+      const val = caveat.caveatValue as Record<string, unknown>;
+      const weiStr = String(val.maxAmount ?? val.amount ?? "0");
+      return BigInt(weiStr);
+    } catch {
+      return 0n;
+    }
+  })();
+
+  const redelegatedWei = (() => {
+    try {
+      const activeOutbound = dashboardState.outboundDelegations.filter(
+        (d) => d.status === "active",
+      );
+      return activeOutbound.reduce((sum, d) => {
+        const caveat = d.caveats.find(
+          (c) => c.caveatType === "nativeTokenTransferAmount",
+        );
+        if (!caveat) return sum;
+        const val = caveat.caveatValue as Record<string, unknown>;
+        const weiStr = String(val.maxAmount ?? val.amount ?? "0");
+        return sum + BigInt(weiStr);
+      }, 0n);
+    } catch {
+      return 0n;
+    }
+  })();
+
+  const remainingWei = approvedWei > redelegatedWei ? approvedWei - redelegatedWei : 0n;
+
+  function formatEthTrimmed(wei: bigint) {
+    const s = formatEther(wei);
+    if (!s.includes(".")) return s;
+    return s.replace(/(\.\d*?[1-9])0+$/, "$1").replace(/\.0+$/, "");
+  }
 
   const handleSmartAccountActivated = (smartAccountAddress: string | null) => {
     if (!smartAccountAddress) return;
 
-    setProfile((currentProfile) => {
-      if (!currentProfile || currentProfile.status !== "employee") {
-        return currentProfile;
-      }
-
+    setDashboardState((current) => {
+      if (!current) return current;
       return {
-        ...currentProfile,
-        user: {
-          ...currentProfile.user,
-          smartAccountAddress,
-        },
+        ...current,
+        employee: { ...current.employee, smartAccountAddress },
       };
     });
   };
 
   return (
     <DashboardShell
-      companyName={profile.company.name}
+      companyName={company.name}
       smartAccountLabel={smartAccountLabel}
       title="Employee dashboard"
       roleLabel="Employee"
       role="employee"
     >
-      <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <Card>
-          <CardHeader>
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <ShieldCheckIcon />
-                <CardTitle className="mt-2">Employee access is active</CardTitle>
-                <CardDescription>
-                  This wallet is linked to {profile.company.name}. Future visits
-                  load this company automatically, without the invite link.
-                </CardDescription>
-              </div>
-              <SmartAccountActivationButton
-                walletAddress={address}
-                existingSmartAccountAddress={profile.user.smartAccountAddress}
-                onActivated={(result) =>
-                  handleSmartAccountActivated(result.smartAccountAddress)
-                }
-              />
-            </div>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            <div className="rounded-lg border bg-muted/30 p-4">
-              <p className="text-sm text-muted-foreground">Smart account</p>
-              <p className="mt-1 break-all font-mono text-sm">
-                {smartAccountLabel}
+      <div className="flex flex-col gap-6">
+        {/* Smart account activation banner (shown while not yet activated) */}
+        {!employee.smartAccountAddress && (
+          <div className="flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+            <div>
+              <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                Smart account not yet activated
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Activate your smart account so the company can delegate spending authority to you.
               </p>
             </div>
-            <div className="rounded-lg border bg-muted/30 p-4">
-              <p className="text-sm text-muted-foreground">Company</p>
-              <p className="mt-1 text-sm font-medium">{profile.company.name}</p>
-            </div>
-          </CardContent>
-        </Card>
+            <SmartAccountActivationButton
+              walletAddress={address}
+              existingSmartAccountAddress={employee.smartAccountAddress}
+              onActivated={(result) =>
+                handleSmartAccountActivated(result.smartAccountAddress)
+              }
+            />
+          </div>
+        )}
 
-        <Card>
-          <CardHeader>
-            <WalletCardsIcon />
-            <CardTitle>Spending authority</CardTitle>
-            <CardDescription>
-              Delegations from your company will appear here in the next phase.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Badge variant="outline">No active delegations yet</Badge>
-          </CardContent>
-        </Card>
+        {/* Summary cards */}
+        <EmployeeSectionCards
+          approvedLimitEth={summary.approvedLimitEth}
+          redelegatedEth={summary.redelegatedEth}
+          activeAgentCount={summary.activeAgentCount}
+          remainingEth={formatEthTrimmed(remainingWei)}
+        />
+
+        {/* Canvas */}
+        <EmployeeFlowCanvas
+          dashboardState={dashboardState}
+          onConfigureDelegation={(delegationId) => {
+            // TODO: open caveat drawer for this delegation (Phase 5 detail)
+            console.log("configure delegation", delegationId);
+          }}
+          onRevokeDelegation={(delegationId) => {
+            // TODO: wire up revoke server action (Phase 5 detail)
+            console.log("revoke delegation", delegationId);
+          }}
+        />
       </div>
     </DashboardShell>
   );
