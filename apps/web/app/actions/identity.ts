@@ -1227,3 +1227,398 @@ export async function getEmployeeDashboardState(
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// Agent smart account lookup (used by employee signing flow)
+// ---------------------------------------------------------------------------
+
+export async function getAgentSmartAccountAddress(agentId: string): Promise<`0x${string}`> {
+  const [agent] = await db
+    .select({ smartAccountAddress: agents.smartAccountAddress })
+    .from(agents)
+    .where(eq(agents.id, agentId))
+    .limit(1);
+
+  if (!agent) {
+    throw new Error("Agent not found");
+  }
+
+  return agent.smartAccountAddress as `0x${string}`;
+}
+
+// ---------------------------------------------------------------------------
+// Parent / child caveat validation
+// ---------------------------------------------------------------------------
+
+/**
+ * Validates that child caveats do not exceed the limits set by parent caveats.
+ * Throws a descriptive Error for any violation found.
+ */
+function validateChildCaveats(
+  parentCaveats: CompanyDelegationCaveat[],
+  childCaveats: DelegationCaveatInput,
+) {
+  // ── Max transfer amount ─────────────────────────────────────────────────────
+  const parentAmountCaveat = parentCaveats.find(
+    (c) => c.caveatType === "nativeTokenTransferAmount",
+  );
+  if (parentAmountCaveat) {
+    const parentMaxWei = extractNativeAllowanceWei(parentAmountCaveat.caveatValue);
+    const childMaxWei = parsePositiveEthToWei(childCaveats.maxAmountEth, "Maximum amount");
+    if (childMaxWei > parentMaxWei) {
+      throw new Error(
+        `Spending limit (${formatEthAllowance(childMaxWei)} ETH) cannot exceed the parent delegation limit (${formatEthAllowance(parentMaxWei)} ETH).`,
+      );
+    }
+  }
+
+  // ── Period transfer amount ──────────────────────────────────────────────────
+  if (childCaveats.period && childCaveats.period !== "none") {
+    const parentPeriodCaveat = parentCaveats.find(
+      (c) => c.caveatType === "nativeTokenPeriodTransfer",
+    );
+    if (parentPeriodCaveat) {
+      const parentVal = parentPeriodCaveat.caveatValue as Record<string, unknown>;
+      const parentPeriodWei = extractNativeAllowanceWei(
+        parentVal.periodAmount ?? parentVal.amount ?? "0",
+      );
+      const childPeriodWei = parsePositiveEthToWei(
+        childCaveats.periodAmountEth ?? childCaveats.maxAmountEth,
+        "Period amount",
+      );
+      if (childPeriodWei > parentPeriodWei) {
+        throw new Error(
+          `Period allowance (${formatEthAllowance(childPeriodWei)} ETH) cannot exceed the parent period limit (${formatEthAllowance(parentPeriodWei)} ETH).`,
+        );
+      }
+
+      // Child period duration must be >= parent (child cannot be more permissive)
+      const parentPeriodDuration =
+        typeof parentVal.periodDuration === "number" ? parentVal.periodDuration : 0;
+      const childPeriodDuration = periodDurations[childCaveats.period] ?? 0;
+      if (childPeriodDuration < parentPeriodDuration) {
+        throw new Error(
+          "Child delegation period cannot be more frequent than the parent period.",
+        );
+      }
+    }
+  }
+
+  // ── Per-transaction cap ─────────────────────────────────────────────────────
+  if (childCaveats.perTransactionCapEth?.trim()) {
+    const parentCapCaveat = parentCaveats.find((c) => c.caveatType === "valueLte");
+    if (parentCapCaveat) {
+      const parentCapVal = parentCapCaveat.caveatValue as Record<string, unknown>;
+      const parentCapWei = extractNativeAllowanceWei(
+        parentCapVal.maxValue ?? parentCapVal.valueWei ?? "0",
+      );
+      const childCapWei = parsePositiveEthToWei(
+        childCaveats.perTransactionCapEth,
+        "Per-transaction cap",
+      );
+      if (childCapWei > parentCapWei) {
+        throw new Error(
+          `Per-transaction cap (${formatEthAllowance(childCapWei)} ETH) cannot exceed the parent cap (${formatEthAllowance(parentCapWei)} ETH).`,
+        );
+      }
+    }
+  }
+
+  // ── Allowed targets ─────────────────────────────────────────────────────────
+  const parentTargetCaveat = parentCaveats.find((c) => c.caveatType === "allowedTargets");
+  if (parentTargetCaveat) {
+    const parentTargetVal = parentTargetCaveat.caveatValue as Record<string, unknown>;
+    const parentTargets = Array.isArray(parentTargetVal.targets)
+      ? (parentTargetVal.targets as string[]).map((t) => t.toLowerCase())
+      : [];
+
+    if (parentTargets.length > 0) {
+      const childTargets = normalizeAddressList(childCaveats.allowedTargets, "Allowed targets");
+      const invalidTargets = childTargets.filter(
+        (t) => !parentTargets.includes(t.toLowerCase()),
+      );
+      if (invalidTargets.length > 0) {
+        throw new Error(
+          `Child delegation targets include addresses not permitted by the parent: ${invalidTargets.join(", ")}`,
+        );
+      }
+    }
+  }
+
+  // ── Limited calls ───────────────────────────────────────────────────────────
+  if (childCaveats.limitedCalls !== null && childCaveats.limitedCalls !== undefined) {
+    const parentCallsCaveat = parentCaveats.find((c) => c.caveatType === "limitedCalls");
+    if (parentCallsCaveat) {
+      const parentCallsVal = parentCallsCaveat.caveatValue as Record<string, unknown>;
+      const parentLimit =
+        typeof parentCallsVal.limit === "number" ? parentCallsVal.limit : Infinity;
+      if (childCaveats.limitedCalls > parentLimit) {
+        throw new Error(
+          `Transaction limit (${childCaveats.limitedCalls}) cannot exceed the parent limit (${parentLimit}).`,
+        );
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helper: resolve employee profile or throw
+// ---------------------------------------------------------------------------
+
+type EmployeeProfile = Extract<WalletProfile, { status: "employee" }> & {
+  company: ProfileCompany;
+};
+
+async function getEmployeeProfileOrThrow(
+  walletAddress: string,
+): Promise<EmployeeProfile> {
+  const profile = await getWalletProfile(walletAddress);
+
+  if (profile.status !== "employee" || !profile.user || !profile.company) {
+    throw new Error("Only an employee with a company can perform this action");
+  }
+
+  return profile as EmployeeProfile;
+}
+
+/**
+ * Fetches the employee's active inbound delegation (company → employee) or throws.
+ */
+async function getEmployeeInboundDelegationOrThrow(
+  employeeId: string,
+  companyId: string,
+) {
+  const [row] = await db
+    .select()
+    .from(delegations)
+    .where(
+      and(
+        eq(delegations.delegatorType, "company"),
+        eq(delegations.delegatorId, companyId),
+        eq(delegations.delegateeType, "user"),
+        eq(delegations.delegateeId, employeeId),
+        eq(delegations.status, "active"),
+      ),
+    )
+    .limit(1);
+
+  if (!row) {
+    throw new Error(
+      "No active inbound delegation found. The company must activate a delegation to you first.",
+    );
+  }
+
+  return row;
+}
+
+/**
+ * Fetches one of the employee's own outbound delegations or throws.
+ * Scoped so employees can only manage delegations they created.
+ */
+async function getEmployeeOwnDelegationOrThrow(
+  employeeId: string,
+  delegationId: string,
+) {
+  const [delegation] = await db
+    .select()
+    .from(delegations)
+    .where(
+      and(
+        eq(delegations.id, delegationId),
+        eq(delegations.delegatorType, "user"),
+        eq(delegations.delegatorId, employeeId),
+      ),
+    )
+    .limit(1);
+
+  if (!delegation) {
+    throw new Error("Delegation not found or you do not have permission to manage it");
+  }
+
+  return delegation;
+}
+
+// ---------------------------------------------------------------------------
+// Task 1: createAgentRedelegation
+// ---------------------------------------------------------------------------
+
+export async function createAgentRedelegation(input: {
+  walletAddress: string;
+  agentId: string;
+}): Promise<EmployeeDashboardState> {
+  const profile = await getEmployeeProfileOrThrow(input.walletAddress);
+  const { user, company } = profile;
+
+  // Verify the agent exists
+  const [agent] = await db
+    .select()
+    .from(agents)
+    .where(eq(agents.id, input.agentId))
+    .limit(1);
+
+  if (!agent) {
+    throw new Error("Agent not found");
+  }
+
+  // Verify active inbound delegation exists (employee must have received authority)
+  const inboundRow = await getEmployeeInboundDelegationOrThrow(user.id, company.id);
+
+  // Prevent duplicate active/pending-config redelegations to the same agent
+  const [existing] = await db
+    .select()
+    .from(delegations)
+    .where(
+      and(
+        eq(delegations.delegatorType, "user"),
+        eq(delegations.delegatorId, user.id),
+        eq(delegations.delegateeType, "agent"),
+        eq(delegations.delegateeId, input.agentId),
+        inArray(delegations.status, ["pending_config", "active"]),
+      ),
+    )
+    .limit(1);
+
+  if (existing) {
+    // Already exists — just return current state
+    return getEmployeeDashboardState(input.walletAddress);
+  }
+
+  await db.insert(delegations).values({
+    delegatorType: "user",
+    delegatorId: user.id,
+    delegateeType: "agent",
+    delegateeId: input.agentId,
+    parentDelegationId: inboundRow.id,
+    canvasPositionX: 420,
+    canvasPositionY: 120,
+  });
+
+  return getEmployeeDashboardState(input.walletAddress);
+}
+
+// ---------------------------------------------------------------------------
+// Task 2a: saveEmployeeRedelegationCaveats
+// ---------------------------------------------------------------------------
+
+export async function saveEmployeeRedelegationCaveats(input: {
+  walletAddress: string;
+  delegationId: string;
+  caveats: DelegationCaveatInput;
+}): Promise<EmployeeDashboardState> {
+  const profile = await getEmployeeProfileOrThrow(input.walletAddress);
+  const { user, company } = profile;
+
+  const delegation = await getEmployeeOwnDelegationOrThrow(user.id, input.delegationId);
+
+  if (delegation.status === "revoked") {
+    throw new Error("Revoked delegations cannot be edited");
+  }
+
+  // Load parent inbound delegation caveats for child validation
+  const inboundRow = await getEmployeeInboundDelegationOrThrow(user.id, company.id);
+  const parentCaveats = await db
+    .select()
+    .from(delegationCaveats)
+    .where(eq(delegationCaveats.delegationId, inboundRow.id));
+
+  // Validate child caveats don't exceed parent limits
+  validateChildCaveats(parentCaveats.map(toCompanyDelegationCaveat), input.caveats);
+
+  const caveatRows = buildCaveatRows(input.caveats);
+
+  await db
+    .delete(delegationCaveats)
+    .where(eq(delegationCaveats.delegationId, input.delegationId));
+
+  if (caveatRows.length > 0) {
+    await db.insert(delegationCaveats).values(
+      caveatRows.map((row) => ({ ...row, delegationId: input.delegationId })),
+    );
+  }
+
+  if (delegation.status === "active") {
+    await db
+      .update(delegations)
+      .set({
+        status: "pending_config",
+        delegationHash: null,
+        signedDelegation: null,
+        activatedAt: null,
+      })
+      .where(eq(delegations.id, input.delegationId));
+  }
+
+  return getEmployeeDashboardState(input.walletAddress);
+}
+
+// ---------------------------------------------------------------------------
+// Task 2b: activateEmployeeDelegation
+// ---------------------------------------------------------------------------
+
+export async function activateEmployeeDelegation(input: {
+  walletAddress: string;
+  delegationId: string;
+  delegationHash: string;
+  signedDelegation: unknown;
+}): Promise<EmployeeDashboardState> {
+  const profile = await getEmployeeProfileOrThrow(input.walletAddress);
+  const { user } = profile;
+
+  const delegation = await getEmployeeOwnDelegationOrThrow(user.id, input.delegationId);
+
+  if (delegation.status === "revoked") {
+    throw new Error("Revoked delegations cannot be activated");
+  }
+
+  if (!user.smartAccountAddress) {
+    throw new Error("Activate your smart account first");
+  }
+
+  const savedCaveats = await db
+    .select()
+    .from(delegationCaveats)
+    .where(eq(delegationCaveats.delegationId, delegation.id));
+
+  if (savedCaveats.length === 0) {
+    throw new Error("Configure caveats before activation");
+  }
+
+  await db
+    .update(delegations)
+    .set({
+      delegationHash: input.delegationHash,
+      signedDelegation: input.signedDelegation,
+      status: "active",
+      activatedAt: new Date(),
+      revokedAt: null,
+    })
+    .where(eq(delegations.id, delegation.id));
+
+  return getEmployeeDashboardState(input.walletAddress);
+}
+
+// ---------------------------------------------------------------------------
+// Task 3: revokeEmployeeDelegation
+// ---------------------------------------------------------------------------
+
+export async function revokeEmployeeDelegation(input: {
+  walletAddress: string;
+  delegationId: string;
+}): Promise<EmployeeDashboardState> {
+  const profile = await getEmployeeProfileOrThrow(input.walletAddress);
+  const { user } = profile;
+
+  // Scoped check: only the employee's own outbound delegations
+  await getEmployeeOwnDelegationOrThrow(user.id, input.delegationId);
+
+  const descendantIds = await getDescendantDelegationIds([input.delegationId]);
+  const idsToRevoke = [input.delegationId, ...descendantIds];
+  const revokedAt = new Date();
+
+  await db
+    .update(delegations)
+    .set({ status: "revoked", revokedAt })
+    .where(inArray(delegations.id, idsToRevoke));
+
+  return getEmployeeDashboardState(input.walletAddress);
+}

@@ -210,11 +210,13 @@ function CanvasSection({
   agents,
   employees,
   onAddEmployee,
+  onSelectAgent,
   role,
 }: {
   agents: SidebarAgent[];
   employees: SidebarEmployee[];
   onAddEmployee?: (employeeId: string) => void;
+  onSelectAgent?: (agentId: string) => void;
   role?: "employer" | "employee";
 }) {
   const displayAgents = agents.length > 0 ? agents : PLACEHOLDER_AGENTS;
@@ -332,12 +334,19 @@ function CanvasSection({
                   <SidebarMenuItem key={agent.id}>
                     <SidebarMenuButton
                       id={`agent-${agent.id}`}
-                      tooltip={agent.detail}
+                      tooltip={agent.isPlaceholder ? agent.detail : (role === "employee" ? `Delegate to ${agent.name}` : agent.detail)}
                       className={`h-auto py-2 ${
                         agent.isPlaceholder
                           ? "cursor-default select-none opacity-50"
+                          : role === "employee"
+                          ? "cursor-pointer"
                           : ""
                       }`}
+                      onClick={
+                        !agent.isPlaceholder && role === "employee" && onSelectAgent
+                          ? () => onSelectAgent(agent.id)
+                          : undefined
+                      }
                     >
                       <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-foreground/70">
                         <BotIcon className="size-3" />
@@ -354,6 +363,11 @@ function CanvasSection({
                     {agent.isPlaceholder && (
                       <SidebarMenuBadge className="text-[9px] text-muted-foreground/40">
                         planned
+                      </SidebarMenuBadge>
+                    )}
+                    {!agent.isPlaceholder && role === "employee" && (
+                      <SidebarMenuBadge className="text-[9px] text-primary/70">
+                        delegate
                       </SidebarMenuBadge>
                     )}
                   </SidebarMenuItem>
@@ -409,6 +423,7 @@ export function AppSidebar({
   onAddEmployee,
   onCopyInvite,
   onCreateInvite,
+  onSelectAgent,
   role,
   smartAccountLabel,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -425,6 +440,7 @@ export function AppSidebar({
   onAddEmployee?: (employeeId: string) => void;
   onCopyInvite?: () => void;
   onCreateInvite?: () => void;
+  onSelectAgent?: (agentId: string) => void;
   role?: "employer" | "employee";
   roleLabel: string;
   smartAccountLabel: string;
@@ -471,6 +487,7 @@ export function AppSidebar({
           agents={agents}
           employees={employees}
           onAddEmployee={onAddEmployee}
+          onSelectAgent={onSelectAgent}
           role={role}
         />
 

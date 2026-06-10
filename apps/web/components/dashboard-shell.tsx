@@ -21,6 +21,7 @@ export function DashboardShell({
   onAddEmployee,
   onCopyInvite,
   onCreateInvite,
+  onSelectAgent,
   role,
   smartAccountLabel,
   title,
@@ -37,6 +38,7 @@ export function DashboardShell({
   onAddEmployee?: (employeeId: string) => void;
   onCopyInvite?: () => void;
   onCreateInvite?: () => void;
+  onSelectAgent?: (agentId: string) => void;
   role?: "employer" | "employee";
   smartAccountLabel: string;
   title: string;
@@ -63,6 +65,7 @@ export function DashboardShell({
         onAddEmployee={onAddEmployee}
         onCopyInvite={onCopyInvite}
         onCreateInvite={onCreateInvite}
+        onSelectAgent={onSelectAgent}
         role={role}
         roleLabel={roleLabel}
         smartAccountLabel={smartAccountLabel}
