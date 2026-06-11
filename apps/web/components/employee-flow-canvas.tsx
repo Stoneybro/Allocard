@@ -223,10 +223,12 @@ export function EmployeeFlowCanvas({
   dashboardState,
   onConfigureDelegation,
   onRevokeDelegation,
+  onNodeClick,
 }: {
   dashboardState: EmployeeDashboardState;
   onConfigureDelegation?: (delegationId: string) => void;
   onRevokeDelegation?: (delegationId: string) => void;
+  onNodeClick?: (event: React.MouseEvent, node: Node) => void;
 }) {
   const nodeTypes = useMemo(() => ({ employeeNode: EmployeeNode }), []);
 
@@ -342,12 +344,13 @@ export function EmployeeFlowCanvas({
           edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
+          onNodeClick={onNodeClick}
           nodeTypes={nodeTypes}
           fitView
           fitViewOptions={{ padding: 0.18 }}
           nodesDraggable
           nodesConnectable={false}
-          elementsSelectable={false}
+          elementsSelectable={true}
           panOnDrag
           zoomOnScroll
           minZoom={0.55}

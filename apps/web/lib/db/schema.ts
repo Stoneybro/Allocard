@@ -3,6 +3,7 @@ import {
   doublePrecision,
   index,
   jsonb,
+  numeric,
   pgEnum,
   pgTable,
   text,
@@ -162,6 +163,8 @@ export const delegations = pgTable(
     delegatorId: uuid("delegator_id").notNull(),
     delegateeType: delegateeTypeEnum("delegatee_type").notNull(),
     delegateeId: uuid("delegatee_id"),
+    delegateeAddress: text("delegatee_address"),
+    delegateeLabel: text("delegatee_label"),
     delegationHash: text("delegation_hash"),
     signedDelegation: jsonb("signed_delegation"),
     policyPrompt: text("policy_prompt"),
@@ -250,4 +253,26 @@ export const claimRedemptions = pgTable(
     index("claim_redemptions_company_id_idx").on(table.companyId),
     index("claim_redemptions_status_idx").on(table.status),
   ],
+);
+
+export const agentBookings = pgTable(
+  "agent_bookings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    delegationId: uuid("delegation_id").notNull().references(() => delegations.id, { onDelete: "cascade" }),
+    agentId: uuid("agent_id").notNull().references(() => agents.id, { onDelete: "cascade" }),
+    employeeId: uuid("employee_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    companyId: uuid("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+    bookingDetails: jsonb("booking_details").notNull(),
+    amountEth: numeric("amount_eth").notNull(),
+    txHash: text("tx_hash"),
+    venicePrompt: text("venice_prompt"),
+    veniceReasoning: text("venice_reasoning"),
+    veniceConfidence: doublePrecision("venice_confidence"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("agent_bookings_delegation_id_idx").on(table.delegationId),
+    index("agent_bookings_employee_id_idx").on(table.employeeId),
+  ]
 );

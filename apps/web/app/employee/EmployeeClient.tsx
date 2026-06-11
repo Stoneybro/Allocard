@@ -30,6 +30,8 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import { EmployeeSectionCards } from "@/components/employee-section-cards";
 import { EmployeeFlowCanvas } from "@/components/employee-flow-canvas";
 import { ReimbursementAgentDrawer } from "./ReimbursementAgentDrawer";
+import { TravelAgentDrawer } from "./TravelAgentDrawer";
+import { ProcurementAgentDrawer } from "./ProcurementAgentDrawer";
 import { SmartAccountActivationButton } from "@/components/smart-account-activation-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -430,6 +432,10 @@ export function EmployeeClient() {
   };
 
   const [isReimbursementDrawerOpen, setIsReimbursementDrawerOpen] = useState(false);
+  const [isTravelAgentDrawerOpen, setIsTravelAgentDrawerOpen] = useState(false);
+  const [activeTravelDelegationId, setActiveTravelDelegationId] = useState<string | null>(null);
+  const [isProcurementAgentDrawerOpen, setIsProcurementAgentDrawerOpen] = useState(false);
+  const [activeProcurementDelegationId, setActiveProcurementDelegationId] = useState<string | null>(null);
 
   // Task 4: agent picker — creates a new redelegation row then opens the drawer
   const handleSelectAgent = useCallback(
@@ -442,13 +448,12 @@ export function EmployeeClient() {
         setIsReimbursementDrawerOpen(true);
         return;
       }
-
+      
       startTransition(async () => {
         try {
           const state = await createAgentRedelegation({ walletAddress: address, agentId });
           setDashboardState(state);
 
-          // Find the new (or existing) pending delegation to this agent and open the drawer
           const pending = state.outboundDelegations.find(
             (d) => d.delegateeId === agentId && d.status === "pending_config",
           );
@@ -462,8 +467,22 @@ export function EmployeeClient() {
         }
       });
     },
-    [address, parentMaxEth],
+    [address, parentMaxEth, dashboardState],
   );
+
+  const handleNodeClick = useCallback((event: any, node: any) => {
+    if (node.data?.kind === "agent" && node.data?.status === "active") {
+      const agentId = node.data.subtitle; // subtitle holds the delegateeId which is agent.id
+      const agent = dashboardState?.agents.find(a => a.id === agentId);
+      if (agent?.name === "Travel Agent") {
+        setActiveTravelDelegationId(node.data.delegationId);
+        setIsTravelAgentDrawerOpen(true);
+      } else if (agent?.name === "Procurement Agent") {
+        setActiveProcurementDelegationId(node.data.delegationId);
+        setIsProcurementAgentDrawerOpen(true);
+      }
+    }
+  }, [dashboardState?.agents]);
 
   // Task 7a: open drawer for existing delegation (configure / view rules)
   const handleConfigureDelegation = useCallback(
@@ -645,6 +664,7 @@ export function EmployeeClient() {
           dashboardState={dashboardState}
           onConfigureDelegation={handleConfigureDelegation}
           onRevokeDelegation={handleRevokeDelegation}
+          onNodeClick={handleNodeClick}
         />
       </div>
 
@@ -881,6 +901,28 @@ export function EmployeeClient() {
           companyId={dashboardState.company.id}
           employeeId={dashboardState.employee.id}
           agentId={dashboardState.agents.find(a => a.name === "Reimbursement Agent")?.id || ""}
+        />
+      )}
+      
+      {activeTravelDelegationId && (
+        <TravelAgentDrawer
+          isOpen={isTravelAgentDrawerOpen}
+          onOpenChange={setIsTravelAgentDrawerOpen}
+          employee={dashboardState.employee}
+          company={dashboardState.company}
+          agentId={dashboardState.agents.find(a => a.name === "Travel Agent")?.id || ""}
+          delegationId={activeTravelDelegationId}
+        />
+      )}
+
+      {activeProcurementDelegationId && (
+        <ProcurementAgentDrawer
+          isOpen={isProcurementAgentDrawerOpen}
+          onOpenChange={setIsProcurementAgentDrawerOpen}
+          employee={dashboardState.employee}
+          company={dashboardState.company}
+          agentId={dashboardState.agents.find(a => a.name === "Procurement Agent")?.id || ""}
+          delegationId={activeProcurementDelegationId}
         />
       )}
     </DashboardShell>
