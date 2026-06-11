@@ -187,34 +187,32 @@ Same as the employer — the employee can add a raw wallet address with an optio
 
 AI agents are global Allocard platform agents. They are not created by employers or employees. The platform operator creates and maintains the agent catalog, and every company can delegate to the approved platform agents that Allocard exposes in the product.
 
-Each agent has its own smart account address and a backend-controlled signer key. The platform manages these keys; they are not exposed to the employer, employee, or browser.
+Each agent has its own smart account address (deployed deterministically via the Smart Accounts Kit `Hybrid` implementation) and a backend-controlled signer key. The platform manages these keys; they are not exposed to the employer, employee, or browser.
 
-Agents are named entities in the system, such as a Procurement Agent, Travel Agent, Policy Agent, Vendor Payment Agent, or Reconciliation Agent. They are listed in the sidebar of both the employer and employee modules and can be delegated to like any other recipient.
+Agents are named entities in the system: **Procurement Agent**, **Travel Agent**, and **Reimbursement Agent**. They are listed in the sidebar of both the employer and employee modules and can be delegated to like any other recipient.
 
 Because the platform controls the agent's signing key, agents can execute or redelegate on-chain authority automatically within the bounds of their caveats. This is the A2A coordination story: an employer, employee, or agent delegates constrained authority to another agent, and each downstream action remains limited by the parent delegation.
 
-Venice AI is the reasoning layer for the agents. Venice is used to interpret expense requests, classify spend category, inspect policy context, coordinate with other agents, and produce structured transaction intents. Venice output is never treated as authority by itself. Allocard still validates the proposed action against stored caveats, delegation status, and role rules before any redemption is attempted.
+**Venice AI** acts as the reasoning and policy layer for these agents:
+- **Vision (`qwen3-vl`)**: Used by the Reimbursement Agent to OCR uploaded receipts and verify they match the stated claim.
+- **Reasoning (`mistral-small-instruct`)**: Used by the Travel and Procurement agents to generate compliant, structured JSON transaction intents (flights, hotels, software subscriptions). It also checks for duplicate tools before paying a vendor.
+- **Advisory Policy Check**: Before an employee makes a direct manual spend, Venice evaluates the purpose against their active delegation caveat policy to warn them if a transaction will be flagged.
 
-1Shot API is intentionally out of scope for the MVP. Allocard's hackathon implementation should stay focused on MetaMask Smart Accounts Kit, redelegation, A2A coordination, and Venice-powered agent behavior.
+Allocard still validates the proposed action against stored caveats, delegation status, and role rules before any redemption is attempted on-chain via the Bundler.
 
-### Recommended platform agents
+### Active Platform Agents
 
 | Agent | Role | Venice AI responsibility | On-chain role |
 |---|---|---|---|
-| Policy Agent | Checks whether a spend request matches company expense policy and the active delegation caveats. | Reads the request, summarizes the policy fit, flags missing context, and produces an allow/reject recommendation. | Can receive delegated authority and redelegate a narrower allowance to another agent or employee. |
-| Procurement Agent | Handles approved purchases for software, equipment, and vendor payments. | Converts a purchase request into a structured payment intent with vendor, amount, category, and justification. | Redeems payment delegations or redelegates to the Vendor Payment Agent. |
-| Travel Agent | Handles flights, lodging, transport, and per-diem style expenses. | Classifies travel spend, checks trip context, detects out-of-policy requests, and prepares payment intents. | Redeems travel-specific delegations or redelegates smaller allowances to employees. |
-| Vendor Payment Agent | Executes narrow vendor payments after another agent or employee has approved scope. | Verifies invoice-like details and prepares final payment metadata. | Terminal execution agent for approved target addresses and value caps. |
-| Reconciliation Agent | Reviews completed redemptions and explains how each transaction maps to the delegation chain. | Summarizes logs, categories, policy matches, and exceptions for the employer. | Usually audit-only; may receive read/audit authority rather than spending authority. |
+| **Reimbursement Agent** | Reimburses employees for out-of-pocket expenses. | **Vision**: OCRs uploaded receipt images. Verifies the total amount and matches the receipt against the employee's claim description and policy constraints. | Executes a direct native ETH transfer to the employee's personal wallet (from the company master card) if approved. |
+| **Travel Agent** | Books flights and lodging based on employee requests. | **Text**: Generates structured flight and hotel plans within budget. Evaluates destinations against policy constraints. | Executes the payment to the required merchant target using the employee's redelegated allowance. |
+| **Procurement Agent** | Purchases software and vendor subscriptions. | **Text**: Researches the best software vendor. Crucially, it checks the company's existing toolstack to prevent duplicate software spend. | Executes the subscription payment to the vendor using the employee's redelegated allowance. |
 
-These agents are designed to work together. Useful demo chains include:
-
+These agents allow trustless automation:
 ```text
-Company → Policy Agent → Employee
-Company → Policy Agent → Employee → Travel Agent
-Company → Procurement Agent → Vendor Payment Agent
-Employee → Travel Agent → Vendor Payment Agent
-Employee → Policy Agent → Procurement Agent
+Company → Reimbursement Agent → (Direct to Employee's wallet)
+Company → Employee → Travel Agent → (Flight/Hotel Merchant)
+Company → Employee → Procurement Agent → (Software Vendor)
 ```
 
 ---
@@ -284,6 +282,7 @@ Employee → Policy Agent → Procurement Agent
 | delegatee_label | text nullable | Optional human-readable name for EOA recipients |
 | delegation_hash | text | On-chain hash after activation |
 | signed_delegation | jsonb nullable | Signed delegation object stored for later redemption |
+| policy_prompt | text nullable | Natural language constraints to feed Venice AI |
 | status | enum | pending_config \| active \| revoked |
 | canvas_position_x | float | React Flow canvas x position |
 | canvas_position_y | float | React Flow canvas y position |
@@ -300,6 +299,19 @@ Employee → Policy Agent → Procurement Agent
 | caveat_type | enum | nativeTokenTransferAmount \| nativeTokenPeriodTransfer \| valueLte \| allowedTargets \| redeemer \| limitedCalls \| custom |
 | caveat_value | jsonb | Parameters for the caveat (amount, period, target addresses, redeemer address, etc.) |
 | created_at | timestamp | |
+
+### Activity & Spend Ledgers
+
+To ensure complete transparency over delegated funds, three tables track actual spending and AI reasoning:
+
+#### claim_redemptions
+Logs reimbursements processed by the Reimbursement Agent. Contains the employee's claim, the uploaded receipt URL, and Venice AI's vision OCR reasoning to approve or reject the claim, along with the executed txHash.
+
+#### agent_bookings
+Logs autonomous purchases executed by the Travel and Procurement Agents. Contains the generated `TravelPlan` or `VendorChoice` JSON, Venice AI's reasoning, and the executed txHash.
+
+#### manual_transactions
+Logs direct manual spends initiated by employees from their Wallet tab. Contains the amount, target, the employee's stated purpose, whether Venice AI flagged the transaction pre-spend, and a post-spend receipt summary verified by Venice.
 
 ### Key schema decisions
 
@@ -331,31 +343,23 @@ These rules must be enforced in both the UI and backend:
 
 The application uses shadcn as the primary UI component library. The layout for both modules follows a standard shadcn dashboard pattern: a fixed sidebar on the left containing navigation and recipient lists, and a main content area to the right containing the React Flow canvas and the summary cards above it.
 
-Current Phase 3 dashboard assets:
+Current Phase dashboard functionality:
 
-- `apps/web/components/section-cards.tsx` exists and should be refactored into real Allocard summary cards.
-- `apps/web/components/dashboard-flow-canvas.tsx` exists and should be refactored into the React Flow delegation tree.
-- These files are intentionally kept for Phase 3 and should not be deleted as placeholder cleanup.
-
-The React Flow canvas is the primary interactive surface of the application. Node types are:
-
-- Master card node (employer module only) — styled to look like a physical corporate card. Shows `**** ****` before activation, real address after.
-- Employee nodes — distinct visual style, purple-toned.
-- Agent nodes — deferred until Phase 6; current employer canvas does not render agent placeholders.
-- EOA nodes — minimal style, terminal indicator, no branching UI.
-
-Configuration for a delegation node is done via a shadcn Drawer component that slides in from the right side of the screen. This preserves canvas context while the user configures caveats.
+- **Employer Canvas**: Fully functional React Flow delegation tree. The master card is the root node. Employers can visually assign delegations.
+- **Employer Activity Log**: A unified data table (in a separate tab) aggregating all `manual_transactions`, `agent_bookings`, and `claim_redemptions`, exposing exactly *why* Venice AI approved or flagged an expense.
+- **Employee Canvas**: React Flow tree restricted to the employee's active delegations. Employees drag-and-drop the Travel and Procurement agents into their canvas to redelegate constraints.
+- **Employee Wallet Tab**: An interactive interface allowing employees to spend their delegated authority directly. Features a pre-spend Venice Advisory Policy check, and post-spend receipt OCR validation.
+- **Agent Drawers**: Employees interact with agents via slide-out drawers (e.g., `TravelAgentDrawer`, `ProcurementAgentDrawer`) to input natural language requests that Venice translates into structured, on-chain execution payloads.
 
 ---
 
 ## What is Not Yet Fully Specified
 
-The following areas were flagged during planning and will need to be worked out during implementation:
+The following minor areas were flagged during planning and will need to be worked out during future iterations:
 
 - Open delegation usage, if any, and how it appears in the canvas UI.
-- The exact mechanism by which agents autonomously redeem delegations, including trigger design, backend signer authentication, Venice prompt design, structured output schema, and audit log shape.
-- How the employer canvas handles real-time updates when an employee creates a redelegation (polling, websockets, or manual refresh).
 - Signed session/cookie middleware. Current route protection depends on the connected wallet state in the browser.
+- Multi-token support. The MVP relies strictly on Base Sepolia Native ETH.
 
 ---
 

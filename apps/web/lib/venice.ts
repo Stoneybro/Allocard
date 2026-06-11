@@ -252,6 +252,74 @@ Does this claim comply with the policy and limits? Respond in JSON.`;
 }
 
 // ---------------------------------------------------------------------------
+// 1b. advisoryPolicyCheck — Employee Manual Spend Pre-check
+// ---------------------------------------------------------------------------
+
+/**
+ * Perform a pre-check on an employee's intended manual spend to advise if it
+ * complies with the company policy. This is an advisory check; employees can
+ * still proceed, but it will be flagged for employer review.
+ */
+export async function advisoryPolicyCheck(input: {
+  purpose: string;
+  amountEth: string;
+  caveats: CompanyDelegationCaveat[];
+  policyPrompt?: string | null;
+}): Promise<PolicyCheckResult> {
+  const policy = caveatSummary(input.caveats);
+
+  const systemPrompt = `You are a policy compliance advisor for Allocard.
+An employee is attempting a direct, manual on-chain spend from their delegated wallet.
+Evaluate whether the stated purpose and amount comply with the company's approved delegation policy.
+Return a JSON object with: approved (boolean), reasoning (string, 1-3 sentences advising the employee), confidence (number 0.0-1.0).
+If the spend violates policy, set approved to false and explain why.`;
+
+  const customPolicyBlock = input.policyPrompt
+    ? `\nCompany Custom AI Policy:\n${input.policyPrompt}\n`
+    : "";
+
+  const userPrompt = `Company On-Chain Spending Limits:
+${policy}
+${customPolicyBlock}
+Employee intended spend:
+- Purpose: ${input.purpose}
+- Amount: ${input.amountEth} ETH
+
+Does this intended spend comply with the policy and limits? Respond in JSON.`;
+
+  const fallback: PolicyCheckResult = {
+    approved: false,
+    reasoning: "Venice AI is not available. This transaction will be flagged.",
+    confidence: 0,
+    prompt: userPrompt,
+  };
+
+  const apiKey = getApiKey();
+  if (!apiKey) return fallback;
+
+  try {
+    const result = await veniceChat<{ approved: boolean; reasoning: string; confidence: number }>({
+      model: TEXT_MODEL,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      responseSchema: POLICY_CHECK_SCHEMA,
+    });
+
+    return { ...result, prompt: userPrompt };
+  } catch (err) {
+    console.error("[venice] advisoryPolicyCheck error:", err);
+    return {
+      approved: false,
+      reasoning: `Advisory check failed: ${err instanceof Error ? err.message : String(err)}`,
+      confidence: 0,
+      prompt: userPrompt,
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // 2. verifyReceipt — Vision-based receipt verification
 // ---------------------------------------------------------------------------
 

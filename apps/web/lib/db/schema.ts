@@ -276,3 +276,25 @@ export const agentBookings = pgTable(
     index("agent_bookings_employee_id_idx").on(table.employeeId),
   ]
 );
+
+export const manualTransactions = pgTable(
+  "manual_transactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+    employeeId: uuid("employee_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    delegationId: uuid("delegation_id").notNull().references(() => delegations.id, { onDelete: "cascade" }),
+    toAddress: text("to_address").notNull(),
+    amountEth: numeric("amount_eth").notNull(),
+    purpose: text("purpose").notNull(),
+    isFlagged: boolean("is_flagged").notNull().default(false),
+    txHash: text("tx_hash"),
+    receiptSummary: text("receipt_summary"), // Venice summary of the uploaded receipt
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("manual_transactions_delegation_id_idx").on(table.delegationId),
+    index("manual_transactions_employee_id_idx").on(table.employeeId),
+    index("manual_transactions_company_id_idx").on(table.companyId),
+  ]
+);

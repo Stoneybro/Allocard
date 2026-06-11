@@ -59,6 +59,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ActivityLogTable } from "./ActivityLogTable";
 import { createInjectedWalletClient } from "@/lib/signer";
 import { createHybridSmartAccount } from "@/lib/smartAccount";
 import { cn } from "@/lib/utils";
@@ -724,39 +726,58 @@ export function EmployerClient() {
             dashboardState.summary.delegatedNativeEthAllowance
           }
         />
-        <DashboardFlowCanvas
-          company={canvasCompany ?? company}
-          employees={canvasEmployees}
-          agents={dashboardState.agents.map((agent) => ({
-            id: agent.id,
-            name: agent.name,
-            smartAccountAddress: agent.smartAccountAddress,
-          }))}
-          delegations={canvasDelegations}
-          headerAction={
-            <SmartAccountActivationButton
-              walletAddress={address}
-              existingSmartAccountAddress={company.smartAccountAddress}
-              onActivated={(result) =>
-                handleSmartAccountActivated(result.smartAccountAddress)
+        <Tabs defaultValue="canvas" className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="canvas">Delegation Canvas</TabsTrigger>
+            <TabsTrigger value="activity">Activity Log</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="canvas" className="mt-0">
+            <DashboardFlowCanvas
+              company={canvasCompany ?? company}
+              employees={canvasEmployees}
+              agents={dashboardState.agents.map((agent) => ({
+                id: agent.id,
+                name: agent.name,
+                smartAccountAddress: agent.smartAccountAddress,
+              }))}
+              delegations={canvasDelegations}
+              headerAction={
+                <SmartAccountActivationButton
+                  walletAddress={address}
+                  existingSmartAccountAddress={company.smartAccountAddress}
+                  onActivated={(result) =>
+                    handleSmartAccountActivated(result.smartAccountAddress)
+                  }
+                />
               }
+              onConfigureDelegation={handleConfigureDelegation}
+              onDropEmployee={handleDropEmployee}
+              onDropAgent={({ agentId, canvasPositionX, canvasPositionY }) =>
+                runDashboardMutation(() =>
+                  createAgentDelegation({
+                    walletAddress: address,
+                    agentId,
+                    canvasPositionX,
+                    canvasPositionY,
+                  }),
+                )
+              }
+              onMoveDelegation={handleMoveDelegation}
+              onRevokeDelegation={handleRevokeDelegation}
             />
-          }
-          onConfigureDelegation={handleConfigureDelegation}
-          onDropEmployee={handleDropEmployee}
-          onDropAgent={({ agentId, canvasPositionX, canvasPositionY }) =>
-            runDashboardMutation(() =>
-              createAgentDelegation({
-                walletAddress: address,
-                agentId,
-                canvasPositionX,
-                canvasPositionY,
-              }),
-            )
-          }
-          onMoveDelegation={handleMoveDelegation}
-          onRevokeDelegation={handleRevokeDelegation}
-        />
+          </TabsContent>
+
+          <TabsContent value="activity" className="mt-0">
+            <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
+              <h3 className="text-lg font-semibold mb-4">Employer Activity Log</h3>
+              <p className="text-sm text-muted-foreground mb-6">
+                A unified view of all direct employee spends, agent bookings, and reimbursements within your company.
+              </p>
+              <ActivityLogTable companyId={company.id} />
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       <Drawer

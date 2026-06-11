@@ -55,6 +55,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DirectSpendForm } from "./DirectSpendForm";
 import { createInjectedWalletClient } from "@/lib/signer";
 import { createHybridSmartAccount } from "@/lib/smartAccount";
 import { cn } from "@/lib/utils";
@@ -590,6 +592,75 @@ export function EmployeeClient() {
     });
   }, [selectedDelegation, address, caveatForm, parentMaxEth]);
 
+  // Task 8: Direct Spend execution
+  const handleExecuteSpend = async (details: { toAddress: string; amountEth: string; purpose: string; isFlagged: boolean }) => {
+    if (!address || !dashboardState?.employee?.smartAccountAddress) {
+      throw new Error("Smart account not activated.");
+    }
+    const walletClient = createInjectedWalletClient(address);
+    const smartAccount = await createHybridSmartAccount(walletClient);
+    
+    const { createBundlerClient } = await import("viem/account-abstraction");
+    const { createPublicClient, http, parseEther } = await import("viem");
+    const { baseSepolia } = await import("viem/chains");
+
+    const bundlerUrl = process.env.NEXT_PUBLIC_BUNDLER_RPC_URL;
+    if (!bundlerUrl) throw new Error("Missing NEXT_PUBLIC_BUNDLER_RPC_URL");
+
+    const publicClient = createPublicClient({ chain: baseSepolia, transport: http() });
+    const bundlerClient = createBundlerClient({
+      client: publicClient,
+      chain: baseSepolia,
+      transport: http(bundlerUrl),
+    });
+
+    // Send Transaction via Bundler / viem
+    const userOpHash = await bundlerClient.sendUserOperation({
+      account: smartAccount as any,
+      calls: [{
+        to: details.toAddress as Hex,
+        value: parseEther(details.amountEth),
+        data: "0x",
+      }]
+    });
+
+    const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash });
+    const txHash = receipt.receipt.transactionHash;
+
+    // Call the backend to log it
+    const res = await fetch("/api/wallet/spend", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        companyId: dashboardState.company.id,
+        employeeId: dashboardState.employee.id,
+        delegationId: dashboardState.inboundDelegation?.id || "",
+        ...details,
+        txHash,
+      }),
+    });
+    
+    if (!res.ok) {
+      const errData = await res.json();
+      console.error("Backend logging failed:", errData);
+      // Even if backend fails, the tx was sent, so we still return txHash
+    }
+
+    return txHash;
+  };
+
+  const handleVerifyReceipt = async (txHash: string, imageBase64: string) => {
+    const res = await fetch("/api/wallet/verify-receipt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ txHash, imageBase64, mimeType: "image/jpeg" }),
+    });
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error || "Failed to verify receipt");
+    }
+  };
+
   // ── Render guards ──────────────────────────────────────────────────────────
 
   if (!isConnected || !address) {
@@ -659,13 +730,37 @@ export function EmployeeClient() {
           remainingEth={formatEthTrimmed(remainingWei)}
         />
 
-        {/* Canvas */}
-        <EmployeeFlowCanvas
-          dashboardState={dashboardState}
-          onConfigureDelegation={handleConfigureDelegation}
-          onRevokeDelegation={handleRevokeDelegation}
-          onNodeClick={handleNodeClick}
-        />
+        {/* Tabs for Canvas and Direct Spend */}
+        <Tabs defaultValue="canvas" className="w-full">
+          <TabsList className="mb-4">
+            <TabsTrigger value="canvas">Delegation Canvas</TabsTrigger>
+            <TabsTrigger value="wallet">Wallet & Direct Spend</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="canvas" className="mt-0">
+            {/* Canvas */}
+            <EmployeeFlowCanvas
+              dashboardState={dashboardState}
+              onConfigureDelegation={handleConfigureDelegation}
+              onRevokeDelegation={handleRevokeDelegation}
+              onNodeClick={handleNodeClick}
+            />
+          </TabsContent>
+          
+          <TabsContent value="wallet" className="mt-0">
+            <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 max-w-2xl">
+              <h3 className="text-lg font-semibold mb-4">Manual Spend</h3>
+              <p className="text-sm text-muted-foreground mb-6">
+                Spend directly from your delegated wallet. Your intended purpose will be checked against the company policy by Venice AI.
+              </p>
+              <DirectSpendForm 
+                delegationId={dashboardState.inboundDelegation?.id || ""} 
+                onExecute={handleExecuteSpend}
+                onVerifyReceipt={handleVerifyReceipt}
+              />
+            </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* ── Caveat Configuration Drawer (Tasks 5 & 6) ──────────────────────── */}
