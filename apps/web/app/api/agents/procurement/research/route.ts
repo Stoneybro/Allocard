@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { delegations, delegationCaveats } from "@/lib/db/schema";
+import { delegations, delegationCaveats, companies } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { researchVendor } from "@/lib/venice";
 
@@ -47,12 +47,22 @@ export async function POST(req: Request) {
     // Pass existing tools based on previous bookings maybe? Or hardcoded for MVP context.
     const existingTools = ["Notion", "Figma", "Slack"];
 
-    // 2. Research options with Venice
+    // 2. Fetch company policy
+    let companyPolicy: string | null = null;
+    if (delegation.delegatorType === "company") {
+      const [co] = await db.select({ companyPolicy: companies.companyPolicy })
+        .from(companies).where(eq(companies.id, delegation.delegatorId)).limit(1);
+      companyPolicy = co?.companyPolicy ?? null;
+    }
+
+    // 3. Research options with Venice
     const vendorChoice = await researchVendor({
       toolCategory,
       teamSize,
       budgetEth,
       caveats: mappedCaveats,
+      policyPrompt: delegation.policyPrompt,
+      companyPolicy,
       existingTools,
       additionalRequirements,
     });

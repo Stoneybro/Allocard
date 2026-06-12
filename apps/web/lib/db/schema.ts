@@ -88,6 +88,9 @@ export const companies = pgTable(
       .references(() => users.id, { onDelete: "restrict" }),
     smartAccountAddress: text("smart_account_address"),
     inviteCode: text("invite_code").notNull(),
+    /** Company-wide expense policy document — the single source of truth
+     *  for all Venice AI policy checks. Seeded with sensible defaults. */
+    companyPolicy: text("company_policy"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

@@ -16,6 +16,7 @@ import {
   normalizeWalletAddress,
   validateCompanyName,
 } from "@/lib/wallet";
+import { withRetry } from "@/lib/db/withRetry";
 
 
 // ── Module-level caches (serverless-safe: each cold start resets) ───────────
@@ -71,6 +72,7 @@ type ProfileCompany = {
   ownerId: string;
   smartAccountAddress: string | null;
   inviteCode: string;
+  companyPolicy: string | null;
 };
 
 type CompanyEmployee = {
@@ -153,6 +155,8 @@ export type CompanyDashboardState = {
   /** All active platform agents — same catalog regardless of company. */
   agents: PlatformAgent[];
   delegations: CompanyDelegation[];
+  /** Company-wide expense policy — the single source of truth for Venice AI checks. */
+  companyPolicy: string | null;
   summary: {
     employeeCount: number;
     /** Number of active company → agent delegations (not total agent count). */
@@ -268,6 +272,7 @@ function toProfileCompany(company: typeof companies.$inferSelect): ProfileCompan
     ownerId: company.ownerId,
     smartAccountAddress: company.smartAccountAddress,
     inviteCode: company.inviteCode,
+    companyPolicy: company.companyPolicy ?? null,
   };
 }
 
@@ -547,11 +552,11 @@ async function getCompanyDelegationTree(companyId: string) {
 
 async function getCompanyForUser(user: typeof users.$inferSelect) {
   if (user.role === "employer") {
-    const [company] = await db
+    const [company] = await withRetry(() => db
       .select()
       .from(companies)
       .where(eq(companies.ownerId, user.id))
-      .limit(1);
+      .limit(1), "getCompanyForUser:employer");
 
     return company ?? null;
   }
@@ -560,11 +565,13 @@ async function getCompanyForUser(user: typeof users.$inferSelect) {
     return null;
   }
 
-  const [company] = await db
+  const companyId = user.companyId;
+
+  const [company] = await withRetry(() => db
     .select()
     .from(companies)
-    .where(eq(companies.id, user.companyId))
-    .limit(1);
+    .where(eq(companies.id, companyId))
+    .limit(1), "getCompanyForUser:employee");
 
   return company ?? null;
 }
@@ -1152,6 +1159,28 @@ export async function removePendingDelegation(input: {
   return getCompanyDashboardState(input.walletAddress);
 }
 
+// ---------------------------------------------------------------------------
+// Company policy editor
+// ---------------------------------------------------------------------------
+
+
+export async function updateCompanyPolicy(input: {
+  walletAddress: string;
+  companyPolicy: string;
+}): Promise<CompanyDashboardState> {
+  const profile = await getWalletProfile(input.walletAddress);
+  if (profile.status !== "employer" || !profile.company) {
+    throw new Error("Only a company owner can update company policy");
+  }
+
+  await db
+    .update(companies)
+    .set({ companyPolicy: input.companyPolicy })
+    .where(eq(companies.id, profile.company.id));
+
+  return getCompanyDashboardState(input.walletAddress);
+}
+
 export async function getCompanyDashboardState(
   walletAddress: string,
 ): Promise<CompanyDashboardState> {
@@ -1250,6 +1279,7 @@ export async function getCompanyDashboardState(
       ...employee,
       createdAt: employee.createdAt.toISOString(),
     })),
+    companyPolicy: profile.company.companyPolicy,
     agents: platformAgents,
     delegations: companyDelegations.map((delegation) =>
       toCompanyDelegation(
@@ -1285,6 +1315,8 @@ export type EmployeeDashboardState = {
   outboundDelegations: CompanyDelegation[];
   /** All active platform agents — available for the employee to redelegate to. */
   agents: PlatformAgent[];
+  /** Company-wide expense policy — passed through to Venice AI checks. */
+  companyPolicy: string | null;
   summary: {
     /** ETH limit approved by the company (from the inbound delegation caveats). */
     approvedLimitEth: string;
@@ -1408,6 +1440,7 @@ export async function getEmployeeDashboardState(
       smartAccountAddress: user.smartAccountAddress,
     },
     company,
+    companyPolicy: company.companyPolicy,
     inboundDelegation,
     outboundDelegations,
     agents: platformAgents,

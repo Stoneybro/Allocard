@@ -16,6 +16,7 @@ import { LoaderCircleIcon, ShieldCheckIcon, BotIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { parseEther, formatEther, type Hex } from "viem";
 import {
+  updateCompanyPolicy,
   activateDelegation,
   createAgentDelegation,
   createCompanyInvite,
@@ -42,6 +43,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import { DEFAULT_COMPANY_POLICY } from "@/lib/policy";
 import {
   Drawer,
   DrawerContent,
@@ -352,26 +354,40 @@ export function EmployerClient() {
   const [caveatForm, setCaveatForm] = useState<CaveatForm>(emptyCaveatForm);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isPending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [policyDraft, setPolicyDraft] = useState<string>("");
+  const [policyHasChanges, setPolicyHasChanges] = useState(false);
   const { data: walletClient } = useWalletClient();
 
   useEffect(() => {
     if (!address || !isConnected) return;
 
     startTransition(async () => {
-      const nextProfile = await getWalletProfile(address);
+      try {
+        const nextProfile = await getWalletProfile(address);
 
-      if (nextProfile.status === "new") {
-        router.replace("/onboarding");
-        return;
+        if (nextProfile.status === "new") {
+          router.replace("/onboarding");
+          return;
+        }
+
+        if (nextProfile.status === "employee") {
+          router.replace("/employee");
+          return;
+        }
+
+        setProfile(nextProfile);
+        const dashState = await getCompanyDashboardState(address);
+        setDashboardState(dashState);
+        setPolicyDraft(dashState.companyPolicy ?? DEFAULT_COMPANY_POLICY);
+        setError(null);
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Failed to load dashboard. Please refresh."
+        );
       }
-
-      if (nextProfile.status === "employee") {
-        router.replace("/employee");
-        return;
-      }
-
-      setProfile(nextProfile);
-      setDashboardState(await getCompanyDashboardState(address));
     });
   }, [address, isConnected, router]);
 
@@ -548,6 +564,30 @@ export function EmployerClient() {
     return (
       <div className="flex h-full items-center justify-center">
         <p className="text-sm text-muted-foreground">Loading company workspace...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex h-full items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-4 text-center max-w-md">
+          <div className="rounded-full bg-destructive/10 p-3">
+            <svg className="h-6 w-6 text-destructive" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-destructive">Dashboard failed to load</p>
+            <p className="mt-1 text-xs text-muted-foreground">{error}</p>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
+          >
+            Reload page
+          </button>
+        </div>
       </div>
     );
   }
@@ -760,10 +800,30 @@ export function EmployerClient() {
             dashboardState.summary.delegatedNativeEthAllowance
           }
         />
+        {/* Smart account activation banner */}
+        {!company.smartAccountAddress && (
+          <div className="flex items-center justify-between rounded-lg border border-border bg-muted/50 px-4 py-3">
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                Company smart account not yet activated
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Activate the company smart account to start delegating spending authority to employees and agents.
+              </p>
+            </div>
+            <SmartAccountActivationButton
+              walletAddress={address}
+              existingSmartAccountAddress={company.smartAccountAddress}
+              onActivated={(result) => handleSmartAccountActivated(result.smartAccountAddress)}
+            />
+          </div>
+        )}
+
         <Tabs defaultValue="canvas" className="w-full">
           <TabsList className="mb-4">
             <TabsTrigger value="canvas">Delegation Canvas</TabsTrigger>
             <TabsTrigger value="activity">Activity Log</TabsTrigger>
+            <TabsTrigger value="settings">Company Policy</TabsTrigger>
           </TabsList>
 
           <TabsContent value="canvas" className="mt-0">
@@ -776,15 +836,6 @@ export function EmployerClient() {
                 smartAccountAddress: agent.smartAccountAddress,
               }))}
               delegations={canvasDelegations}
-              headerAction={
-                <SmartAccountActivationButton
-                  walletAddress={address}
-                  existingSmartAccountAddress={company.smartAccountAddress}
-                  onActivated={(result) =>
-                    handleSmartAccountActivated(result.smartAccountAddress)
-                  }
-                />
-              }
               onConfigureDelegation={handleConfigureDelegation}
               onDropEmployee={handleDropEmployee}
               onDropAgent={({ agentId, canvasPositionX, canvasPositionY }) =>
@@ -811,6 +862,17 @@ export function EmployerClient() {
               </p>
               <ActivityLogTable companyId={company.id} />
             </div>
+          </TabsContent>
+
+          <TabsContent value="settings" className="mt-0">
+            <CompanyPolicyEditor
+              companyPolicy={dashboardState?.companyPolicy ?? null}
+              onSave={async (newPolicy) => {
+                await runDashboardMutation(() =>
+                  updateCompanyPolicy({ walletAddress: address, companyPolicy: newPolicy })
+                );
+              }}
+            />
           </TabsContent>
         </Tabs>
       </div>
@@ -1068,3 +1130,83 @@ export function EmployerClient() {
     </DashboardShell>
   );
 }
+
+
+
+function CompanyPolicyEditor({
+  companyPolicy,
+  onSave,
+}: {
+  companyPolicy: string | null;
+  onSave: (policy: string) => Promise<void>;
+}) {
+  const [draft, setDraft] = useState(companyPolicy ?? DEFAULT_COMPANY_POLICY);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const hasChanges = draft !== (companyPolicy ?? DEFAULT_COMPANY_POLICY);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await onSave(draft);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleReset = () => {
+    setDraft(DEFAULT_COMPANY_POLICY);
+  };
+
+  return (
+    <div className="rounded-lg border border-neutral-200 bg-white p-6 shadow-sm">
+      <div className="mb-6">
+        <h3 className="text-lg font-semibold text-neutral-800">Company Expense Policy</h3>
+        <p className="mt-1 text-sm text-neutral-500">
+          This policy is the single source of truth for all Venice AI checks —
+          reimbursements, direct spends, and agent decisions. Edit once, applied everywhere.
+        </p>
+      </div>
+
+      <Textarea
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        className="min-h-[280px] font-mono text-sm resize-y"
+        placeholder="Enter your company expense policy..."
+      />
+
+      <div className="mt-4 flex items-center justify-between">
+        <div className="flex gap-2">
+          <Button
+            onClick={handleSave}
+            disabled={!hasChanges || saving}
+            size="sm"
+          >
+            {saving ? "Saving..." : saved ? "✓ Saved" : "Save Policy"}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleReset}
+          >
+            Reset to Default
+          </Button>
+        </div>
+        {saved && (
+          <span className="text-xs text-green-600 font-medium">
+            Policy saved — all Venice AI checks now use this policy.
+          </span>
+        )}
+        {!hasChanges && !saved && (
+          <span className="text-xs text-neutral-400">
+            No changes to save.
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+

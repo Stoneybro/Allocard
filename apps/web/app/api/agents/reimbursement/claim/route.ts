@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { delegations, claimRedemptions, delegationCaveats, users } from "@/lib/db/schema";
+import { delegations, claimRedemptions, delegationCaveats, users, companies } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { checkPolicy, verifyReceipt } from "@/lib/venice";
 import { put } from "@vercel/blob";
@@ -96,12 +96,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 4. Venice Policy Check
+    // 4. Fetch company policy
+    const [company] = await db.select({ companyPolicy: companies.companyPolicy })
+      .from(companies).where(eq(companies.id, companyId)).limit(0);
+    let companyPolicy: string | null = null;
+    if (companyId) {
+      const [co] = await db.select({ companyPolicy: companies.companyPolicy })
+        .from(companies).where(eq(companies.id, companyId)).limit(1);
+      companyPolicy = co?.companyPolicy ?? null;
+    }
+
+    // Venice Policy Check
     const policyResult = await checkPolicy({
       claimDescription,
       amountEth,
       caveats: mappedCaveats,
       policyPrompt: delegation.policyPrompt,
+      companyPolicy,
     });
 
     if (!policyResult.approved) {

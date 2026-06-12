@@ -11,7 +11,7 @@ import {
   type Caveats,
   type Delegation,
 } from "@metamask/smart-accounts-kit";
-import { LoaderCircleIcon, ShieldCheckIcon } from "lucide-react";
+import { LoaderCircleIcon, ShieldCheckIcon, BotIcon } from "lucide-react";
 import { formatEther, parseEther, type Hex } from "viem";
 import {
   createAgentRedelegation,
@@ -56,6 +56,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
 import { DirectSpendForm } from "./DirectSpendForm";
 import { createHybridSmartAccount } from "@/lib/smartAccount";
 import { cn } from "@/lib/utils";
@@ -75,6 +76,7 @@ type CaveatForm = {
   allowedTargets: string;
   limitedCallsEnabled: boolean;
   limitedCalls: string;
+  policyPrompt: string;
 };
 
 type FormErrors = {
@@ -107,6 +109,7 @@ function buildEmptyCaveatForm(parentMaxEth: string): CaveatForm {
     allowedTargets: "",
     limitedCallsEnabled: false,
     limitedCalls: "1",
+    policyPrompt: "",
   };
 }
 
@@ -323,21 +326,30 @@ export function EmployeeClient() {
     if (!address || !isConnected) return;
 
     startTransition(async () => {
-      const { getWalletProfile } = await import("@/app/actions/identity");
-      const profile = await getWalletProfile(address);
+      try {
+        const { getWalletProfile } = await import("@/app/actions/identity");
+        const profile = await getWalletProfile(address);
 
-      if (profile.status === "new") {
-        router.replace("/onboarding");
-        return;
+        if (profile.status === "new") {
+          router.replace("/onboarding");
+          return;
+        }
+
+        if (profile.status === "employer") {
+          router.replace("/employer");
+          return;
+        }
+
+        const state = await getEmployeeDashboardState(address);
+        setDashboardState(state);
+        setError(null);
+      } catch (caughtError) {
+        setError(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Failed to load dashboard. Please refresh."
+        );
       }
-
-      if (profile.status === "employer") {
-        router.replace("/employer");
-        return;
-      }
-
-      const state = await getEmployeeDashboardState(address);
-      setDashboardState(state);
     });
   }, [address, isConnected, router]);
 
@@ -729,6 +741,30 @@ export function EmployeeClient() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="flex h-full items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-4 text-center max-w-md">
+          <div className="rounded-full bg-destructive/10 p-3">
+            <svg className="h-6 w-6 text-destructive" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+            </svg>
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-destructive">Dashboard failed to load</p>
+            <p className="mt-1 text-xs text-muted-foreground">{error}</p>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
+          >
+            Reload page
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!dashboardState) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -763,9 +799,9 @@ export function EmployeeClient() {
       <div className="flex flex-col gap-6">
         {/* Smart account activation banner */}
         {!employee.smartAccountAddress && (
-          <div className="flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3">
+          <div className="flex items-center justify-between rounded-lg border border-border bg-muted/50 px-4 py-3">
             <div>
-              <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
+              <p className="text-sm font-medium text-foreground">
                 Smart account not yet activated
               </p>
               <p className="mt-0.5 text-xs text-muted-foreground">
@@ -1041,6 +1077,36 @@ export function EmployeeClient() {
                 )}
               </div>
             </div>
+
+            <Separator />
+
+            {/* Section 4: AI Policy Prompt */}
+            {selectedDelegation?.delegateeType === "agent" && (
+              <div className="flex flex-col gap-4">
+                <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                  <BotIcon className="h-4 w-4 text-chart-5" />
+                  4. AI Policy Prompt
+                </h4>
+                
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="emp-policy-prompt">Natural Language Rules</Label>
+                  <Textarea
+                    id="emp-policy-prompt"
+                    value={caveatForm.policyPrompt}
+                    disabled={selectedDelegation?.status === "active"}
+                    onChange={(event) =>
+                      setCaveatForm((form) => ({
+                        ...form,
+                        policyPrompt: event.target.value,
+                      }))
+                    }
+                    placeholder="e.g. Do not reimburse alcohol. Limit meals to $50. Flights must be economy."
+                    className="min-h-[100px] resize-none"
+                  />
+                  <p className="text-[0.8rem] text-muted-foreground">These rules will be fed to the AI Agent. The hard on-chain limits above still apply as a security net.</p>
+                </div>
+              </div>
+            )}
 
             <div className="pb-4" />
           </div>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { delegationCaveats } from "@/lib/db/schema";
+import { delegationCaveats, delegations, companies } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { advisoryPolicyCheck } from "@/lib/venice";
 
@@ -30,11 +30,27 @@ export async function POST(req: NextRequest) {
       createdAt: caveat.createdAt.toISOString(),
     }));
 
+    // Fetch delegation to get companyId and policyPrompt
+    const [delegation] = await db
+      .select({ delegatorId: delegations.delegatorId, delegatorType: delegations.delegatorType, policyPrompt: delegations.policyPrompt })
+      .from(delegations)
+      .where(eq(delegations.id, delegationId))
+      .limit(1);
+
+    let companyPolicy: string | null = null;
+    if (delegation?.delegatorType === "company") {
+      const [co] = await db.select({ companyPolicy: companies.companyPolicy })
+        .from(companies).where(eq(companies.id, delegation.delegatorId)).limit(1);
+      companyPolicy = co?.companyPolicy ?? null;
+    }
+
     // Call Venice AI advisory check
     const result = await advisoryPolicyCheck({
       purpose,
       amountEth,
       caveats,
+      policyPrompt: delegation?.policyPrompt ?? null,
+      companyPolicy,
     });
 
     return NextResponse.json({

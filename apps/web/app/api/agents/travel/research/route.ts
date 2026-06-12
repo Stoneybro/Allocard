@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { delegations, delegationCaveats } from "@/lib/db/schema";
+import { delegations, delegationCaveats, companies } from "@/lib/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import { researchTravel } from "@/lib/venice";
 
@@ -45,13 +45,23 @@ export async function POST(req: Request) {
       }
     }
 
-    // 2. Research options with Venice
+    // 2. Fetch company policy
+    let companyPolicy: string | null = null;
+    if (delegation.delegatorType === "company") {
+      const [co] = await db.select({ companyPolicy: companies.companyPolicy })
+        .from(companies).where(eq(companies.id, delegation.delegatorId)).limit(1);
+      companyPolicy = co?.companyPolicy ?? null;
+    }
+
+    // 3. Research options with Venice
     const travelPlan = await researchTravel({
       destination,
       departureDateApprox: departureDate,
       returnDateApprox: returnDate,
       budgetEth,
       caveats: mappedCaveats,
+      policyPrompt: delegation.policyPrompt,
+      companyPolicy,
       employeeDescription: notes,
     });
 
