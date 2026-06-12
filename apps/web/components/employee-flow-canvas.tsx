@@ -19,8 +19,10 @@ import {
   BotIcon,
   CheckIcon,
   CopyIcon,
-  EyeIcon,
+  PlaneIcon,
+  ReceiptIcon,
   Settings2Icon,
+  ShoppingCartIcon,
   UserRoundIcon,
 } from "lucide-react";
 
@@ -66,7 +68,7 @@ function StatusBadge({ status, isRoot }: { status: EmployeeNodeData["status"]; i
   );
 }
 
-function CopyAddressButton({ address }: { address?: string }) {
+function CopyAddressButton({ address, dark }: { address?: string; dark?: boolean }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(() => {
@@ -88,7 +90,10 @@ function CopyAddressButton({ address }: { address?: string }) {
           <button
             type="button"
             onClick={handleCopy}
-            className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
+            className={cn(
+              "inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:bg-white/10",
+              dark ? "text-neutral-400 hover:text-neutral-200" : "text-neutral-400 hover:text-neutral-600",
+            )}
           >
             <Icon className="size-3" />
           </button>
@@ -101,59 +106,71 @@ function CopyAddressButton({ address }: { address?: string }) {
   );
 }
 
+function agentActionLabel(agentTitle: string): { label: string; Icon: React.ElementType } {
+  if (agentTitle === "Travel Agent") return { label: "Book Trip", Icon: PlaneIcon };
+  if (agentTitle === "Procurement Agent") return { label: "Procure", Icon: ShoppingCartIcon };
+  if (agentTitle === "Reimbursement Agent") return { label: "Claim", Icon: ReceiptIcon };
+  return { label: "Open", Icon: BotIcon };
+}
+
 function EmployeeNode({ data }: NodeProps<Node<EmployeeNodeData>>) {
   const Icon = data.kind === "self" ? UserRoundIcon : BotIcon;
   const formattedAddress = data.address ? formatWalletAddress(data.address) : null;
+  const isSelf = data.kind === "self";
+  const isRevoked = data.status === "revoked";
 
   return (
     <div
       className={cn(
-        "min-w-52 rounded-lg border bg-card p-4 text-card-foreground shadow-sm",
-        data.kind === "self" && "min-w-64 border-primary bg-primary text-primary-foreground",
-        data.kind === "agent" && "border-chart-5/50 bg-chart-5/10",
-        data.status === "revoked" && "opacity-55",
+        "w-64 rounded-lg border border-neutral-200 bg-white p-4 shadow-sm",
+        !isSelf && !isRevoked && "w-72",
+        isSelf && "border-neutral-800 bg-neutral-900 text-neutral-50",
+        isRevoked && "w-64 opacity-55",
       )}
     >
       <Handle
         type="target"
         position={Position.Left}
-        className="!border-border !bg-background"
+        className={cn(
+          "!size-2.5",
+          isSelf ? "!bg-neutral-50 !border-neutral-400" : "!bg-neutral-400 !border-neutral-200",
+        )}
       />
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Icon />
-          <div className="min-w-0">
-            <div className="truncate text-sm font-semibold">{data.title}</div>
-            <div
-              className={cn(
-                "truncate text-xs text-muted-foreground",
-                data.kind === "self" && "text-primary-foreground/70",
-              )}
-            >
-              {data.subtitle}
-            </div>
+      <div className="flex items-start gap-2.5">
+        <Icon className={cn("mt-0.5 size-4 shrink-0", isSelf ? "text-neutral-300" : "text-neutral-400")} />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-semibold">{data.title}</div>
+          <div
+            className={cn(
+              "truncate text-xs",
+              isSelf ? "text-neutral-400" : "text-neutral-500",
+            )}
+          >
+            {data.subtitle}
           </div>
         </div>
-        <StatusBadge status={data.status} isRoot={data.kind === "self"} />
+        <StatusBadge status={data.status} isRoot={isSelf} />
       </div>
 
       <div
         className={cn(
-          "mt-3 flex items-center justify-between rounded-md border bg-background/70 px-3 py-1.5 font-mono text-xs text-muted-foreground",
-          data.kind === "self" && "border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground/80",
+          "mt-3 flex items-center justify-between rounded-md border px-2.5 py-1.5 font-mono text-xs",
+          isSelf
+            ? "border-neutral-700 bg-neutral-800/50 text-neutral-300"
+            : "border-neutral-100 bg-neutral-50 text-neutral-500",
         )}
       >
-        <span>{formattedAddress ?? "Address pending"}</span>
-        <CopyAddressButton address={data.address} />
+        <span className="truncate">{formattedAddress ?? "Address pending"}</span>
+        <CopyAddressButton address={data.address} dark={isSelf} />
       </div>
 
       {data.balance !== undefined && (
         <div
           className={cn(
-            "mt-2 flex items-center justify-between rounded-md px-3 py-1.5 text-xs",
-            data.kind === "self"
-              ? "bg-primary-foreground/10 text-primary-foreground/90"
-              : "bg-muted/50 text-muted-foreground",
+            "mt-2 flex items-center justify-between rounded-md px-2.5 py-1.5 text-xs",
+            isSelf
+              ? "bg-neutral-800/40 text-neutral-200"
+              : "bg-neutral-50 text-neutral-600",
           )}
         >
           <span className="font-medium">{data.balanceLabel ?? "Balance"}</span>
@@ -162,8 +179,13 @@ function EmployeeNode({ data }: NodeProps<Node<EmployeeNodeData>>) {
       )}
 
       {data.canConfigure && data.delegationId ? (
-        data.status === "active" ? (
-          <div className="mt-3 flex gap-2">
+        data.status === "revoked" ? (
+          <div className="nodrag mt-3" onMouseDown={e => e.stopPropagation()}>
+            <Badge variant="destructive">Revoked</Badge>
+          </div>
+        ) : data.status === "pending_config" ? (
+          /* Pending agent: Configure + Remove */
+          <div className="nodrag mt-3 flex gap-2" onMouseDown={e => e.stopPropagation()}>
             <Button
               size="sm"
               variant="outline"
@@ -180,31 +202,60 @@ function EmployeeNode({ data }: NodeProps<Node<EmployeeNodeData>>) {
               <Button
                 size="sm"
                 variant="outline"
-                className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                className="h-7 px-2 text-xs text-red-600 hover:text-red-700"
                 onClick={(e) => {
                   e.stopPropagation();
                   data.onRevoke?.(data.delegationId!);
                 }}
               >
-                Revoke
+                Remove
               </Button>
             )}
           </div>
-        ) : data.status === "revoked" ? (
-          <div className="mt-3">
-            <Badge variant="destructive">Revoked</Badge>
-          </div>
         ) : (
-          <div className="mt-3">
-            <Badge variant="outline">Pending Configuration</Badge>
-          </div>
+          /* Active agent: action-specific label + Revoke */
+          (() => {
+            const { label, Icon } = agentActionLabel(data.title);
+            return (
+              <div className="nodrag mt-3 flex gap-2" onMouseDown={e => e.stopPropagation()}>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 px-2 text-xs"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    data.onConfigure?.(data.delegationId!);
+                  }}
+                >
+                  <Icon className="mr-1 size-3" />
+                  {label}
+                </Button>
+                {data.onRevoke && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs text-red-600 hover:text-red-700"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      data.onRevoke?.(data.delegationId!);
+                    }}
+                  >
+                    Revoke
+                  </Button>
+                )}
+              </div>
+            );
+          })()
         )
       ) : null}
 
       <Handle
         type="source"
         position={Position.Right}
-        className="!border-border !bg-background"
+        className={cn(
+          "!size-2.5",
+          isSelf ? "!bg-neutral-50 !border-neutral-400" : "!bg-neutral-400 !border-neutral-200",
+        )}
       />
     </div>
   );
@@ -307,12 +358,12 @@ export function EmployeeFlowCanvas({
         animated: isActive,
         markerEnd: { type: MarkerType.ArrowClosed },
         style: isActive
-          ? { stroke: "var(--foreground)", strokeWidth: 2 }
+          ? { stroke: "#404040", strokeWidth: 2 }
           : {
-              stroke: "var(--muted-foreground)",
-              strokeWidth: 2,
-              strokeDasharray: "6 6",
-              opacity: 0.34,
+              stroke: "#a3a3a3",
+              strokeWidth: 1.5,
+              strokeDasharray: "5 4",
+              opacity: 0.5,
             },
       });
     });
@@ -370,23 +421,23 @@ export function EmployeeFlowCanvas({
   return (
     <div
       ref={canvasRef}
-      className="flex h-[560px] min-h-[460px] flex-col overflow-hidden rounded-lg border bg-card shadow-sm"
+      className="flex h-[560px] min-h-[460px] flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm"
       onDrop={handleDrop}
       onDragOver={handleDragOver}
     >
-      <div className="flex items-center justify-between gap-4 border-b px-5 py-4">
+      <div className="flex items-center justify-between gap-4 border-b border-neutral-100 px-5 py-4">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-400">
             DELEGATION CANVAS
           </p>
-          <h3 className="mt-1 text-base font-semibold text-card-foreground">
+          <h3 className="mt-1 text-base font-semibold text-neutral-800">
             Your spending authority
           </h3>
         </div>
         <div className="flex items-center">{headerAction}</div>
       </div>
 
-      <div className="min-h-0 flex-1">
+      <div className="min-h-0 flex-1 bg-neutral-50">
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -403,10 +454,12 @@ export function EmployeeFlowCanvas({
           zoomOnScroll
           minZoom={0.55}
           maxZoom={1.5}
-          colorMode="dark"
         >
-          <Background />
-          <Controls />
+          <Background gap={22} size={1} color="#d4d4d4" />
+          <Controls
+            showInteractive={false}
+            className="!bottom-4 !left-4 !top-auto !border-neutral-200 !bg-white/90 !shadow-sm"
+          />
         </ReactFlow>
       </div>
     </div>

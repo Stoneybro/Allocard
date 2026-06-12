@@ -26,10 +26,10 @@ import {
   CheckIcon,
   CopyIcon,
   CreditCardIcon,
-  EyeIcon,
   Settings2Icon,
-  TerminalIcon,
+
   UserRoundIcon,
+  BotIcon,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -121,7 +121,7 @@ function StatusBadge({
   );
 }
 
-function CopyAddressButton({ address, isMaster }: { address?: string; isMaster?: boolean }) {
+function CopyAddressButton({ address, dark }: { address?: string; dark?: boolean }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(() => {
@@ -145,10 +145,10 @@ function CopyAddressButton({ address, isMaster }: { address?: string; isMaster?:
             onClick={handleCopy}
             className={cn(
               "inline-flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:bg-white/10",
-              isMaster ? "text-primary-foreground/60 hover:text-primary-foreground" : "text-muted-foreground hover:text-foreground",
+              dark ? "text-neutral-400 hover:text-neutral-200" : "text-neutral-400 hover:text-neutral-600",
             )}
           >
-            <Icon className="h-3 w-3" />
+            <Icon className="size-3" />
           </button>
         </TooltipTrigger>
         <TooltipContent side="top">
@@ -165,65 +165,64 @@ function DelegationNode({ data }: NodeProps<Node<DelegationNodeData>>) {
       ? CreditCardIcon
       : data.kind === "employee"
         ? UserRoundIcon
-        : TerminalIcon;
+        : BotIcon;
 
   const formattedAddress = data.address ? formatWalletAddress(data.address) : null;
+  const isMaster = data.kind === "master";
+  const isRevoked = data.status === "revoked";
 
   return (
     <div
       className={cn(
-        "min-w-52 rounded-lg border bg-card p-4 text-card-foreground shadow-sm",
-        data.kind === "master" &&
-          "min-w-64 border-primary bg-primary text-primary-foreground",
-        data.kind === "employee" && "border-chart-4/50 bg-chart-4/10",
-        data.kind === "agent" && "border-chart-5/50 bg-chart-5/10",
-
-        data.status === "revoked" && "opacity-55",
+        "w-64 rounded-lg border border-neutral-200 bg-white p-4 shadow-sm",
+        data.kind === "agent" && "w-72",
+        isMaster && "w-64 border-neutral-800 bg-neutral-900 text-neutral-50",
+        isRevoked && "opacity-55",
       )}
     >
       <Handle
         type="target"
         position={Position.Left}
-        className="!border-border !bg-background"
+        className={cn(
+          "!size-2.5",
+          isMaster ? "!bg-neutral-50 !border-neutral-400" : "!bg-neutral-400 !border-neutral-200",
+        )}
       />
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Icon />
-          <div className="min-w-0">
-            <div className="truncate text-sm font-semibold">{data.title}</div>
-            <div
-              className={cn(
-                "truncate text-xs text-muted-foreground",
-                data.kind === "master" && "text-primary-foreground/70",
-              )}
-            >
-              {data.subtitle}
-            </div>
+      <div className="flex items-start gap-2.5">
+        <Icon className={cn("mt-0.5 size-4 shrink-0", isMaster ? "text-neutral-300" : "text-neutral-400")} />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-semibold">{data.title}</div>
+          <div
+            className={cn(
+              "truncate text-xs",
+              isMaster ? "text-neutral-400" : "text-neutral-500",
+            )}
+          >
+            {data.subtitle}
           </div>
         </div>
-        <StatusBadge
-          status={data.status}
-          isPlaceholder={data.isPlaceholder}
-        />
+        <StatusBadge status={data.status} isPlaceholder={data.isPlaceholder} />
       </div>
 
       <div
         className={cn(
-          "mt-3 flex items-center justify-between rounded-md border bg-background/70 px-3 py-1.5 font-mono text-xs text-muted-foreground",
-          data.kind === "master" && "border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground/80",
+          "mt-3 flex items-center justify-between rounded-md border px-2.5 py-1.5 font-mono text-xs",
+          isMaster
+            ? "border-neutral-700 bg-neutral-800/50 text-neutral-300"
+            : "border-neutral-100 bg-neutral-50 text-neutral-500",
         )}
       >
-        <span>{formattedAddress ?? "Address pending"}</span>
-        <CopyAddressButton address={data.address} isMaster={data.kind === "master"} />
+        <span className="truncate">{formattedAddress ?? "Address pending"}</span>
+        <CopyAddressButton address={data.address} dark={isMaster} />
       </div>
 
       {data.balance !== undefined && (
         <div
           className={cn(
-            "mt-2 flex items-center justify-between rounded-md px-3 py-1.5 text-xs",
-            data.kind === "master"
-              ? "bg-primary-foreground/10 text-primary-foreground/90"
-              : "bg-muted/50 text-muted-foreground",
+            "mt-2 flex items-center justify-between rounded-md px-2.5 py-1.5 text-xs",
+            isMaster
+              ? "bg-neutral-800/40 text-neutral-200"
+              : "bg-neutral-50 text-neutral-600",
           )}
         >
           <span className="font-medium">{data.balanceLabel ?? "Balance"}</span>
@@ -232,8 +231,54 @@ function DelegationNode({ data }: NodeProps<Node<DelegationNodeData>>) {
       )}
 
       {data.canConfigure && data.delegationId ? (
-        data.status === "active" ? (
-          <div className="mt-3 flex gap-2">
+        data.status === "revoked" ? (
+          <div className="nodrag mt-3 flex gap-2">
+            <Badge variant="destructive">Revoked</Badge>
+            {data.onRemove && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 text-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  data.onRemove?.(data.delegationId!);
+                }}
+              >
+                Remove
+              </Button>
+            )}
+          </div>
+        ) : data.kind === "employee" && data.status === "active" ? (
+          /* Active employee: View Rules + Revoke */
+          <div className="nodrag mt-3 flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-xs"
+              onClick={(e) => {
+                e.stopPropagation();
+                data.onConfigure?.(data.delegationId!);
+              }}
+            >
+              View Rules
+            </Button>
+            {data.onRevoke && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 text-xs text-red-600 hover:text-red-700"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  data.onRevoke?.(data.delegationId!);
+                }}
+              >
+                Revoke
+              </Button>
+            )}
+          </div>
+        ) : data.kind === "employee" && data.status === "pending_config" ? (
+          /* Pending employee: Configure + Remove */
+          <div className="nodrag mt-3 flex gap-2">
             <Button
               size="sm"
               variant="outline"
@@ -250,7 +295,7 @@ function DelegationNode({ data }: NodeProps<Node<DelegationNodeData>>) {
               <Button
                 size="sm"
                 variant="outline"
-                className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                className="h-7 px-2 text-xs text-red-600 hover:text-red-700"
                 onClick={(e) => {
                   e.stopPropagation();
                   data.onRemove?.(data.delegationId!);
@@ -260,14 +305,26 @@ function DelegationNode({ data }: NodeProps<Node<DelegationNodeData>>) {
               </Button>
             )}
           </div>
-        ) : data.status === "revoked" ? (
-          <div className="mt-3 flex gap-2">
-            <Badge variant="destructive">Revoked</Badge>
+        ) : data.kind === "agent" ? (
+          /* Agent nodes (any non-revoked status): Configure (pending) or View Rules (active) + Remove */
+          <div className="nodrag mt-3 flex gap-2" onMouseDown={e => e.stopPropagation()}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-xs"
+              onClick={(e) => {
+                e.stopPropagation();
+                data.onConfigure?.(data.delegationId!);
+              }}
+            >
+              <Settings2Icon className="mr-1 size-3" />
+              {data.status === "pending_config" ? "Configure" : "View Rules"}
+            </Button>
             {data.onRemove && (
               <Button
                 size="sm"
                 variant="outline"
-                className="h-7 px-2 text-xs"
+                className="h-7 px-2 text-xs text-red-600 hover:text-red-700"
                 onClick={(e) => {
                   e.stopPropagation();
                   data.onRemove?.(data.delegationId!);
@@ -277,30 +334,16 @@ function DelegationNode({ data }: NodeProps<Node<DelegationNodeData>>) {
               </Button>
             )}
           </div>
-        ) : (
-          <div className="mt-3 flex gap-2">
-            <Badge variant="outline">Pending</Badge>
-            {data.onRemove && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 px-2 text-xs"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  data.onRemove?.(data.delegationId!);
-                }}
-              >
-                Remove
-              </Button>
-            )}
-          </div>
-        )
+        ) : null
       ) : null}
 
       <Handle
         type="source"
         position={Position.Right}
-        className="!border-border !bg-background"
+        className={cn(
+          "!size-2.5",
+          isMaster ? "!bg-neutral-50 !border-neutral-400" : "!bg-neutral-400 !border-neutral-200",
+        )}
       />
     </div>
   );
@@ -309,24 +352,24 @@ function DelegationNode({ data }: NodeProps<Node<DelegationNodeData>>) {
 function statusEdgeStyle(status: DelegationCanvasDelegation["status"]) {
   if (status === "active") {
     return {
-      stroke: "var(--foreground)",
+      stroke: "#404040",
       strokeWidth: 2,
     };
   }
 
   if (status === "revoked") {
     return {
-      stroke: "var(--muted-foreground)",
-      strokeWidth: 2,
-      opacity: 0.2,
+      stroke: "#a3a3a3",
+      strokeWidth: 1.5,
+      opacity: 0.3,
     };
   }
 
   return {
-    stroke: "var(--muted-foreground)",
-    strokeWidth: 2,
-    strokeDasharray: "6 6",
-    opacity: 0.34,
+    stroke: "#a3a3a3",
+    strokeWidth: 1.5,
+    strokeDasharray: "5 4",
+    opacity: 0.5,
   };
 }
 
@@ -453,22 +496,24 @@ export function DashboardFlowCanvas({
 
         nextNodes.push({
           id: nodeId,
-        type: "delegation",
-        position: { x: 0, y: 0 },
-        data: {
-          delegationId: delegation.id,
-          title: agent.name,
-          subtitle: delegation.parentDelegationId ? "AI Agent · Redelegated" : "AI Agent",
-          address: agent.smartAccountAddress ?? undefined,
-          status: delegation.status,
-          kind: "agent",
-          isPlaceholder: agent.isPlaceholder,
-          canConfigure: true,
-          onConfigure: onConfigureDelegation,
-          onRevoke: onRevokeDelegation,
-          onRemove: onRemoveDelegation,
-        },
-      });
+          type: "delegation",
+          position: { x: 0, y: 0 },
+          data: {
+            delegationId: delegation.id,
+            title: agent.name,
+            subtitle: delegation.parentDelegationId ? "AI Agent · Redelegated" : "AI Agent",
+            address: agent.smartAccountAddress ?? undefined,
+            status: delegation.status,
+            kind: "agent",
+            isPlaceholder: agent.isPlaceholder,
+            // Redelegated agents (employee → agent) are read-only on the employer canvas
+            // because the employer's smart account didn't sign them
+            canConfigure: !delegation.parentDelegationId,
+            onConfigure: onConfigureDelegation,
+            onRevoke: onRevokeDelegation,
+            onRemove: onRemoveDelegation,
+          },
+        });
     });
 
     const nextEdges = delegations.reduce<Edge[]>((edges, delegation) => {
@@ -491,7 +536,7 @@ export function DashboardFlowCanvas({
           style: statusEdgeStyle(delegation.status),
           markerEnd: {
             type: MarkerType.ArrowClosed,
-            color: "var(--foreground)",
+            color: "#404040",
           },
         });
 
@@ -544,14 +589,14 @@ export function DashboardFlowCanvas({
   );
 
   return (
-    <div className="flex h-[620px] min-h-[520px] flex-col overflow-hidden rounded-lg border bg-card shadow-sm">
-      <div className="flex items-center justify-between gap-4 border-b px-5 py-4">
+    <div className="flex h-[620px] min-h-[520px] flex-col overflow-hidden rounded-lg border border-neutral-200 bg-white shadow-sm">
+      <div className="flex items-center justify-between gap-4 border-b border-neutral-100 px-5 py-4">
         <div className="flex min-w-0 items-center gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-400">
               DELEGATION CANVAS
             </p>
-            <h3 className="mt-1 text-base font-semibold text-card-foreground">
+            <h3 className="mt-1 text-base font-semibold text-neutral-800">
               Company delegation tree
             </h3>
           </div>
@@ -563,7 +608,7 @@ export function DashboardFlowCanvas({
 
       <div
         ref={canvasRef}
-        className="min-h-0 flex-1"
+        className="min-h-0 flex-1 bg-neutral-50"
         onDragOver={(event) => {
           event.preventDefault();
           event.dataTransfer.dropEffect = "copy";
@@ -580,21 +625,16 @@ export function DashboardFlowCanvas({
           fitViewOptions={{ padding: 0.18 }}
           nodesDraggable={false}
           nodesConnectable={false}
-          elementsSelectable={false}
+          elementsSelectable={true}
           panOnDrag
           zoomOnScroll
           minZoom={0.55}
           maxZoom={1.5}
-          className="bg-[radial-gradient(circle_at_1px_1px,_rgba(148,163,184,0.22)_1px,_transparent_0)] bg-[size:22px_22px]"
-          proOptions={{ hideAttribution: true }}
-          defaultEdgeOptions={{
-            type: "straight",
-          }}
         >
-          <Background gap={22} size={1} color="rgba(148,163,184,0.18)" />
+          <Background gap={22} size={1} color="#d4d4d4" />
           <Controls
             showInteractive={false}
-            className="!bottom-5 !left-5 !top-auto !border-border !bg-background/90 !shadow-lg"
+            className="!bottom-4 !left-4 !top-auto !border-neutral-200 !bg-white/90 !shadow-sm"
           />
         </ReactFlow>
       </div>

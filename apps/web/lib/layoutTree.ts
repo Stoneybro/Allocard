@@ -1,7 +1,7 @@
 import dagre from "dagre";
 import type { Edge, Node } from "@xyflow/react";
 
-const NODE_WIDTH_ESTIMATE = 240;
+const NODE_WIDTH_ESTIMATE = 288;
 const NODE_HEIGHT_ESTIMATE = 160;
 
 /**

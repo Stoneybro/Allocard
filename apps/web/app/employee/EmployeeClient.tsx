@@ -415,16 +415,7 @@ export function EmployeeClient() {
     setDashboardState(state);
   }, [address]);
 
-  // Auto-refresh: poll for new incoming delegations and state changes
-  useEffect(() => {
-    if (!address || !dashboardState) return;
-
-    const interval = setInterval(() => {
-      void refreshDashboard();
-    }, 15_000); // poll every 15 seconds
-
-    return () => clearInterval(interval);
-  }, [address, dashboardState, refreshDashboard]);
+  // Manual refresh only — mutations already refresh state automatically
 
   const runEmployeeMutation = useCallback(
     (mutation: () => Promise<EmployeeDashboardState>) => {
@@ -514,11 +505,32 @@ export function EmployeeClient() {
     (delegationId: string) => {
       const delegation =
         dashboardState?.outboundDelegations.find((d) => d.id === delegationId) ?? null;
+
+      // For active agent delegations, open the agent-specific drawer
+      if (delegation?.status === "active" && delegation.delegateeId) {
+        const agent = dashboardState?.agents.find(a => a.id === delegation.delegateeId);
+        if (agent?.name === "Travel Agent") {
+          setActiveTravelDelegationId(delegationId);
+          setIsTravelAgentDrawerOpen(true);
+          return;
+        }
+        if (agent?.name === "Procurement Agent") {
+          setActiveProcurementDelegationId(delegationId);
+          setIsProcurementAgentDrawerOpen(true);
+          return;
+        }
+        if (agent?.name === "Reimbursement Agent") {
+          setIsReimbursementDrawerOpen(true);
+          return;
+        }
+      }
+
+      // Default: open the caveat configuration drawer (for pending agents or employees)
       setSelectedDelegationId(delegationId);
       setCaveatForm(formFromDelegation(delegation, parentMaxEth));
       setFormErrors({});
     },
-    [dashboardState?.outboundDelegations, parentMaxEth],
+    [dashboardState?.outboundDelegations, dashboardState?.agents, parentMaxEth],
   );
 
   // Task 7b: revoke an employee's own outbound delegation

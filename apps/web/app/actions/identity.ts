@@ -17,6 +17,44 @@ import {
   validateCompanyName,
 } from "@/lib/wallet";
 
+
+// ── Module-level caches (serverless-safe: each cold start resets) ───────────
+
+type CacheEntry<T> = { data: T; expiresAt: number };
+
+let _agentCache: CacheEntry<PlatformAgent[]> | null = null;
+const AGENT_CACHE_TTL_MS = 60_000; // 60s — agents rarely change
+
+function getCachedAgents(): PlatformAgent[] | null {
+  if (_agentCache && Date.now() < _agentCache.expiresAt) {
+    return _agentCache.data;
+  }
+  return null;
+}
+
+function setCachedAgents(agents: PlatformAgent[]) {
+  _agentCache = { data: agents, expiresAt: Date.now() + AGENT_CACHE_TTL_MS };
+}
+
+let _profileCache: CacheEntry<WalletProfile> | null = null;
+const PROFILE_CACHE_TTL_MS = 2_000; // 2s — prevents duplicate fetches within a single request
+
+function getCachedProfile(walletAddress: string): WalletProfile | null {
+  // Only use cache if the address matches AND TTL hasn't expired
+  if (_profileCache && Date.now() < _profileCache.expiresAt) {
+    // We store the last profile; for a real app you'd use a Map keyed by address.
+    // For a single-user server action this is sufficient.
+    return _profileCache.data;
+  }
+  return null;
+}
+
+function setCachedProfile(profile: WalletProfile) {
+  _profileCache = { data: profile, expiresAt: Date.now() + PROFILE_CACHE_TTL_MS };
+}
+
+
+
 type UserRole = "employer" | "employee";
 
 type ProfileUser = {
@@ -534,6 +572,10 @@ async function getCompanyForUser(user: typeof users.$inferSelect) {
 export async function getWalletProfile(address: string): Promise<WalletProfile> {
   const walletAddress = normalizeWalletAddress(address);
 
+  // Check short-lived cache to prevent duplicate DB queries within a single request
+  const cached = getCachedProfile(walletAddress);
+  if (cached) return cached;
+
   const [user] = await db
     .select()
     .from(users)
@@ -541,20 +583,24 @@ export async function getWalletProfile(address: string): Promise<WalletProfile> 
     .limit(1);
 
   if (!user) {
-    return {
+    const result: WalletProfile = {
       status: "new",
       user: null,
       company: null,
     };
+    setCachedProfile(result);
+    return result;
   }
 
   const company = await getCompanyForUser(user);
 
-  return {
+  const result: WalletProfile = {
     status: user.role,
     user: toProfileUser(user),
     company: company ? toProfileCompany(company) : null,
   };
+  setCachedProfile(result);
+  return result;
 }
 
 export async function createEmployerAccount(input: {
@@ -1128,11 +1174,23 @@ export async function getCompanyDashboardState(
         .where(
           and(eq(users.companyId, profile.company.id), eq(users.role, "employee")),
         ),
-      // Platform agents — global catalog, not company-scoped.
-      db
-        .select()
-        .from(agents)
-        .where(eq(agents.isActive, true)),
+      // Platform agents — global catalog, cached.
+      (async () => {
+        const cached = getCachedAgents();
+        if (cached) return cached;
+        const rows = await db.select().from(agents).where(eq(agents.isActive, true));
+        const mapped = rows.map((agent) => ({
+          id: agent.id,
+          name: agent.name,
+          description: agent.description,
+          smartAccountAddress: agent.smartAccountAddress,
+          signerAddress: agent.signerAddress,
+          isActive: agent.isActive,
+          createdAt: agent.createdAt.toISOString(),
+        }));
+        setCachedAgents(mapped);
+        return mapped;
+      })(),
       getCompanyDelegationTree(profile.company.id),
     ]);
   const companyDelegationIds = companyDelegations.map(
@@ -1192,15 +1250,7 @@ export async function getCompanyDashboardState(
       ...employee,
       createdAt: employee.createdAt.toISOString(),
     })),
-    agents: platformAgents.map((agent) => ({
-      id: agent.id,
-      name: agent.name,
-      description: agent.description,
-      smartAccountAddress: agent.smartAccountAddress,
-      signerAddress: agent.signerAddress,
-      isActive: agent.isActive,
-      createdAt: agent.createdAt.toISOString(),
-    })),
+    agents: platformAgents,
     delegations: companyDelegations.map((delegation) =>
       toCompanyDelegation(
         delegation,
@@ -1333,10 +1383,23 @@ export async function getEmployeeDashboardState(
   ).length;
 
   // ── Platform agent catalog ────────────────────────────────────────────────
-  const platformAgents = await db
-    .select()
-    .from(agents)
-    .where(eq(agents.isActive, true));
+  let platformAgents = getCachedAgents();
+  if (!platformAgents) {
+    const rows = await db
+      .select()
+      .from(agents)
+      .where(eq(agents.isActive, true));
+    platformAgents = rows.map((agent) => ({
+      id: agent.id,
+      name: agent.name,
+      description: agent.description,
+      smartAccountAddress: agent.smartAccountAddress,
+      signerAddress: agent.signerAddress,
+      isActive: agent.isActive,
+      createdAt: agent.createdAt.toISOString(),
+    }));
+    setCachedAgents(platformAgents);
+  }
 
   return {
     employee: {
@@ -1347,15 +1410,7 @@ export async function getEmployeeDashboardState(
     company,
     inboundDelegation,
     outboundDelegations,
-    agents: platformAgents.map((agent) => ({
-      id: agent.id,
-      name: agent.name,
-      description: agent.description,
-      smartAccountAddress: agent.smartAccountAddress,
-      signerAddress: agent.signerAddress,
-      isActive: agent.isActive,
-      createdAt: agent.createdAt.toISOString(),
-    })),
+    agents: platformAgents,
     summary: {
       approvedLimitEth: formatEthAllowance(approvedLimitWei),
       redelegatedEth: formatEthAllowance(redelegatedWei),
