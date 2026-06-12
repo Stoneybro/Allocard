@@ -25,7 +25,7 @@ function routeForStatus(status: "new" | "employer" | "employee") {
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { address, isConnected } = useConnectedWalletAddress();
+  const { address, isConnected, isAuthLoading, shouldPromptConnect } = useConnectedWalletAddress();
   const [companyName, setCompanyName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [employeeSelected, setEmployeeSelected] = useState(false);
@@ -44,8 +44,16 @@ export default function OnboardingPage() {
     });
   }, [address, isConnected, router]);
 
-  if (!isConnected || !address) {
+  if (shouldPromptConnect) {
     return <ConnectRequiredCard />;
+  }
+
+  if (isAuthLoading || !isConnected || !address) {
+    return (
+      <div className="flex h-full items-center justify-center overflow-y-auto p-6">
+        <p className="text-sm text-muted-foreground">Loading your workspace...</p>
+      </div>
+    );
   }
 
   const handleCreateCompany = () => {

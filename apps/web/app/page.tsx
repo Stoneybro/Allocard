@@ -3,8 +3,8 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useWeb3AuthConnect } from "@web3auth/modal/react";
-import { useAccount } from "wagmi";
 import { getWalletProfile } from "@/app/actions/identity";
+import { useConnectedWalletAddress } from "@/components/auth-state";
 
 function routeForStatus(status: "new" | "employer" | "employee") {
   if (status === "employer") return "/employer";
@@ -14,18 +14,20 @@ function routeForStatus(status: "new" | "employer" | "employee") {
 
 export default function LandingPage() {
   const router = useRouter();
-  const { connect, loading, isConnected } = useWeb3AuthConnect();
-  const { address } = useAccount();
+  const { connect, loading } = useWeb3AuthConnect();
+  const { address, isConnected, isAuthLoading, shouldPromptConnect } = useConnectedWalletAddress();
   const [isConnecting, setIsConnecting] = useState(false);
   const [isRouting, startRouting] = useTransition();
 
   useEffect(() => {
-    if (!isConnecting || !isConnected || !address) return;
+    if (!isConnected || !address) return;
+    if (!isConnecting && shouldPromptConnect) return;
+
     startRouting(async () => {
       const profile = await getWalletProfile(address);
       router.push(routeForStatus(profile.status));
     });
-  }, [address, isConnected, isConnecting, router]);
+  }, [address, isConnected, isConnecting, router, shouldPromptConnect]);
 
   const handleConnect = () => {
     if (isConnected && address) {
@@ -39,7 +41,7 @@ export default function LandingPage() {
     connect();
   };
 
-  const isBusy = (loading && isConnecting) || isRouting;
+  const isBusy = isAuthLoading || (loading && isConnecting) || isRouting;
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans antialiased overflow-y-auto">

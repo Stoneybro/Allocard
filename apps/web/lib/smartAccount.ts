@@ -1,5 +1,4 @@
 import { publicClient } from './client'
-import { createInjectedWalletClient } from './signer'
 import { Implementation, toMetaMaskSmartAccount } from '@metamask/smart-accounts-kit'
 import { type Hex, type WalletClient } from 'viem'
 import { baseSepolia } from 'viem/chains'
@@ -11,9 +10,13 @@ type SmartAccountWalletSigner = Extract<
 >
 
 export async function createHybridSmartAccount(
-  walletClient: WalletClient = createInjectedWalletClient(),
+  walletClient: WalletClient,
   ownerAddress?: `0x${string}`,
 ) {
+  if (!walletClient) {
+    throw new Error('Wallet client is not available. The wallet may still be connecting. Please wait and try again.')
+  }
+
   const address = ownerAddress ?? (await walletClient.getAddresses())[0]
 
   if (!address) {

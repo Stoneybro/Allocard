@@ -42,6 +42,7 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { formatWalletAddress } from "@/lib/wallet";
+import { layoutTree } from "@/lib/layoutTree";
 
 export type DelegationCanvasCompany = {
   id: string;
@@ -89,6 +90,7 @@ type DelegationNodeData = {
   canConfigure?: boolean;
   onConfigure?: (delegationId: string) => void;
   onRevoke?: (delegationId: string) => void;
+  onRemove?: (delegationId: string) => void;
 };
 
 function StatusBadge({
@@ -199,22 +201,22 @@ function DelegationNode({ data }: NodeProps<Node<DelegationNodeData>>) {
             </div>
           </div>
         </div>
-        <StatusBadge status={data.status} isPlaceholder={data.isPlaceholder} />
+        <StatusBadge
+          status={data.status}
+          isPlaceholder={data.isPlaceholder}
+        />
       </div>
 
-      {/* Address chip */}
       <div
         className={cn(
           "mt-3 flex items-center justify-between rounded-md border bg-background/70 px-3 py-1.5 font-mono text-xs text-muted-foreground",
-          data.kind === "master" &&
-            "border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground/80",
+          data.kind === "master" && "border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground/80",
         )}
       >
         <span>{formattedAddress ?? "Address pending"}</span>
         <CopyAddressButton address={data.address} isMaster={data.kind === "master"} />
       </div>
 
-      {/* Balance / allowance */}
       {data.balance !== undefined && (
         <div
           className={cn(
@@ -233,37 +235,68 @@ function DelegationNode({ data }: NodeProps<Node<DelegationNodeData>>) {
         data.status === "active" ? (
           <div className="mt-3 flex gap-2">
             <Button
-              type="button"
               size="sm"
               variant="outline"
-              className="flex-1"
-              onClick={() => data.onConfigure?.(data.delegationId as string)}
+              className="h-7 px-2 text-xs"
+              onClick={(e) => {
+                e.stopPropagation();
+                data.onConfigure?.(data.delegationId!);
+              }}
             >
-              <EyeIcon data-icon="inline-start" />
-              View Rules
+              <Settings2Icon className="mr-1 size-3" />
+              Configure
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="destructive"
-              onClick={() => data.onRevoke?.(data.delegationId as string)}
-            >
-              Revoke
-            </Button>
+            {data.onRemove && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  data.onRemove?.(data.delegationId!);
+                }}
+              >
+                Remove
+              </Button>
+            )}
           </div>
-        ) : data.status !== "revoked" ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="mt-3"
-            onClick={() => data.onConfigure?.(data.delegationId as string)}
-          >
-            <Settings2Icon data-icon="inline-start" />
-            Configure
-          </Button>
-        ) : null
+        ) : data.status === "revoked" ? (
+          <div className="mt-3 flex gap-2">
+            <Badge variant="destructive">Revoked</Badge>
+            {data.onRemove && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 text-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  data.onRemove?.(data.delegationId!);
+                }}
+              >
+                Remove
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="mt-3 flex gap-2">
+            <Badge variant="outline">Pending</Badge>
+            {data.onRemove && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 text-xs"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  data.onRemove?.(data.delegationId!);
+                }}
+              >
+                Remove
+              </Button>
+            )}
+          </div>
+        )
       ) : null}
+
       <Handle
         type="source"
         position={Position.Right}
@@ -273,14 +306,11 @@ function DelegationNode({ data }: NodeProps<Node<DelegationNodeData>>) {
   );
 }
 
-
-
 function statusEdgeStyle(status: DelegationCanvasDelegation["status"]) {
   if (status === "active") {
     return {
       stroke: "var(--foreground)",
       strokeWidth: 2,
-      opacity: 0.42,
     };
   }
 
@@ -301,6 +331,10 @@ function statusEdgeStyle(status: DelegationCanvasDelegation["status"]) {
 }
 
 function buildDelegateeNodeId(delegation: DelegationCanvasDelegation) {
+  if (delegation.delegateeType === "agent") {
+    return `agent-delegation:${delegation.id}`;
+  }
+
   return `${delegation.delegateeType}:${delegation.delegateeId}`;
 }
 
@@ -323,6 +357,7 @@ export function DashboardFlowCanvas({
   onDropAgent,
   onMoveDelegation,
   onRevokeDelegation,
+  onRemoveDelegation,
 }: {
   company: DelegationCanvasCompany;
   employees: DelegationCanvasEmployee[];
@@ -346,6 +381,7 @@ export function DashboardFlowCanvas({
     canvasPositionY: number;
   }) => void;
   onRevokeDelegation?: (delegationId: string) => void;
+  onRemoveDelegation?: (delegationId: string) => void;
 }) {
   const nodeTypes = useMemo(() => ({ delegation: DelegationNode }), []);
   const canvasRef = useRef<HTMLDivElement | null>(null);
@@ -355,7 +391,7 @@ export function DashboardFlowCanvas({
       {
         id: "company:root",
         type: "delegation",
-        position: { x: 60, y: 180 },
+        position: { x: 0, y: 0 },
         data: {
           title: company.name,
           subtitle: "Company smart account",
@@ -372,51 +408,57 @@ export function DashboardFlowCanvas({
       delegationByDelegatee.set(buildDelegateeNodeId(delegation), delegation);
     }
 
-    employees.forEach((employee, index) => {
+    employees.forEach((employee) => {
       const nodeId = `user:${employee.id}`;
       const delegation = delegationByDelegatee.get(nodeId);
+
+      if (!delegation) {
+        return;
+      }
 
       nextNodes.push({
         id: nodeId,
         type: "delegation",
-        position: delegation
-          ? {
-              x: delegation.canvasPositionX,
-              y: delegation.canvasPositionY,
-            }
-          : { x: 420, y: 80 + index * 150 },
+        position: { x: 0, y: 0 },
         data: {
-          delegationId: delegation?.id,
+          delegationId: delegation.id,
           title: employee.label,
           subtitle: "Smart account",
           address: employee.smartAccountAddress ?? undefined,
-          balance: delegation?.allowance !== undefined ? `${delegation.allowance} ETH` : undefined,
-          balanceLabel: "Spending limit",
-          status: delegation?.status ?? "available",
+          balance:
+            delegation.status === "active" && delegation.allowance !== undefined
+              ? `${delegation.allowance} ETH`
+              : undefined,
+          balanceLabel: delegation.status === "active" ? "Spending limit" : undefined,
+          status: delegation.status,
           kind: "employee",
-          canConfigure: Boolean(delegation),
+          canConfigure: true,
           onConfigure: onConfigureDelegation,
           onRevoke: onRevokeDelegation,
+          onRemove: onRemoveDelegation,
         },
       });
     });
 
-    // Render agent nodes for any agent-targeted delegations.
-    (agents ?? []).forEach((agent, index) => {
-      const nodeId = `agent:${agent.id}`;
-      const delegation = delegationByDelegatee.get(nodeId);
+    const agentById = new Map((agents ?? []).map((agent) => [agent.id, agent]));
 
-      // Only show on canvas if there's a delegation to this agent.
-      if (!delegation) return;
+    delegations
+      .filter((delegation) => delegation.delegateeType === "agent")
+      .forEach((delegation) => {
+        const agent = delegation.delegateeId ? agentById.get(delegation.delegateeId) : undefined;
 
-      nextNodes.push({
-        id: nodeId,
+        if (!agent) return;
+
+        const nodeId = buildDelegateeNodeId(delegation);
+
+        nextNodes.push({
+          id: nodeId,
         type: "delegation",
-        position: { x: delegation.canvasPositionX, y: delegation.canvasPositionY },
+        position: { x: 0, y: 0 },
         data: {
           delegationId: delegation.id,
           title: agent.name,
-          subtitle: "AI Agent",
+          subtitle: delegation.parentDelegationId ? "AI Agent · Redelegated" : "AI Agent",
           address: agent.smartAccountAddress ?? undefined,
           status: delegation.status,
           kind: "agent",
@@ -424,10 +466,9 @@ export function DashboardFlowCanvas({
           canConfigure: true,
           onConfigure: onConfigureDelegation,
           onRevoke: onRevokeDelegation,
+          onRemove: onRemoveDelegation,
         },
       });
-
-      void index; // suppress unused var
     });
 
     const nextEdges = delegations.reduce<Edge[]>((edges, delegation) => {
@@ -445,7 +486,7 @@ export function DashboardFlowCanvas({
           id: delegation.id,
           source,
           target,
-          type: "smoothstep",
+          type: "straight",
           animated: delegation.status === "active",
           style: statusEdgeStyle(delegation.status),
           markerEnd: {
@@ -458,21 +499,21 @@ export function DashboardFlowCanvas({
       }, []);
 
     return { nodes: nextNodes, edges: nextEdges };
-  }, [company, agents, delegations, employees, onConfigureDelegation, onRevokeDelegation]);
+  }, [company, agents, delegations, employees, onConfigureDelegation, onRevokeDelegation, onRemoveDelegation]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(derivedNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(derivedEdges);
 
   useEffect(() => {
     setNodes((prevNodes) => {
-      const positionMap = new Map(prevNodes.map((n) => [n.id, n.position]));
-      return derivedNodes.map((node) => {
-        const currentPosition = positionMap.get(node.id);
-        // Preserve the current canvas position for existing nodes so React Flow's
-        // internal state (width, height, measured dimensions) is never clobbered.
-        // Only new nodes use the server-provided position.
-        return currentPosition ? { ...node, position: currentPosition } : node;
-      });
+      const measuredMap = new Map(
+        prevNodes.map((n) => [n.id, n.measured as { width?: number; height?: number } | undefined])
+      );
+      const merged = derivedNodes.map((node) => ({
+        ...node,
+        measured: measuredMap.get(node.id) ?? node.measured,
+      }));
+      return layoutTree(merged, derivedEdges);
     });
     setEdges(derivedEdges);
   }, [derivedNodes, derivedEdges, setNodes, setEdges]);
@@ -537,22 +578,9 @@ export function DashboardFlowCanvas({
           nodeTypes={nodeTypes}
           fitView
           fitViewOptions={{ padding: 0.18 }}
-          nodesDraggable
+          nodesDraggable={false}
           nodesConnectable={false}
           elementsSelectable={false}
-          onNodeDragStop={(_, node) => {
-            const delegationId = node.data.delegationId;
-
-            if (typeof delegationId !== "string") {
-              return;
-            }
-
-            onMoveDelegation?.({
-              delegationId,
-              canvasPositionX: node.position.x,
-              canvasPositionY: node.position.y,
-            });
-          }}
           panOnDrag
           zoomOnScroll
           minZoom={0.55}
@@ -560,7 +588,7 @@ export function DashboardFlowCanvas({
           className="bg-[radial-gradient(circle_at_1px_1px,_rgba(148,163,184,0.22)_1px,_transparent_0)] bg-[size:22px_22px]"
           proOptions={{ hideAttribution: true }}
           defaultEdgeOptions={{
-            type: "smoothstep",
+            type: "straight",
           }}
         >
           <Background gap={22} size={1} color="rgba(148,163,184,0.18)" />

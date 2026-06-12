@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { createBundlerClient, createPaymasterClient } from "viem/account-abstraction";
 import { http } from "viem";
 import { baseSepolia } from "viem/chains";
@@ -12,6 +12,29 @@ import { publicClient } from "@/lib/client";
 import { createHybridSmartAccount } from "@/lib/smartAccount";
 
 type ActivationResult = Awaited<ReturnType<typeof activateSmartAccount>>;
+
+const SMART_ACCOUNT_CONFIRMATION_ATTEMPTS = 8;
+const SMART_ACCOUNT_CONFIRMATION_DELAY_MS = 1_250;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function waitForDeploymentConfirmation(
+  smartAccount: Awaited<ReturnType<typeof createHybridSmartAccount>>,
+) {
+  for (let attempt = 0; attempt < SMART_ACCOUNT_CONFIRMATION_ATTEMPTS; attempt += 1) {
+    if (await smartAccount.isDeployed()) {
+      return true;
+    }
+
+    if (attempt < SMART_ACCOUNT_CONFIRMATION_ATTEMPTS - 1) {
+      await sleep(SMART_ACCOUNT_CONFIRMATION_DELAY_MS);
+    }
+  }
+
+  return false;
+}
 
 export function SmartAccountActivationButton({
   walletAddress,
@@ -27,6 +50,7 @@ export function SmartAccountActivationButton({
   const chainId = useChainId();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const isWalletReady = useMemo(() => Boolean(walletClient), [walletClient]);
 
   const handleActivate = () => {
     if (!walletClient) {
@@ -91,8 +115,8 @@ export function SmartAccountActivationButton({
           });
         }
 
-        if (!(await smartAccount.isDeployed())) {
-          throw new Error("The smart account deployment was not confirmed");
+        if (!(await waitForDeploymentConfirmation(smartAccount))) {
+          throw new Error("The smart account deployment is taking longer than expected. Please wait a moment and try again.");
         }
 
         const result = await activateSmartAccount({
@@ -121,14 +145,14 @@ export function SmartAccountActivationButton({
         type="button"
         size="sm"
         onClick={handleActivate}
-        disabled={isPending}
+        disabled={isPending || !isWalletReady}
       >
         {isPending ? (
           <LoaderCircleIcon data-icon="inline-start" className="animate-spin" />
         ) : (
           <RocketIcon data-icon="inline-start" />
         )}
-        {isPending ? "Activating..." : "Activate smart account"}
+        {isPending ? "Activating..." : isWalletReady ? "Activate smart account" : "Preparing wallet..."}
       </Button>
       {error ? (
         <p className="max-w-72 text-xs text-destructive">{error}</p>

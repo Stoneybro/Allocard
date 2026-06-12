@@ -8,10 +8,23 @@ import {
   CopyIcon,
   LinkIcon,
   LogOutIcon,
+  MoreVerticalIcon,
+  RefreshCwIcon,
   SparklesIcon,
   UserRoundIcon,
+  UserPlusIcon,
   WalletIcon,
 } from "lucide-react";
+
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -76,13 +89,14 @@ const PLACEHOLDER_AGENTS: SidebarAgent[] = [
 // Smart account address — copyable, monochrome
 // ---------------------------------------------------------------------------
 
-function SmartAccountAddress({ label }: { label: string }) {
+function SmartAccountAddress({ label, fullAddress, role }: { label: string; fullAddress?: string | null; role?: "employer" | "employee" }) {
   const [copied, setCopied] = React.useState(false);
   const isPending = label === "Smart account pending";
 
   const handleCopy = async () => {
     if (isPending) return;
-    await navigator.clipboard.writeText(label);
+    const textToCopy = fullAddress || label;
+    await navigator.clipboard.writeText(textToCopy);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -90,12 +104,12 @@ function SmartAccountAddress({ label }: { label: string }) {
   return (
     <div className="flex flex-col gap-1 px-1">
       <p className="px-1 text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-        Smart Account
+        {role === "employee" ? "Employee Smart Account" : "Company Smart Account"}
       </p>
       <div className="flex items-center gap-2 rounded-md border border-border bg-muted/60 px-2.5 py-2">
         <WalletIcon className="size-3.5 shrink-0 text-foreground/50" />
         <span
-          className={`min-w-0 flex-1 truncate font-mono text-xs font-medium ${
+          className={`min-w-0 flex-1 font-mono text-xs font-medium ${
             isPending ? "italic text-muted-foreground" : "text-foreground"
           }`}
         >
@@ -132,73 +146,68 @@ function SmartAccountAddress({ label }: { label: string }) {
 
 function InviteSection({
   copiedInvite,
-  inviteError,
   inviteLink,
   invitePending,
   onCopyInvite,
   onCreateInvite,
 }: {
   copiedInvite?: boolean;
-  inviteError?: string | null;
   inviteLink?: string | null;
   invitePending?: boolean;
   onCopyInvite?: () => void;
   onCreateInvite?: () => void;
 }) {
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel>
-        <LinkIcon className="size-3.5" />
-        Invite
-      </SidebarGroupLabel>
-
-      <SidebarGroupContent className="flex flex-col gap-2">
-        {/* Single-line contextual hint */}
-        <p className="px-1 text-[11px] text-muted-foreground">
-          Send a one-time link to onboard an employee.
-        </p>
-
-        <Button
-          id="create-invite-btn"
-          size="sm"
-          variant="outline"
-          onClick={onCreateInvite}
-          disabled={invitePending}
-          className="w-full gap-1.5"
-        >
-          <LinkIcon className="size-3.5" />
-          {invitePending ? "Generating…" : "Generate invite link"}
-        </Button>
-
-        {inviteLink && (
-          <div className="flex items-center gap-2 rounded-md border border-border bg-muted/60 px-2.5 py-2">
-            <p className="min-w-0 flex-1 truncate font-mono text-[10px] text-foreground">
-              {inviteLink}
-            </p>
-            <button
-              type="button"
-              id="copy-invite-btn"
-              aria-label={copiedInvite ? "Copied" : "Copy invite link"}
-              onClick={onCopyInvite}
-              disabled={!onCopyInvite}
-              className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-40"
+    <div className="px-3 py-2">
+      <Card className="shadow-sm border-border bg-card">
+        <CardHeader className=" ">
+          <CardTitle className="flex items-center gap-2 text-[13px] font-semibold text-foreground/80">
+            <UserPlusIcon className="size-3.5" />
+            Invite Employee
+          </CardTitle>
+          <CardDescription className="text-[11px] leading-snug">
+            Send a one-time link to onboard a new employee to your workspace.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="p-3 pt-0 flex flex-col gap-2">
+          {!inviteLink ? (
+            <Button
+              id="create-invite-btn"
+              size="sm"
+              variant="outline"
+              onClick={onCreateInvite}
+              disabled={invitePending}
+              className="w-full gap-1.5 h-8 text-[11px]"
             >
-              {copiedInvite ? (
-                <CheckIcon className="size-3.5" />
-              ) : (
-                <CopyIcon className="size-3.5" />
-              )}
-            </button>
-          </div>
-        )}
-
-        {inviteError && (
-          <p className="px-1 text-[11px] font-medium text-destructive">
-            {inviteError}
-          </p>
-        )}
-      </SidebarGroupContent>
-    </SidebarGroup>
+              <LinkIcon className="size-3" />
+              {invitePending ? "Generating…" : "Generate invite link"}
+            </Button>
+          ) : (
+            <div className="flex items-center gap-2 rounded-md border border-input bg-muted/50 px-2 py-1.5 focus-within:ring-1 focus-within:ring-ring">
+              <input
+                readOnly
+                value={inviteLink}
+                className="flex-1 bg-transparent text-[11px] outline-none text-foreground min-w-0"
+              />
+              <button
+                type="button"
+                id="copy-invite-btn"
+                aria-label={copiedInvite ? "Copied" : "Copy invite link"}
+                onClick={onCopyInvite}
+                disabled={!onCopyInvite}
+                className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                {copiedInvite ? (
+                  <CheckIcon className="size-3.5 text-foreground" />
+                ) : (
+                  <CopyIcon className="size-3.5" />
+                )}
+              </button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 
@@ -210,12 +219,16 @@ function CanvasSection({
   agents,
   employees,
   onAddEmployee,
+  onRefreshEmployees,
+  employeesRefreshing,
   onSelectAgent,
   role,
 }: {
   agents: SidebarAgent[];
   employees: SidebarEmployee[];
   onAddEmployee?: (employeeId: string) => void;
+  onRefreshEmployees?: () => void;
+  employeesRefreshing?: boolean;
   onSelectAgent?: (agentId: string) => void;
   role?: "employer" | "employee";
 }) {
@@ -223,40 +236,47 @@ function CanvasSection({
   const hasLiveAgents = agents.length > 0;
 
   return (
-    <SidebarGroup className="flex flex-col gap-0">
-      {/* Section header */}
-      <SidebarGroupLabel>
-        {role === "employee" ? "Your AI Agents" : "Recipients"}
-      </SidebarGroupLabel>
-
-      <SidebarGroupContent className="flex flex-col gap-4">
-        {/* Hint — only shown to employers who use the canvas */}
+    <SidebarGroup className="flex flex-col gap-0 pt-2">
+      <SidebarGroupContent className="flex flex-col gap-4 px-2">
+        {/* Hint */}
         {role !== "employee" && (
-          <p className="px-1 text-[11px] text-muted-foreground bg-muted p-2  rounded-md">
-            Click or drag and drop any Recipient (Employee or AI Agent) to place it on the
-            canvas
-          </p>
-        )}
-        {role === "employee" && (
-          <p className="px-1 text-[11px] text-muted-foreground bg-muted p-2 rounded-md">
-            AI agents can autonomously manage and execute approved transactions on your behalf.
-          </p>
+          <Alert className="py-2 px-3 bg-muted/50">
+            <AlertDescription className="text-[11px] text-muted-foreground leading-snug">
+              Click or drag and drop any Recipient (Employee or AI Agent) to place it on the canvas.
+            </AlertDescription>
+          </Alert>
         )}
 
         {/* ── Employees — employer only ──────────────────────────────── */}
         {role !== "employee" && (
           <div className="flex flex-col gap-1">
             {/* Sub-label row */}
-            <div className="flex items-center justify-between px-1">
+            <div className="flex items-center justify-between gap-2 px-1">
               <span className="flex items-center gap-1.5 text-[11px] font-medium text-foreground/70">
                 <UserRoundIcon className="size-3" />
                 Employees
               </span>
-              {employees.length > 0 && (
-                <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
-                  {employees.length}
-                </Badge>
-              )}
+              <div className="flex items-center gap-1">
+                {employees.length > 0 && (
+                  <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
+                    {employees.length}
+                  </Badge>
+                )}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-6"
+                  onClick={onRefreshEmployees}
+                  disabled={!onRefreshEmployees || employeesRefreshing}
+                  aria-label="Refresh employees"
+                >
+                  <RefreshCwIcon
+                    data-icon="inline-start"
+                    className={employeesRefreshing ? "animate-spin" : undefined}
+                  />
+                </Button>
+              </div>
             </div>
 
             {/* Scrollable list — shows ~3 rows before scrolling */}
@@ -312,86 +332,194 @@ function CanvasSection({
         )}
 
         {/* ── AI Agents ─────────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-1">
-          {/* Sub-label row */}
-          <div className="flex items-center justify-between px-1">
-            <span className="flex items-center gap-1.5 text-[11px] font-medium text-foreground/70">
-              <SparklesIcon className="size-3" />
-              AI Agents
-            </span>
-            {!hasLiveAgents && (
-              <Badge variant="outline" className="h-4 px-1.5 text-[10px]">
-                Coming soon
-              </Badge>
-            )}
-          </div>
-
-          {/* Scrollable list — capped at same height */}
-          <div className="relative">
-            <div className="max-h-[9.5rem] overflow-y-auto rounded-md">
-              <SidebarMenu>
-                {displayAgents.map((agent) => (
-                  <SidebarMenuItem key={agent.id}>
-                    <SidebarMenuButton
-                      id={`agent-${agent.id}`}
-                      tooltip={agent.isPlaceholder ? agent.detail : (role === "employee" ? `Delegate to ${agent.name}` : `Drag to canvas: ${agent.name}`)}
-                      draggable={!agent.isPlaceholder && role !== "employee"}
-                      className={`h-auto py-2 ${
-                        agent.isPlaceholder
-                          ? "cursor-default select-none opacity-50"
-                          : role === "employee"
-                          ? "cursor-pointer"
-                          : "cursor-grab active:cursor-grabbing"
-                      }`}
-                      onClick={
-                        !agent.isPlaceholder && role === "employee" && onSelectAgent
-                          ? () => onSelectAgent(agent.id)
-                          : undefined
-                      }
-                      onDragStart={
-                        !agent.isPlaceholder && role !== "employee"
-                          ? (event) => {
-                              event.dataTransfer.setData(
-                                "application/allocard-agent-id",
-                                agent.id,
-                              );
-                              event.dataTransfer.effectAllowed = "copy";
-                            }
-                          : undefined
-                      }
-                    >
-                      <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-foreground/70">
-                        <BotIcon className="size-3" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[13px] font-medium leading-none">
-                          {agent.name}
-                        </p>
-                        <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                          {agent.detail}
-                        </p>
-                      </div>
-                    </SidebarMenuButton>
-                    {agent.isPlaceholder && (
-                      <SidebarMenuBadge className="text-[9px] text-muted-foreground/40">
-                        planned
-                      </SidebarMenuBadge>
-                    )}
-                    {!agent.isPlaceholder && role === "employee" && (
-                      <SidebarMenuBadge className="text-[9px] text-primary/70">
-                        delegate
-                      </SidebarMenuBadge>
-                    )}
-                  </SidebarMenuItem>
-                ))}
-              </SidebarMenu>
+        {role === "employee" ? (
+          <>
+            {/* System AI Agents */}
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between px-1">
+                <span className="flex items-center gap-1.5 text-[11px] font-medium text-foreground/70">
+                  <SparklesIcon className="size-3" />
+                  System AI Agent
+                </span>
+              </div>
+              <div className="relative">
+                <div className="max-h-[9.5rem] overflow-y-auto rounded-md">
+                  <SidebarMenu>
+                    {displayAgents.filter(a => a.name === "Reimbursement Agent" || a.name.toLowerCase().includes("reimbursement")).map((agent) => (
+                      <SidebarMenuItem key={agent.id}>
+                        <SidebarMenuButton
+                          id={`agent-${agent.id}`}
+                          tooltip={agent.isPlaceholder ? agent.detail : `Click or drag to delegate to ${agent.name}`}
+                          draggable={!agent.isPlaceholder}
+                          className={`h-auto py-2 ${
+                            agent.isPlaceholder
+                              ? "cursor-default select-none opacity-50"
+                              : "cursor-grab active:cursor-grabbing"
+                          }`}
+                          onClick={
+                            !agent.isPlaceholder && onSelectAgent
+                              ? () => onSelectAgent(agent.id)
+                              : undefined
+                          }
+                          onDragStart={
+                            !agent.isPlaceholder
+                              ? (event) => {
+                                  event.dataTransfer.setData("application/allocard-agent-id", agent.id);
+                                  event.dataTransfer.effectAllowed = "copy";
+                                }
+                              : undefined
+                          }
+                        >
+                          <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-foreground/70">
+                            <BotIcon className="size-3" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[13px] font-medium leading-none">{agent.name}</p>
+                            <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{agent.detail}</p>
+                          </div>
+                        </SidebarMenuButton>
+                        {!agent.isPlaceholder && (
+                          <SidebarMenuBadge className="text-[9px] text-primary/70">delegate</SidebarMenuBadge>
+                        )}
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </div>
+              </div>
             </div>
-            {/* Fade mask */}
-            {displayAgents.length > 3 && (
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 rounded-b-md bg-gradient-to-t from-sidebar to-transparent" />
-            )}
+
+            {/* Your AI Agents */}
+            <div className="flex flex-col gap-1 mt-2">
+              <div className="flex items-center justify-between px-1 mb-1">
+                <span className="flex items-center gap-1.5 text-[11px] font-medium text-foreground/70">
+                  <BotIcon className="size-3" />
+                  Your AI Agents
+                </span>
+                {!hasLiveAgents && (
+                  <Badge variant="outline" className="h-4 px-1.5 text-[10px]">Coming soon</Badge>
+                )}
+              </div>
+              <Alert className="py-2 px-3 bg-muted/50 mb-1">
+                <AlertDescription className="text-[11px] text-muted-foreground leading-snug">
+                  Click or drag and drop any AI Agent to place it on the canvas.
+                </AlertDescription>
+              </Alert>
+              <div className="relative">
+                <div className="max-h-[9.5rem] overflow-y-auto rounded-md">
+                  <SidebarMenu>
+                    {displayAgents.filter(a => a.name !== "Reimbursement Agent" && !a.name.toLowerCase().includes("reimbursement")).map((agent) => (
+                      <SidebarMenuItem key={agent.id}>
+                        <SidebarMenuButton
+                          id={`agent-${agent.id}`}
+                          tooltip={agent.isPlaceholder ? agent.detail : `Click or drag to delegate to ${agent.name}`}
+                          draggable={!agent.isPlaceholder}
+                          className={`h-auto py-2 ${
+                            agent.isPlaceholder
+                              ? "cursor-default select-none opacity-50"
+                              : "cursor-grab active:cursor-grabbing"
+                          }`}
+                          onClick={
+                            !agent.isPlaceholder && onSelectAgent
+                              ? () => onSelectAgent(agent.id)
+                              : undefined
+                          }
+                          onDragStart={
+                            !agent.isPlaceholder
+                              ? (event) => {
+                                  event.dataTransfer.setData("application/allocard-agent-id", agent.id);
+                                  event.dataTransfer.effectAllowed = "copy";
+                                }
+                              : undefined
+                          }
+                        >
+                          <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-foreground/70">
+                            <BotIcon className="size-3" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-[13px] font-medium leading-none">{agent.name}</p>
+                            <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{agent.detail}</p>
+                          </div>
+                        </SidebarMenuButton>
+                        {agent.isPlaceholder && (
+                          <SidebarMenuBadge className="text-[9px] text-muted-foreground/40">planned</SidebarMenuBadge>
+                        )}
+                        {!agent.isPlaceholder && (
+                          <SidebarMenuBadge className="text-[9px] text-primary/70">delegate</SidebarMenuBadge>
+                        )}
+                      </SidebarMenuItem>
+                    ))}
+                  </SidebarMenu>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center justify-between px-1">
+              <span className="flex items-center gap-1.5 text-[11px] font-medium text-foreground/70">
+                <SparklesIcon className="size-3" />
+                AI Agents
+              </span>
+              {!hasLiveAgents && (
+                <Badge variant="outline" className="h-4 px-1.5 text-[10px]">
+                  Coming soon
+                </Badge>
+              )}
+            </div>
+
+            <div className="relative">
+              <div className="max-h-[9.5rem] overflow-y-auto rounded-md">
+                <SidebarMenu>
+                  {displayAgents.map((agent) => (
+                    <SidebarMenuItem key={agent.id}>
+                      <SidebarMenuButton
+                        id={`agent-${agent.id}`}
+                        tooltip={agent.isPlaceholder ? agent.detail : `Drag to canvas: ${agent.name}`}
+                        draggable={!agent.isPlaceholder}
+                        className={`h-auto py-2 ${
+                          agent.isPlaceholder
+                            ? "cursor-default select-none opacity-50"
+                            : "cursor-grab active:cursor-grabbing"
+                        }`}
+                        onDragStart={
+                          !agent.isPlaceholder
+                            ? (event) => {
+                                event.dataTransfer.setData(
+                                  "application/allocard-agent-id",
+                                  agent.id,
+                                );
+                                event.dataTransfer.effectAllowed = "copy";
+                              }
+                            : undefined
+                        }
+                      >
+                        <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-foreground/70">
+                          <BotIcon className="size-3" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[13px] font-medium leading-none">
+                            {agent.name}
+                          </p>
+                          <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                            {agent.detail}
+                          </p>
+                        </div>
+                      </SidebarMenuButton>
+                      {agent.isPlaceholder && (
+                        <SidebarMenuBadge className="text-[9px] text-muted-foreground/40">
+                          planned
+                        </SidebarMenuBadge>
+                      )}
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </div>
+              {displayAgents.length > 3 && (
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 rounded-b-md bg-gradient-to-t from-sidebar to-transparent" />
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </SidebarGroupContent>
     </SidebarGroup>
   );
@@ -401,22 +529,14 @@ function CanvasSection({
 // Logout footer
 // ---------------------------------------------------------------------------
 
-function LogoutFooter() {
+function LogoutMenuItem() {
   const { disconnect } = useWeb3AuthDisconnect();
 
   return (
-    <div className="px-2 py-2">
-      <Button
-        id="sidebar-logout-btn"
-        variant="ghost"
-        size="sm"
-        className="w-full justify-start gap-2 text-muted-foreground hover:text-foreground"
-        onClick={() => void disconnect()}
-      >
-        <LogOutIcon className="size-4" />
-        Log out
-      </Button>
-    </div>
+    <DropdownMenuItem onClick={() => void disconnect()} className="cursor-pointer text-muted-foreground hover:text-foreground">
+      <LogOutIcon className="mr-2 h-4 w-4" />
+      <span>Log out</span>
+    </DropdownMenuItem>
   );
 }
 
@@ -429,15 +549,17 @@ export function AppSidebar({
   companyName,
   copiedInvite,
   employees,
-  inviteError,
   inviteLink,
   invitePending,
   onAddEmployee,
   onCopyInvite,
   onCreateInvite,
+  onRefreshEmployees,
+  employeesRefreshing,
   onSelectAgent,
   role,
   smartAccountLabel,
+  smartAccountAddress,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   roleLabel: _roleLabel,
   ...props
@@ -446,34 +568,51 @@ export function AppSidebar({
   companyName: string;
   copiedInvite?: boolean;
   employees: SidebarEmployee[];
-  inviteError?: string | null;
   inviteLink?: string | null;
   invitePending?: boolean;
   onAddEmployee?: (employeeId: string) => void;
   onCopyInvite?: () => void;
   onCreateInvite?: () => void;
+  onRefreshEmployees?: () => void;
+  employeesRefreshing?: boolean;
   onSelectAgent?: (agentId: string) => void;
   role?: "employer" | "employee";
   roleLabel: string;
   smartAccountLabel: string;
+  smartAccountAddress?: string | null;
 }) {
   return (
     <Sidebar collapsible="offcanvas" {...props}>
 
       {/* ── HEADER ─────────────────────────────────────────────────────── */}
-      <SidebarHeader className="gap-3 pb-4">
-        <div className="px-1 pt-1">
+      <SidebarHeader className="pb-4 pt-4 px-3 gap-3 relative">
+        <div className="absolute right-3 top-3">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-6 w-6">
+                <MoreVerticalIcon className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <LogoutMenuItem />
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        <div className="px-1 mt-1">
           <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
-            {role === "employee" ? "Your Workspace" : "Workspace"}
+            Workspace
           </p>
-          <h2 className="mt-0.5 truncate text-base font-semibold text-foreground">
+          <h2 className="mt-0.5 truncate text-base font-semibold text-foreground pr-6">
             {companyName}
           </h2>
-          {role === "employee" && (
-            <p className="mt-0.5 text-[11px] text-muted-foreground">Employee</p>
-          )}
         </div>
-        <SmartAccountAddress label={smartAccountLabel} />
+
+        <SmartAccountAddress 
+          label={smartAccountLabel} 
+          fullAddress={smartAccountAddress} 
+          role={role}
+        />
       </SidebarHeader>
 
       {/* ── CONTENT ────────────────────────────────────────────────────── */}
@@ -484,7 +623,6 @@ export function AppSidebar({
           <>
             <InviteSection
               copiedInvite={copiedInvite}
-              inviteError={inviteError}
               inviteLink={inviteLink}
               invitePending={invitePending}
               onCopyInvite={onCopyInvite}
@@ -499,6 +637,8 @@ export function AppSidebar({
           agents={agents}
           employees={employees}
           onAddEmployee={onAddEmployee}
+          onRefreshEmployees={onRefreshEmployees}
+          employeesRefreshing={employeesRefreshing}
           onSelectAgent={onSelectAgent}
           role={role}
         />
@@ -506,8 +646,8 @@ export function AppSidebar({
       </SidebarContent>
 
       {/* ── FOOTER ─────────────────────────────────────────────────────── */}
-      <SidebarFooter className="border-t border-border">
-        <LogoutFooter />
+      <SidebarFooter>
+        {/* Footer content removed */}
       </SidebarFooter>
 
     </Sidebar>

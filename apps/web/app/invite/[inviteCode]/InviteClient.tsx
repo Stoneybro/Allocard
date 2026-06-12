@@ -16,7 +16,7 @@ import {
 
 export function InviteClient({ details }: { details: InviteDetails }) {
   const router = useRouter();
-  const { address, isConnected } = useConnectedWalletAddress();
+  const { address, isConnected, isAuthLoading, shouldPromptConnect } = useConnectedWalletAddress();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -35,12 +35,20 @@ export function InviteClient({ details }: { details: InviteDetails }) {
     );
   }
 
-  if (!isConnected || !address) {
+  if (shouldPromptConnect) {
     return (
       <ConnectRequiredCard
         title={`Join ${details.invite.companyName}`}
         description="Connect the wallet you want to use as your employee identity."
       />
+    );
+  }
+
+  if (isAuthLoading || !isConnected || !address) {
+    return (
+      <div className="flex h-full items-center justify-center overflow-y-auto p-6">
+        <p className="text-sm text-muted-foreground">Loading your workspace...</p>
+      </div>
     );
   }
 

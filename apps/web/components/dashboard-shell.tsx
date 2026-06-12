@@ -15,15 +15,17 @@ export function DashboardShell({
   copiedInvite,
   employees,
   agents,
-  inviteError,
   inviteLink,
   invitePending,
   onAddEmployee,
   onCopyInvite,
   onCreateInvite,
   onSelectAgent,
+  onRefreshEmployees,
+  employeesRefreshing,
   role,
   smartAccountLabel,
+  smartAccountAddress,
   title,
   roleLabel,
 }: {
@@ -32,15 +34,17 @@ export function DashboardShell({
   copiedInvite?: boolean;
   employees?: SidebarEmployee[];
   agents?: SidebarAgent[];
-  inviteError?: string | null;
   inviteLink?: string | null;
   invitePending?: boolean;
   onAddEmployee?: (employeeId: string) => void;
   onCopyInvite?: () => void;
   onCreateInvite?: () => void;
   onSelectAgent?: (agentId: string) => void;
+  onRefreshEmployees?: () => void;
+  employeesRefreshing?: boolean;
   role?: "employer" | "employee";
   smartAccountLabel: string;
+  smartAccountAddress?: string | null;
   title: string;
   roleLabel: string;
 }) {
@@ -59,16 +63,18 @@ export function DashboardShell({
         copiedInvite={copiedInvite}
         employees={employees ?? []}
         agents={agents ?? []}
-        inviteError={inviteError}
         inviteLink={inviteLink}
         invitePending={invitePending}
         onAddEmployee={onAddEmployee}
         onCopyInvite={onCopyInvite}
         onCreateInvite={onCreateInvite}
         onSelectAgent={onSelectAgent}
+        onRefreshEmployees={onRefreshEmployees}
+        employeesRefreshing={employeesRefreshing}
         role={role}
         roleLabel={roleLabel}
         smartAccountLabel={smartAccountLabel}
+        smartAccountAddress={smartAccountAddress}
       />
       <SidebarInset className="h-dvh overflow-hidden">
         <SiteHeader title={title} />

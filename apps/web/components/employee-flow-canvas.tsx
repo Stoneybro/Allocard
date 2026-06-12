@@ -1,7 +1,7 @@
 "use client";
 
-import { formatEther } from "viem";
-import { useEffect, useMemo } from "react";
+import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { formatEther } from 'viem';
 import {
   Background,
   Controls,
@@ -13,6 +13,7 @@ import {
   useNodesState,
   type Edge,
   type Node,
+  type NodeProps,
 } from "@xyflow/react";
 import {
   BotIcon,
@@ -22,8 +23,8 @@ import {
   Settings2Icon,
   UserRoundIcon,
 } from "lucide-react";
-import { useState, useCallback } from "react";
 
+import type { EmployeeDashboardState } from "@/app/actions/identity";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,12 +35,11 @@ import {
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { formatWalletAddress } from "@/lib/wallet";
-import type { EmployeeDashboardState } from "@/app/actions/identity";
-
-// ── Types ────────────────────────────────────────────────────────────────────
+import { layoutTree } from "@/lib/layoutTree";
 
 type EmployeeNodeData = {
   delegationId?: string;
+  agentId?: string;
   title: string;
   subtitle: string;
   address?: string;
@@ -51,8 +51,6 @@ type EmployeeNodeData = {
   onConfigure?: (delegationId: string) => void;
   onRevoke?: (delegationId: string) => void;
 };
-
-// ── Status badge ─────────────────────────────────────────────────────────────
 
 function StatusBadge({ status, isRoot }: { status: EmployeeNodeData["status"]; isRoot?: boolean }) {
   if (isRoot) return <Badge variant="secondary">Your Account</Badge>;
@@ -67,8 +65,6 @@ function StatusBadge({ status, isRoot }: { status: EmployeeNodeData["status"]; i
     </Badge>
   );
 }
-
-// ── Copy address button ───────────────────────────────────────────────────────
 
 function CopyAddressButton({ address }: { address?: string }) {
   const [copied, setCopied] = useState(false);
@@ -92,9 +88,9 @@ function CopyAddressButton({ address }: { address?: string }) {
           <button
             type="button"
             onClick={handleCopy}
-            className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-muted-foreground transition-colors hover:text-foreground hover:bg-white/10"
+            className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground"
           >
-            <Icon className="h-3 w-3" />
+            <Icon className="size-3" />
           </button>
         </TooltipTrigger>
         <TooltipContent side="top">
@@ -104,10 +100,6 @@ function CopyAddressButton({ address }: { address?: string }) {
     </TooltipProvider>
   );
 }
-
-// ── Employee node component ───────────────────────────────────────────────────
-
-import type { NodeProps } from "@xyflow/react";
 
 function EmployeeNode({ data }: NodeProps<Node<EmployeeNodeData>>) {
   const Icon = data.kind === "self" ? UserRoundIcon : BotIcon;
@@ -145,7 +137,6 @@ function EmployeeNode({ data }: NodeProps<Node<EmployeeNodeData>>) {
         <StatusBadge status={data.status} isRoot={data.kind === "self"} />
       </div>
 
-      {/* Address chip */}
       <div
         className={cn(
           "mt-3 flex items-center justify-between rounded-md border bg-background/70 px-3 py-1.5 font-mono text-xs text-muted-foreground",
@@ -156,7 +147,6 @@ function EmployeeNode({ data }: NodeProps<Node<EmployeeNodeData>>) {
         <CopyAddressButton address={data.address} />
       </div>
 
-      {/* Balance row */}
       {data.balance !== undefined && (
         <div
           className={cn(
@@ -171,41 +161,44 @@ function EmployeeNode({ data }: NodeProps<Node<EmployeeNodeData>>) {
         </div>
       )}
 
-      {/* Action buttons for agent nodes */}
       {data.canConfigure && data.delegationId ? (
         data.status === "active" ? (
           <div className="mt-3 flex gap-2">
             <Button
-              type="button"
               size="sm"
               variant="outline"
-              className="flex-1"
-              onClick={() => data.onConfigure?.(data.delegationId as string)}
+              className="h-7 px-2 text-xs"
+              onClick={(e) => {
+                e.stopPropagation();
+                data.onConfigure?.(data.delegationId!);
+              }}
             >
-              <EyeIcon data-icon="inline-start" />
-              View Rules
+              <Settings2Icon className="mr-1 size-3" />
+              Configure
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="destructive"
-              onClick={() => data.onRevoke?.(data.delegationId as string)}
-            >
-              Revoke
-            </Button>
+            {data.onRevoke && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  data.onRevoke?.(data.delegationId!);
+                }}
+              >
+                Revoke
+              </Button>
+            )}
           </div>
-        ) : data.status !== "revoked" ? (
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="mt-3"
-            onClick={() => data.onConfigure?.(data.delegationId as string)}
-          >
-            <Settings2Icon data-icon="inline-start" />
-            Configure
-          </Button>
-        ) : null
+        ) : data.status === "revoked" ? (
+          <div className="mt-3">
+            <Badge variant="destructive">Revoked</Badge>
+          </div>
+        ) : (
+          <div className="mt-3">
+            <Badge variant="outline">Pending Configuration</Badge>
+          </div>
+        )
       ) : null}
 
       <Handle
@@ -217,34 +210,40 @@ function EmployeeNode({ data }: NodeProps<Node<EmployeeNodeData>>) {
   );
 }
 
-// ── Canvas ────────────────────────────────────────────────────────────────────
-
 export function EmployeeFlowCanvas({
   dashboardState,
   onConfigureDelegation,
   onRevokeDelegation,
   onNodeClick,
+  onDropAgent,
+  headerAction,
 }: {
   dashboardState: EmployeeDashboardState;
   onConfigureDelegation?: (delegationId: string) => void;
   onRevokeDelegation?: (delegationId: string) => void;
   onNodeClick?: (event: React.MouseEvent, node: Node) => void;
+  onDropAgent?: (input: {
+    agentId: string;
+    canvasPositionX: number;
+    canvasPositionY: number;
+  }) => void;
+  headerAction?: React.ReactNode;
 }) {
   const nodeTypes = useMemo(() => ({ employeeNode: EmployeeNode }), []);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
 
-  const { employee, company, inboundDelegation, outboundDelegations } = dashboardState;
-
+  const { employee, company, inboundDelegation, outboundDelegations, agents } = dashboardState;
   const approvedLimitEth = dashboardState.summary.approvedLimitEth;
 
   const { nodes: derivedNodes, edges: derivedEdges } = useMemo(() => {
     const selfNodeId = `employee:${employee.id}`;
+    const agentById = new Map(agents.map((agent) => [agent.id, agent]));
 
-    // Root: employee's own smart account
     const nextNodes: Node<EmployeeNodeData>[] = [
       {
         id: selfNodeId,
         type: "employeeNode",
-        position: { x: 80, y: 180 },
+        position: { x: 0, y: 0 },
         data: {
           title: formatWalletAddress(employee.walletAddress),
           subtitle: `Delegated by ${company.name}`,
@@ -259,33 +258,38 @@ export function EmployeeFlowCanvas({
 
     const nextEdges: Edge[] = [];
 
-    outboundDelegations.forEach((delegation, index) => {
-      const agentNodeId = `agent:${delegation.delegateeId ?? delegation.id}`;
+    outboundDelegations.forEach((delegation) => {
+      const agentNodeId = `agent:${delegation.id}`;
+      const agent = delegation.delegateeId ? agentById.get(delegation.delegateeId) : undefined;
 
       nextNodes.push({
         id: agentNodeId,
         type: "employeeNode",
-        position: { x: 420, y: 80 + index * 160 },
+        position: { x: 0, y: 0 },
         data: {
           delegationId: delegation.id,
-          title: "AI Agent",
-          subtitle: delegation.delegateeId ?? "Agent smart account",
-          address: undefined,
-          balance: (() => {
-            const caveat = delegation.caveats?.find(
-              (c: { caveatType: string }) => c.caveatType === "nativeTokenTransferAmount",
-            );
-            if (!caveat) return undefined;
-            const val = caveat.caveatValue as Record<string, unknown>;
-            const weiStr = String(val.maxAmount ?? val.amount ?? "");
-            if (!weiStr || weiStr === "undefined") return undefined;
-            try {
-              return `${formatEther(BigInt(weiStr))} ETH`;
-            } catch {
-              return undefined;
-            }
-          })(),
-          balanceLabel: "Spending limit",
+          agentId: delegation.delegateeId ?? undefined,
+          title: agent?.name ?? "AI Agent",
+          subtitle: agent?.description ?? "Delegated AI agent",
+          address: agent?.smartAccountAddress ?? undefined,
+          balance:
+            delegation.status === "active"
+              ? (() => {
+                  const caveat = delegation.caveats?.find(
+                    (c: { caveatType: string }) => c.caveatType === "nativeTokenTransferAmount",
+                  );
+                  if (!caveat) return undefined;
+                  const value = caveat.caveatValue as Record<string, unknown>;
+                  const wei = String(value.maxAmount ?? value.amount ?? "");
+                  if (!wei || wei === "undefined") return undefined;
+                  try {
+                    return `${formatEther(BigInt(wei))} ETH`;
+                  } catch {
+                    return undefined;
+                  }
+                })()
+              : undefined,
+          balanceLabel: delegation.status === "active" ? "Spending limit" : undefined,
           status: delegation.status,
           kind: "agent",
           canConfigure: true,
@@ -299,34 +303,77 @@ export function EmployeeFlowCanvas({
         id: `edge:${delegation.id}`,
         source: selfNodeId,
         target: agentNodeId,
-        type: "smoothstep",
+        type: "straight",
         animated: isActive,
         markerEnd: { type: MarkerType.ArrowClosed },
         style: isActive
           ? { stroke: "var(--foreground)", strokeWidth: 2 }
-          : { stroke: "var(--muted-foreground)", strokeWidth: 2, strokeDasharray: "6 6", opacity: 0.34 },
+          : {
+              stroke: "var(--muted-foreground)",
+              strokeWidth: 2,
+              strokeDasharray: "6 6",
+              opacity: 0.34,
+            },
       });
     });
 
     return { nodes: nextNodes, edges: nextEdges };
-  }, [employee, company, inboundDelegation, approvedLimitEth, outboundDelegations, onConfigureDelegation, onRevokeDelegation]);
+  }, [
+    employee,
+    company,
+    inboundDelegation,
+    approvedLimitEth,
+    outboundDelegations,
+    agents,
+    onConfigureDelegation,
+    onRevokeDelegation,
+  ]);
 
   const [nodes, setNodes, onNodesChange] = useNodesState(derivedNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(derivedEdges);
 
   useEffect(() => {
     setNodes((prevNodes) => {
-      const positionMap = new Map(prevNodes.map((n) => [n.id, n.position]));
-      return derivedNodes.map((node) => {
-        const currentPosition = positionMap.get(node.id);
-        return currentPosition ? { ...node, position: currentPosition } : node;
-      });
+      const measuredMap = new Map(
+        prevNodes.map((n) => [n.id, n.measured as { width?: number; height?: number } | undefined])
+      );
+      const merged = derivedNodes.map((node) => ({
+        ...node,
+        measured: measuredMap.get(node.id) ?? node.measured,
+      }));
+      return layoutTree(merged, derivedEdges);
     });
     setEdges(derivedEdges);
   }, [derivedNodes, derivedEdges, setNodes, setEdges]);
 
+  const handleDrop = useCallback(
+    (event: DragEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      const agentId = event.dataTransfer.getData("application/allocard-agent-id");
+      if (!agentId || !canvasRef.current) return;
+
+      const bounds = canvasRef.current.getBoundingClientRect();
+      onDropAgent?.({
+        agentId,
+        canvasPositionX: event.clientX - bounds.left,
+        canvasPositionY: event.clientY - bounds.top,
+      });
+    },
+    [onDropAgent],
+  );
+
+  const handleDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  }, []);
+
   return (
-    <div className="flex h-[560px] min-h-[460px] flex-col overflow-hidden rounded-lg border bg-card shadow-sm">
+    <div
+      ref={canvasRef}
+      className="flex h-[560px] min-h-[460px] flex-col overflow-hidden rounded-lg border bg-card shadow-sm"
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+    >
       <div className="flex items-center justify-between gap-4 border-b px-5 py-4">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
@@ -336,6 +383,7 @@ export function EmployeeFlowCanvas({
             Your spending authority
           </h3>
         </div>
+        <div className="flex items-center">{headerAction}</div>
       </div>
 
       <div className="min-h-0 flex-1">
@@ -348,9 +396,9 @@ export function EmployeeFlowCanvas({
           nodeTypes={nodeTypes}
           fitView
           fitViewOptions={{ padding: 0.18 }}
-          nodesDraggable
+          nodesDraggable={false}
           nodesConnectable={false}
-          elementsSelectable={true}
+          elementsSelectable={false}
           panOnDrag
           zoomOnScroll
           minZoom={0.55}

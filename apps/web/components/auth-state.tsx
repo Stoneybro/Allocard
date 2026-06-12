@@ -1,6 +1,6 @@
 "use client";
 
-import { useWeb3AuthConnect } from "@web3auth/modal/react";
+import { useWeb3Auth, useWeb3AuthConnect } from "@web3auth/modal/react";
 import { useAccount } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,9 +33,16 @@ export function ConnectRequiredCard({
 
 export function useConnectedWalletAddress() {
   const { address, isConnected } = useAccount();
+  const { isConnected: isWeb3AuthConnected, isInitialized, isInitializing } = useWeb3Auth();
+
+  const hasResolvedAddress = isConnected && Boolean(address);
+  const hasSession = isWeb3AuthConnected || isConnected;
+  const isAuthLoading = !isInitialized || isInitializing || (hasSession && !hasResolvedAddress);
 
   return {
     address,
-    isConnected: isConnected && Boolean(address),
+    isConnected: hasResolvedAddress,
+    isAuthLoading,
+    shouldPromptConnect: isInitialized && !isInitializing && !hasSession,
   };
 }

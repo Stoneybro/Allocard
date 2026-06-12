@@ -1,7 +1,8 @@
 "use client";
 
+import { toast } from "sonner";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
-import { useBalance } from "wagmi";
+import { useBalance, useWalletClient } from "wagmi";
 import { hashDelegation } from "@metamask/delegation-core";
 import {
   createDelegation,
@@ -21,6 +22,7 @@ import {
   createEmployeeDelegation,
   getCompanyDashboardState,
   getWalletProfile,
+  removePendingDelegation,
   revokeDelegation,
   saveDelegationCaveats,
   updateDelegationPosition,
@@ -39,7 +41,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Drawer,
@@ -61,7 +62,6 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityLogTable } from "./ActivityLogTable";
-import { createInjectedWalletClient } from "@/lib/signer";
 import { createHybridSmartAccount } from "@/lib/smartAccount";
 import { cn } from "@/lib/utils";
 import { formatWalletAddress } from "@/lib/wallet";
@@ -340,19 +340,19 @@ function toSignedDelegationJson(delegation: Delegation) {
 
 export function EmployerClient() {
   const router = useRouter();
-  const { address, isConnected } = useConnectedWalletAddress();
+  const { address, isConnected, isAuthLoading, shouldPromptConnect } = useConnectedWalletAddress();
   const [profile, setProfile] = useState<WalletProfile | null>(null);
   const [dashboardState, setDashboardState] =
     useState<CompanyDashboardState | null>(null);
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [selectedDelegationId, setSelectedDelegationId] = useState<string | null>(
     null,
   );
   const [caveatForm, setCaveatForm] = useState<CaveatForm>(emptyCaveatForm);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isPending, startTransition] = useTransition();
+  const { data: walletClient } = useWalletClient();
 
   useEffect(() => {
     if (!address || !isConnected) return;
@@ -441,7 +441,7 @@ export function EmployerClient() {
         (c) => c.caveatType === "nativeTokenTransferAmount",
       );
       let allowance: string | undefined;
-      if (allowanceCaveat) {
+      if (delegation.status === "active" && allowanceCaveat) {
         const val = allowanceCaveat.caveatValue as Record<string, unknown>;
         const weiStr = String(val.maxAmount ?? val.amount ?? "");
         if (weiStr) allowance = formatAllowanceEth(weiStr);
@@ -461,12 +461,11 @@ export function EmployerClient() {
 
   const runDashboardMutation = useCallback(
     (mutation: () => Promise<CompanyDashboardState>) => {
-      setError(null);
       startTransition(async () => {
         try {
           updateDashboard(await mutation());
         } catch (caughtError) {
-          setError(
+          toast.error(
             caughtError instanceof Error
               ? caughtError.message
               : "Dashboard update failed",
@@ -514,6 +513,21 @@ export function EmployerClient() {
     [address, runDashboardMutation],
   );
 
+  const handleRemoveDelegation = useCallback(
+    (delegationId: string) => {
+      runDashboardMutation(() =>
+        removePendingDelegation({
+          walletAddress: address as string,
+          delegationId,
+        }),
+      );
+      setSelectedDelegationId((current) =>
+        current === delegationId ? null : current,
+      );
+    },
+    [address, runDashboardMutation],
+  );
+
   const handleMoveDelegation = useCallback(
     (input: {
       delegationId: string;
@@ -526,8 +540,16 @@ export function EmployerClient() {
     [runDashboardMutation, address],
   );
 
-  if (!isConnected || !address) {
+  if (shouldPromptConnect) {
     return <ConnectRequiredCard />;
+  }
+
+  if (isAuthLoading || !isConnected || !address) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p className="text-sm text-muted-foreground">Loading company workspace...</p>
+      </div>
+    );
   }
 
   if (!profile || profile.status !== "employer" || !company || !dashboardState) {
@@ -541,7 +563,6 @@ export function EmployerClient() {
   }
 
   const handleCreateInvite = () => {
-    setError(null);
     setCopied(false);
 
     startTransition(async () => {
@@ -549,7 +570,7 @@ export function EmployerClient() {
         const invite = await createCompanyInvite(address);
         setInviteLink(`${window.location.origin}/invite/${invite.inviteCode}`);
       } catch (caughtError) {
-        setError(
+        toast.error(
           caughtError instanceof Error
             ? caughtError.message
             : "Could not create invite",
@@ -563,6 +584,11 @@ export function EmployerClient() {
 
     await navigator.clipboard.writeText(inviteLink);
     setCopied(true);
+
+    setTimeout(() => {
+      setCopied(false);
+      setInviteLink(null);
+    }, 3000);
   };
 
   const handleSmartAccountActivated = (smartAccountAddress: string | null) => {
@@ -628,7 +654,6 @@ export function EmployerClient() {
     );
     if (hasErrors) return;
 
-    setError(null);
     startTransition(async () => {
       try {
         const savedState = await saveDelegationCaveats({
@@ -643,8 +668,11 @@ export function EmployerClient() {
           throw new Error("Activate the company smart account first");
         }
 
-        const walletClient = createInjectedWalletClient(address);
-        const smartAccount = await createHybridSmartAccount(walletClient);
+        if (!walletClient) {
+          throw new Error("Wallet signer is still loading. Please try again.");
+        }
+
+        const smartAccount = await createHybridSmartAccount(walletClient, address);
         const environment = getSmartAccountsEnvironment(84532);
         const sdkCaveats = buildSdkCaveats(caveatForm);
         const delegation = createDelegation({
@@ -673,7 +701,7 @@ export function EmployerClient() {
           }),
         );
       } catch (caughtError) {
-        setError(
+        toast.error(
           caughtError instanceof Error
             ? caughtError.message
             : "Could not activate delegation",
@@ -698,7 +726,6 @@ export function EmployerClient() {
         name: agent.name,
         detail: agent.description ?? "Platform AI agent",
       }))}
-      inviteError={error}
       inviteLink={inviteLink}
       invitePending={isPending}
       onAddEmployee={(employeeId) =>
@@ -713,8 +740,15 @@ export function EmployerClient() {
       }
       onCopyInvite={handleCopyInvite}
       onCreateInvite={handleCreateInvite}
+      onRefreshEmployees={() => {
+        startTransition(async () => {
+          updateDashboard(await getCompanyDashboardState(address));
+        });
+      }}
+      employeesRefreshing={isPending}
       roleLabel="Company owner"
       smartAccountLabel={smartAccountLabel}
+      smartAccountAddress={company?.smartAccountAddress}
       title="Company dashboard"
     >
       <div className="flex min-h-full flex-col gap-4">
@@ -765,6 +799,7 @@ export function EmployerClient() {
               }
               onMoveDelegation={handleMoveDelegation}
               onRevokeDelegation={handleRevokeDelegation}
+              onRemoveDelegation={handleRemoveDelegation}
             />
           </TabsContent>
 

@@ -57,10 +57,11 @@ import {
 } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DirectSpendForm } from "./DirectSpendForm";
-import { createInjectedWalletClient } from "@/lib/signer";
 import { createHybridSmartAccount } from "@/lib/smartAccount";
 import { cn } from "@/lib/utils";
 import { formatWalletAddress } from "@/lib/wallet";
+import { useWalletClient, useSwitchChain } from "wagmi";
+import { baseSepolia } from "viem/chains";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -308,9 +309,11 @@ function toSignedDelegationJson(delegation: Delegation) {
 
 export function EmployeeClient() {
   const router = useRouter();
-  const { address, isConnected } = useConnectedWalletAddress();
+  const { address, isConnected, isAuthLoading, shouldPromptConnect } = useConnectedWalletAddress();
   const [dashboardState, setDashboardState] = useState<EmployeeDashboardState | null>(null);
   const [isPending, startTransition] = useTransition();
+  const { data: walletClient } = useWalletClient();
+  const { switchChainAsync } = useSwitchChain();
   const [error, setError] = useState<string | null>(null);
   const [selectedDelegationId, setSelectedDelegationId] = useState<string | null>(null);
   const [caveatForm, setCaveatForm] = useState<CaveatForm>(buildEmptyCaveatForm("0.01"));
@@ -337,6 +340,7 @@ export function EmployeeClient() {
       setDashboardState(state);
     });
   }, [address, isConnected, router]);
+
 
   // ── Derived values ─────────────────────────────────────────────────────────
 
@@ -411,6 +415,17 @@ export function EmployeeClient() {
     setDashboardState(state);
   }, [address]);
 
+  // Auto-refresh: poll for new incoming delegations and state changes
+  useEffect(() => {
+    if (!address || !dashboardState) return;
+
+    const interval = setInterval(() => {
+      void refreshDashboard();
+    }, 15_000); // poll every 15 seconds
+
+    return () => clearInterval(interval);
+  }, [address, dashboardState, refreshDashboard]);
+
   const runEmployeeMutation = useCallback(
     (mutation: () => Promise<EmployeeDashboardState>) => {
       setError(null);
@@ -441,7 +456,7 @@ export function EmployeeClient() {
 
   // Task 4: agent picker — creates a new redelegation row then opens the drawer
   const handleSelectAgent = useCallback(
-    (agentId: string) => {
+    (agentId: string, canvasPositionX?: number, canvasPositionY?: number) => {
       if (!address || !dashboardState) return;
       setError(null);
 
@@ -453,11 +468,11 @@ export function EmployeeClient() {
       
       startTransition(async () => {
         try {
-          const state = await createAgentRedelegation({ walletAddress: address, agentId });
+          const state = await createAgentRedelegation({ walletAddress: address, agentId, canvasPositionX, canvasPositionY });
           setDashboardState(state);
 
           const pending = state.outboundDelegations.find(
-            (d) => d.delegateeId === agentId && d.status === "pending_config",
+            (d) => d.delegateeId === agentId && d.status !== "revoked",
           );
           if (pending) {
             setSelectedDelegationId(pending.id);
@@ -470,6 +485,14 @@ export function EmployeeClient() {
       });
     },
     [address, parentMaxEth, dashboardState],
+  );
+
+  // Wrapper for drag-and-drop: canvas calls onDropAgent({ agentId, canvasPositionX, canvasPositionY })
+  const handleDropAgent = useCallback(
+    (input: { agentId: string; canvasPositionX: number; canvasPositionY: number }) => {
+      handleSelectAgent(input.agentId, input.canvasPositionX, input.canvasPositionY);
+    },
+    [handleSelectAgent],
   );
 
   const handleNodeClick = useCallback((event: any, node: any) => {
@@ -547,8 +570,18 @@ export function EmployeeClient() {
         agentSmartAccountAddress = await getAgentSmartAccountAddress(agentId);
 
         // 4. Build and sign the delegation from the employee's smart account
-        const walletClient = createInjectedWalletClient(address);
-        const smartAccount = await createHybridSmartAccount(walletClient);
+        if (!walletClient) {
+          throw new Error("Wallet signer is still loading. Please try again.");
+        }
+
+        // Ensure the wallet is on Base Sepolia before signing
+        try {
+          await switchChainAsync({ chainId: baseSepolia.id });
+        } catch (switchError) {
+          console.warn("Could not switch chain via wagmi", switchError);
+        }
+
+        const smartAccount = await createHybridSmartAccount(walletClient, address);
         const environment = getSmartAccountsEnvironment(84532);
         const sdkCaveats = buildSdkCaveats(caveatForm);
 
@@ -597,12 +630,21 @@ export function EmployeeClient() {
     if (!address || !dashboardState?.employee?.smartAccountAddress) {
       throw new Error("Smart account not activated.");
     }
-    const walletClient = createInjectedWalletClient(address);
-    const smartAccount = await createHybridSmartAccount(walletClient);
+    if (!walletClient) {
+      throw new Error("Wallet signer is still loading. Please try again.");
+    }
+
+    // Ensure the wallet is on Base Sepolia before sending
+    try {
+      await switchChainAsync({ chainId: baseSepolia.id });
+    } catch (switchError) {
+      console.warn("Could not switch chain via wagmi", switchError);
+    }
+
+    const smartAccount = await createHybridSmartAccount(walletClient, address);
     
     const { createBundlerClient } = await import("viem/account-abstraction");
     const { createPublicClient, http, parseEther } = await import("viem");
-    const { baseSepolia } = await import("viem/chains");
 
     const bundlerUrl = process.env.NEXT_PUBLIC_BUNDLER_RPC_URL;
     if (!bundlerUrl) throw new Error("Missing NEXT_PUBLIC_BUNDLER_RPC_URL");
@@ -663,8 +705,16 @@ export function EmployeeClient() {
 
   // ── Render guards ──────────────────────────────────────────────────────────
 
-  if (!isConnected || !address) {
+  if (shouldPromptConnect) {
     return <ConnectRequiredCard />;
+  }
+
+  if (isAuthLoading || !isConnected || !address) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p className="text-sm text-muted-foreground">Loading employee workspace...</p>
+      </div>
+    );
   }
 
   if (!dashboardState) {
@@ -689,11 +739,14 @@ export function EmployeeClient() {
     <DashboardShell
       companyName={company.name}
       smartAccountLabel={smartAccountLabel}
+      smartAccountAddress={employee.smartAccountAddress}
       title="Employee dashboard"
       roleLabel="Employee"
       role="employee"
       agents={sidebarAgents}
       onSelectAgent={handleSelectAgent}
+      onRefreshEmployees={refreshDashboard}
+      employeesRefreshing={isPending}
     >
       <div className="flex flex-col gap-6">
         {/* Smart account activation banner */}
@@ -744,6 +797,12 @@ export function EmployeeClient() {
               onConfigureDelegation={handleConfigureDelegation}
               onRevokeDelegation={handleRevokeDelegation}
               onNodeClick={handleNodeClick}
+              onDropAgent={handleDropAgent}
+              headerAction={
+                <Button type="button" variant="outline" size="sm" onClick={() => void refreshDashboard()} disabled={isPending}>
+                  {isPending ? "Refreshing..." : "Refresh"}
+                </Button>
+              }
             />
           </TabsContent>
           

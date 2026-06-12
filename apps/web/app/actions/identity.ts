@@ -1085,6 +1085,27 @@ export async function revokeDelegation(input: {
   return getCompanyDashboardState(input.walletAddress);
 }
 
+export async function removePendingDelegation(input: {
+  walletAddress: string;
+  delegationId: string;
+}) {
+  const { delegation } = await getEmployerDelegationOrThrow(
+    input.walletAddress,
+    input.delegationId,
+  );
+
+  if (delegation.status !== "pending_config") {
+    throw new Error("Only pending delegations can be removed");
+  }
+
+  const descendants = await getDescendantDelegationIds([delegation.id]);
+  const idsToDelete = [delegation.id, ...descendants];
+
+  await db.delete(delegations).where(inArray(delegations.id, idsToDelete));
+
+  return getCompanyDashboardState(input.walletAddress);
+}
+
 export async function getCompanyDashboardState(
   walletAddress: string,
 ): Promise<CompanyDashboardState> {
@@ -1560,6 +1581,8 @@ async function getEmployeeOwnDelegationOrThrow(
 export async function createAgentRedelegation(input: {
   walletAddress: string;
   agentId: string;
+  canvasPositionX?: number;
+  canvasPositionY?: number;
 }): Promise<EmployeeDashboardState> {
   const profile = await getEmployeeProfileOrThrow(input.walletAddress);
   const { user, company } = profile;
@@ -1598,14 +1621,15 @@ export async function createAgentRedelegation(input: {
     return getEmployeeDashboardState(input.walletAddress);
   }
 
+  const offset = Math.floor(Math.random() * 80) - 40; // stagger to avoid collision
   await db.insert(delegations).values({
     delegatorType: "user",
     delegatorId: user.id,
     delegateeType: "agent",
     delegateeId: input.agentId,
     parentDelegationId: inboundRow.id,
-    canvasPositionX: 420,
-    canvasPositionY: 120,
+    canvasPositionX: input.canvasPositionX ?? 420 + offset,
+    canvasPositionY: input.canvasPositionY ?? 120 + offset,
   });
 
   return getEmployeeDashboardState(input.walletAddress);
