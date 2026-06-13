@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { LoaderCircleIcon, CheckCircleIcon, XCircleIcon, UploadIcon } from "lucide-react";
+import { LoaderCircleIcon, CheckCircleIcon, XCircleIcon, UploadIcon, SparklesIcon } from "lucide-react";
 import { toast } from "sonner";
 
 export function ReimbursementAgentDrawer({
@@ -46,10 +46,25 @@ export function ReimbursementAgentDrawer({
     };
     reader.readAsDataURL(file);
   };
-
+  const handleLoadSample = async () => {
+    try {
+      const res = await fetch("/sample-receipt.jpg");
+      const blob = await res.blob();
+      const reader = new FileReader();
+      reader.onload = () => {
+        setFileBase64(reader.result as string);
+        setClaimDescription("Coffee with clients at Cafe Ethereum");
+        setAmountEth("0.0001");
+        toast.success("Loaded sample receipt and claim details!");
+      };
+      reader.readAsDataURL(blob);
+    } catch (e) {
+      toast.error("Failed to load sample receipt");
+    }
+  };
   const handleSubmit = async () => {
-    if (!claimDescription || !amountEth) {
-      toast.error("Description and amount are required");
+    if (!claimDescription || !amountEth || !fileBase64) {
+      toast.error("Description, amount, and receipt image are required");
       return;
     }
 
@@ -103,7 +118,7 @@ export function ReimbursementAgentDrawer({
           </DrawerDescription>
         </DrawerHeader>
 
-        <div className="p-4 flex flex-col gap-4 max-w-lg mx-auto w-full">
+        <div className="p-4 flex flex-col gap-4 max-w-lg mx-auto w-full overflow-y-auto max-h-[65vh] mb-4">
           {status === "idle" || status === "error" || status === "submitting" ? (
             <>
               <div className="flex flex-col gap-2">
@@ -131,14 +146,62 @@ export function ReimbursementAgentDrawer({
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="receipt">Receipt (Optional)</Label>
-                <Input
-                  id="receipt"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  disabled={status === "submitting"}
-                />
+                <Label htmlFor="receipt" className="flex items-center justify-between">
+                  <span>Receipt Image <span className="text-red-500">*</span></span>
+                  <span className="text-[10px] text-primary/80 font-medium bg-primary/10 px-1.5 py-0.5 rounded">
+                    Required for Venice AI Vision
+                  </span>
+                </Label>
+                
+                {!fileBase64 ? (
+                  <>
+                    <Input
+                      id="receipt"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      disabled={status === "submitting"}
+                    />
+                    <Button 
+                      type="button" 
+                      variant="secondary" 
+                      size="sm" 
+                      className="h-8 text-xs bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 font-medium mt-1 self-start transition-colors"
+                      onClick={handleLoadSample}
+                      disabled={status === "submitting"}
+                    >
+                      <SparklesIcon className="w-3.5 h-3.5 mr-1.5" />
+                      Testing? Auto-fill with a sample receipt
+                    </Button>
+                  </>
+                ) : (
+                  <div className="mt-1 rounded-md border p-3 bg-muted/30">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs text-muted-foreground font-medium">Attached Receipt Preview:</p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-[10px] text-destructive hover:text-destructive hover:bg-destructive/10 px-2"
+                        onClick={() => {
+                          setFileBase64(null);
+                          setAmountEth("");
+                          setClaimDescription("");
+                        }}
+                        disabled={status === "submitting"}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                    <div className="bg-white p-2 rounded border shadow-sm flex items-center justify-center">
+                      <img 
+                        src={fileBase64} 
+                        alt="Receipt preview" 
+                        className="max-h-48 object-contain" 
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {status === "error" && resultMessage && (
@@ -169,7 +232,7 @@ export function ReimbursementAgentDrawer({
 
         {(status === "idle" || status === "error" || status === "submitting") && (
           <DrawerFooter className="border-t pt-4">
-            <Button onClick={handleSubmit} disabled={status === "submitting"}>
+            <Button onClick={handleSubmit} disabled={status === "submitting" || !fileBase64 || !claimDescription || !amountEth}>
               {status === "submitting" ? (
                 <LoaderCircleIcon className="animate-spin w-4 h-4 mr-2" />
               ) : (

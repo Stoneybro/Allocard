@@ -67,7 +67,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ActivityLogTable } from "./ActivityLogTable";
 import { createHybridSmartAccount } from "@/lib/smartAccount";
 import { cn } from "@/lib/utils";
-import { formatWalletAddress } from "@/lib/wallet";
+import { formatWalletAddress, generateEmployeeReferenceId } from "@/lib/wallet";
 
 type DelegationRow = CompanyDashboardState["delegations"][number];
 type CaveatForm = {
@@ -409,20 +409,39 @@ export function EmployerClient() {
     ? formatWalletAddress(company.smartAccountAddress)
     : "Smart account pending";
 
-  const { data: ethBalanceData } = useBalance({
-    address: company?.smartAccountAddress as `0x${string}` | undefined,
-    query: { enabled: Boolean(company?.smartAccountAddress), refetchInterval: 15_000 },
-  });
+  const [ethBalance, setEthBalance] = useState<string | undefined>(undefined);
 
-  const ethBalance = ethBalanceData
-    ? (() => {
-        const raw = formatEther(ethBalanceData.value);
-        const trimmed = raw.includes(".")
-          ? raw.replace(/(\.[0-9]{1,4}?)0*$/, "$1").replace(/\.$/, "")
-          : raw;
-        return trimmed || "0";
-      })()
-    : undefined;
+  useEffect(() => {
+    if (!company?.smartAccountAddress) return;
+    
+    let isMounted = true;
+    const fetchBalance = async () => {
+      try {
+        const { publicClient } = await import("@/lib/client");
+        const balance = await publicClient.getBalance({ 
+          address: company.smartAccountAddress as `0x${string}` 
+        });
+        
+        if (isMounted) {
+          const { formatEther } = await import("viem");
+          const raw = formatEther(balance);
+          const trimmed = raw.includes(".")
+            ? raw.replace(/(\.[0-9]{1,4}?)0*$/, "$1").replace(/\.$/, "")
+            : raw;
+          setEthBalance(trimmed || "0");
+        }
+      } catch (err) {
+        console.error("Failed to fetch balance", err);
+      }
+    };
+    
+    fetchBalance();
+    const interval = setInterval(fetchBalance, 15_000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [company?.smartAccountAddress]);
 
   // Available balance = master balance minus the sum of all *other* active delegations' limits.
   const availableBalanceEth = useMemo(() => {
@@ -455,7 +474,7 @@ export function EmployerClient() {
     () =>
       dashboardState?.employees.map((employee) => ({
         id: employee.id,
-        label: formatWalletAddress(employee.walletAddress),
+        label: generateEmployeeReferenceId(employee.walletAddress),
         smartAccountAddress: employee.smartAccountAddress,
       })) ?? [],
     [dashboardState?.employees],
@@ -812,7 +831,7 @@ export function EmployerClient() {
       copiedInvite={copied}
       employees={dashboardState.employees.map((employee) => ({
         id: employee.id,
-        label: formatWalletAddress(employee.walletAddress),
+        label: generateEmployeeReferenceId(employee.walletAddress),
         detail: employee.smartAccountAddress
           ? formatWalletAddress(employee.smartAccountAddress)
           : "Smart account pending",

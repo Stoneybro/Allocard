@@ -26,6 +26,7 @@ export function DashboardShell({
   role,
   smartAccountLabel,
   smartAccountAddress,
+  employeeReferenceId,
   title,
   roleLabel,
 }: {
@@ -45,6 +46,7 @@ export function DashboardShell({
   role?: "employer" | "employee";
   smartAccountLabel: string;
   smartAccountAddress?: string | null;
+  employeeReferenceId?: string;
   title: string;
   roleLabel: string;
 }) {
@@ -75,6 +77,7 @@ export function DashboardShell({
         roleLabel={roleLabel}
         smartAccountLabel={smartAccountLabel}
         smartAccountAddress={smartAccountAddress}
+        employeeReferenceId={employeeReferenceId}
       />
       <SidebarInset className="h-dvh overflow-hidden">
         <SiteHeader title={title} />

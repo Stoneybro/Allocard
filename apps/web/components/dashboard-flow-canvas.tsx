@@ -724,12 +724,12 @@ export function DashboardFlowCanvas({
       <div className="flex items-center justify-between gap-4 border-b border-neutral-100 px-5 py-4">
         <div className="flex min-w-0 items-center gap-3">
           <div className="min-w-0">
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-400">
-              DELEGATION CANVAS
-            </p>
-            <h3 className="mt-1 text-base font-semibold text-neutral-800">
-              Company delegation tree
+            <h3 className="text-lg font-semibold text-foreground">
+              Delegation Canvas
             </h3>
+            <p className="text-sm text-muted-foreground">
+              Visualize and manage your entire organizational delegation tree.
+            </p>
           </div>
         </div>
         <div className="flex items-center">

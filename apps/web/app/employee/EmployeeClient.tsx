@@ -60,7 +60,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { DirectSpendForm } from "./DirectSpendForm";
 import { createHybridSmartAccount } from "@/lib/smartAccount";
 import { cn } from "@/lib/utils";
-import { formatWalletAddress } from "@/lib/wallet";
+import { formatWalletAddress, generateEmployeeReferenceId } from "@/lib/wallet";
 import { useWalletClient, useSwitchChain, useBalance } from "wagmi";
 import { baseSepolia } from "viem/chains";
 import { createSession } from "@/lib/session";
@@ -324,13 +324,40 @@ export function EmployeeClient() {
   const [caveatForm, setCaveatForm] = useState<CaveatForm>(buildEmptyCaveatForm("0.01"));
   const [formErrors, setFormErrors] = useState<FormErrors>({});
 
-  const { data: balanceData } = useBalance({
-    address: dashboardState?.employee?.smartAccountAddress as `0x${string}` | undefined,
-    query: {
-      enabled: !!dashboardState?.employee?.smartAccountAddress,
-      refetchInterval: 5000,
-    }
-  });
+  const [smartAccountBalanceEth, setSmartAccountBalanceEth] = useState<string>("0");
+
+  useEffect(() => {
+    const address = dashboardState?.employee?.smartAccountAddress;
+    if (!address) return;
+    
+    let isMounted = true;
+    const fetchBalance = async () => {
+      try {
+        const { publicClient } = await import("@/lib/client");
+        const balance = await publicClient.getBalance({ 
+          address: address as `0x${string}` 
+        });
+        
+        if (isMounted) {
+          const { formatEther } = await import("viem");
+          const s = formatEther(balance);
+          const trimmed = s.includes(".")
+            ? s.replace(/(\.\d*?[1-9])0+$/, "$1").replace(/\.0+$/, "")
+            : s;
+          setSmartAccountBalanceEth(trimmed || "0");
+        }
+      } catch (err) {
+        console.error("Failed to fetch balance", err);
+      }
+    };
+    
+    fetchBalance();
+    const interval = setInterval(fetchBalance, 5_000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [dashboardState?.employee?.smartAccountAddress]);
 
   useEffect(() => {
     if (auth.status !== "authenticated" || didLoadDashboard.current) return;
@@ -436,8 +463,6 @@ export function EmployeeClient() {
     if (!s.includes(".")) return s;
     return s.replace(/(\.\d*?[1-9])0+$/, "$1").replace(/\.0+$/, "");
   }
-
-  const smartAccountBalanceEth = balanceData ? formatEthTrimmed(balanceData.value) : "0";
 
   const refreshDashboard = useCallback(async () => {
     if (auth.status !== "authenticated" || !auth.address) return;
@@ -870,6 +895,7 @@ export function EmployeeClient() {
       title="Employee dashboard"
       roleLabel="Employee"
       role="employee"
+      employeeReferenceId={generateEmployeeReferenceId(employee.walletAddress)}
       agents={sidebarAgents}
       onSelectAgent={handleSelectAgent}
       onRefreshEmployees={refreshDashboard}

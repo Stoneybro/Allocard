@@ -36,7 +36,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { formatWalletAddress } from "@/lib/wallet";
+import { formatWalletAddress, generateEmployeeReferenceId } from "@/lib/wallet";
 import { layoutTree } from "@/lib/layoutTree";
 import {
   AlertDialog,
@@ -66,7 +66,7 @@ type EmployeeNodeData = {
 };
 
 function StatusBadge({ status, isRoot }: { status: EmployeeNodeData["status"]; isRoot?: boolean }) {
-  if (isRoot) return <Badge variant="secondary">Your Account</Badge>;
+  if (isRoot) return <Badge variant="secondary">Your Card</Badge>;
 
   return (
     <Badge variant={status === "active" ? "secondary" : "outline"}>
@@ -344,7 +344,7 @@ export function EmployeeFlowCanvas({
         type: "employeeNode",
         position: { x: 0, y: 0 },
         data: {
-          title: formatWalletAddress(employee.walletAddress),
+          title: generateEmployeeReferenceId(employee.walletAddress),
           subtitle: `Delegated by ${company.name}`,
           address: employee.smartAccountAddress ?? undefined,
           balance: inboundDelegation ? `${approvedLimitEth} ETH` : undefined,
@@ -475,12 +475,12 @@ export function EmployeeFlowCanvas({
     >
       <div className="flex items-center justify-between gap-4 border-b border-neutral-100 px-5 py-4">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-neutral-400">
-            DELEGATION CANVAS
-          </p>
-          <h3 className="mt-1 text-base font-semibold text-neutral-800">
-            Your spending authority
+          <h3 className="text-lg font-semibold text-foreground">
+            Delegation Canvas
           </h3>
+          <p className="text-sm text-muted-foreground">
+            Visualize your spending authority and manage your delegated AI agents.
+          </p>
         </div>
         <div className="flex items-center">{headerAction}</div>
       </div>

@@ -18,6 +18,11 @@ export function formatWalletAddress(address: string) {
   return `${normalized.slice(0, 6)}…${normalized.slice(-4)}`;
 }
 
+export function generateEmployeeReferenceId(address: string) {
+  const normalized = normalizeWalletAddress(address);
+  return `EMP-${normalized.slice(-5).toUpperCase()}`;
+}
+
 export function formatCompanyName(name: string) {
   return name.trim().replace(/\s+/g, " ");
 }

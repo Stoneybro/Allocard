@@ -4,7 +4,6 @@ import { requireSession } from "@/lib/auth-guard";
 import { delegations, claimRedemptions, delegationCaveats, users, companies } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { checkPolicy, verifyReceipt } from "@/lib/venice";
-import { put } from "@vercel/blob";
 import { createWalletClient, http, parseEther, type Hex, createPublicClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { baseSepolia } from "viem/chains";
@@ -62,21 +61,14 @@ export async function POST(req: NextRequest) {
        // We can just pass the policyPrompt directly to checkPolicy
     }
 
-    // 3. Optional: Upload Receipt to Vercel Blob
+    // 3. Verify Receipt with Venice Vision (Stateless, no storage)
     let receiptUrl = null;
     let visionReasoning = "";
     
     if (receiptBase64) {
       try {
-        // Upload to Vercel Blob
-        // Strip data:image/jpeg;base64,
         const base64Data = receiptBase64.split(',')[1] || receiptBase64;
-        const buffer = Buffer.from(base64Data, 'base64');
-        const blob = await put(`receipts/${Date.now()}.jpg`, buffer, {
-          access: 'public',
-        });
-        receiptUrl = blob.url;
-
+        
         // Verify with Venice Vision
         const visionResult = await verifyReceipt({
           imageBase64: base64Data,

@@ -26,6 +26,12 @@ import {
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 
+import {
+  HoverCard,
+  HoverCardTrigger,
+  HoverCardContent,
+} from "@/components/ui/hover-card";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -242,7 +248,7 @@ function CanvasSection({
         {role !== "employee" && (
           <Alert className="py-2 px-3 bg-muted/50">
             <AlertDescription className="text-[11px] text-muted-foreground leading-snug">
-              Click or drag and drop any Recipient (Employee or AI Agent) to place it on the canvas.
+              Drag and drop any employee or AI agent to the canvas to configure and activate a new delegation.
             </AlertDescription>
           </Alert>
         )}
@@ -294,7 +300,7 @@ function CanvasSection({
                       <SidebarMenuItem key={employee.id}>
                         <SidebarMenuButton
                           id={`recipient-${employee.id}`}
-                          tooltip={`${employee.label} — click or drag`}
+                          tooltip={`${employee.label} — drag to canvas`}
                           draggable
                           onClick={() => onAddEmployee?.(employee.id)}
                           onDragStart={(event) => {
@@ -336,51 +342,55 @@ function CanvasSection({
           <>
             {/* System AI Agents */}
             <div className="flex flex-col gap-1">
-              <div className="flex items-center justify-between px-1">
+              <div className="flex items-center justify-between px-1 mb-1">
                 <span className="flex items-center gap-1.5 text-[11px] font-medium text-foreground/70">
                   <SparklesIcon className="size-3" />
                   System AI Agent
                 </span>
               </div>
+              <Alert className="py-2 px-3 bg-muted/50 mb-1">
+                <AlertDescription className="text-[11px] text-muted-foreground leading-snug">
+                  Click to open the reimbursement agent. Note: this agent cannot be dragged to the canvas.
+                </AlertDescription>
+              </Alert>
               <div className="relative">
                 <div className="max-h-[9.5rem] overflow-y-auto rounded-md">
                   <SidebarMenu>
                     {displayAgents.filter(a => a.name === "Reimbursement Agent" || a.name.toLowerCase().includes("reimbursement")).map((agent) => (
                       <SidebarMenuItem key={agent.id}>
-                        <SidebarMenuButton
-                          id={`agent-${agent.id}`}
-                          tooltip={agent.isPlaceholder ? agent.detail : `Click or drag to delegate to ${agent.name}`}
-                          draggable={!agent.isPlaceholder}
-                          className={`h-auto py-2 ${
-                            agent.isPlaceholder
-                              ? "cursor-default select-none opacity-50"
-                              : "cursor-grab active:cursor-grabbing"
-                          }`}
-                          onClick={
-                            !agent.isPlaceholder && onSelectAgent
-                              ? () => onSelectAgent(agent.id)
-                              : undefined
-                          }
-                          onDragStart={
-                            !agent.isPlaceholder
-                              ? (event) => {
-                                  event.dataTransfer.setData("application/allocard-agent-id", agent.id);
-                                  event.dataTransfer.effectAllowed = "copy";
-                                }
-                              : undefined
-                          }
-                        >
-                          <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-foreground/70">
-                            <BotIcon className="size-3" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-[13px] font-medium leading-none">{agent.name}</p>
-                            <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{agent.detail}</p>
-                          </div>
-                        </SidebarMenuButton>
-                        {!agent.isPlaceholder && (
-                          <SidebarMenuBadge className="text-[9px] text-primary/70">delegate</SidebarMenuBadge>
-                        )}
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <SidebarMenuButton
+                              id={`agent-${agent.id}`}
+                              tooltip={agent.isPlaceholder ? agent.detail : `Click to open ${agent.name}`}
+                              draggable={false}
+                              className={`h-auto py-2 ${
+                                agent.isPlaceholder
+                                  ? "cursor-default select-none opacity-50"
+                                  : "cursor-pointer"
+                              }`}
+                              onClick={
+                                !agent.isPlaceholder && onSelectAgent
+                                  ? () => onSelectAgent(agent.id)
+                                  : undefined
+                              }
+                            >
+                              <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-foreground/70">
+                                <BotIcon className="size-3" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-[13px] font-medium leading-none">{agent.name}</p>
+                                <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{agent.detail}</p>
+                              </div>
+                            </SidebarMenuButton>
+                          </HoverCardTrigger>
+                          <HoverCardContent side="right" align="start" className="w-64 z-[100]">
+                            <div className="flex flex-col gap-1.5">
+                              <h4 className="text-sm font-semibold leading-none">{agent.name}</h4>
+                              <p className="text-xs text-muted-foreground leading-relaxed">{agent.detail}</p>
+                            </div>
+                          </HoverCardContent>
+                        </HoverCard>
                       </SidebarMenuItem>
                     ))}
                   </SidebarMenu>
@@ -401,7 +411,7 @@ function CanvasSection({
               </div>
               <Alert className="py-2 px-3 bg-muted/50 mb-1">
                 <AlertDescription className="text-[11px] text-muted-foreground leading-snug">
-                  Click or drag and drop any AI Agent to place it on the canvas.
+                  Drag and drop any AI agent to the canvas to configure and activate a new delegation.
                 </AlertDescription>
               </Alert>
               <div className="relative">
@@ -409,42 +419,49 @@ function CanvasSection({
                   <SidebarMenu>
                     {displayAgents.filter(a => a.name !== "Reimbursement Agent" && !a.name.toLowerCase().includes("reimbursement")).map((agent) => (
                       <SidebarMenuItem key={agent.id}>
-                        <SidebarMenuButton
-                          id={`agent-${agent.id}`}
-                          tooltip={agent.isPlaceholder ? agent.detail : `Click or drag to delegate to ${agent.name}`}
-                          draggable={!agent.isPlaceholder}
-                          className={`h-auto py-2 ${
-                            agent.isPlaceholder
-                              ? "cursor-default select-none opacity-50"
-                              : "cursor-grab active:cursor-grabbing"
-                          }`}
-                          onClick={
-                            !agent.isPlaceholder && onSelectAgent
-                              ? () => onSelectAgent(agent.id)
-                              : undefined
-                          }
-                          onDragStart={
-                            !agent.isPlaceholder
-                              ? (event) => {
-                                  event.dataTransfer.setData("application/allocard-agent-id", agent.id);
-                                  event.dataTransfer.effectAllowed = "copy";
-                                }
-                              : undefined
-                          }
-                        >
-                          <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-foreground/70">
-                            <BotIcon className="size-3" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-[13px] font-medium leading-none">{agent.name}</p>
-                            <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{agent.detail}</p>
-                          </div>
-                        </SidebarMenuButton>
+                        <HoverCard>
+                          <HoverCardTrigger asChild>
+                            <SidebarMenuButton
+                              id={`agent-${agent.id}`}
+                              tooltip={agent.isPlaceholder ? agent.detail : `Drag to canvas to delegate to ${agent.name}`}
+                              draggable={!agent.isPlaceholder}
+                              className={`h-auto py-2 ${
+                                agent.isPlaceholder
+                                  ? "cursor-default select-none opacity-50"
+                                  : "cursor-grab active:cursor-grabbing"
+                              }`}
+                              onClick={
+                                !agent.isPlaceholder && onSelectAgent
+                                  ? () => onSelectAgent(agent.id)
+                                  : undefined
+                              }
+                              onDragStart={
+                                !agent.isPlaceholder
+                                  ? (event) => {
+                                      event.dataTransfer.setData("application/allocard-agent-id", agent.id);
+                                      event.dataTransfer.effectAllowed = "copy";
+                                    }
+                                  : undefined
+                              }
+                            >
+                              <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-foreground/70">
+                                <BotIcon className="size-3" />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-[13px] font-medium leading-none">{agent.name}</p>
+                                <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{agent.detail}</p>
+                              </div>
+                            </SidebarMenuButton>
+                          </HoverCardTrigger>
+                          <HoverCardContent side="right" align="start" className="w-64 z-[100]">
+                            <div className="flex flex-col gap-1.5">
+                              <h4 className="text-sm font-semibold leading-none">{agent.name}</h4>
+                              <p className="text-xs text-muted-foreground leading-relaxed">{agent.detail}</p>
+                            </div>
+                          </HoverCardContent>
+                        </HoverCard>
                         {agent.isPlaceholder && (
                           <SidebarMenuBadge className="text-[9px] text-muted-foreground/40">planned</SidebarMenuBadge>
-                        )}
-                        {!agent.isPlaceholder && (
-                          <SidebarMenuBadge className="text-[9px] text-primary/70">delegate</SidebarMenuBadge>
                         )}
                       </SidebarMenuItem>
                     ))}
@@ -472,39 +489,49 @@ function CanvasSection({
                 <SidebarMenu>
                   {displayAgents.map((agent) => (
                     <SidebarMenuItem key={agent.id}>
-                      <SidebarMenuButton
-                        id={`agent-${agent.id}`}
-                        tooltip={agent.isPlaceholder ? agent.detail : `Drag to canvas: ${agent.name}`}
-                        draggable={!agent.isPlaceholder}
-                        className={`h-auto py-2 ${
-                          agent.isPlaceholder
-                            ? "cursor-default select-none opacity-50"
-                            : "cursor-grab active:cursor-grabbing"
-                        }`}
-                        onDragStart={
-                          !agent.isPlaceholder
-                            ? (event) => {
-                                event.dataTransfer.setData(
-                                  "application/allocard-agent-id",
-                                  agent.id,
-                                );
-                                event.dataTransfer.effectAllowed = "copy";
-                              }
-                            : undefined
-                        }
-                      >
-                        <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-foreground/70">
-                          <BotIcon className="size-3" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-medium leading-none">
-                            {agent.name}
-                          </p>
-                          <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                            {agent.detail}
-                          </p>
-                        </div>
-                      </SidebarMenuButton>
+                      <HoverCard>
+                        <HoverCardTrigger asChild>
+                          <SidebarMenuButton
+                            id={`agent-${agent.id}`}
+                            tooltip={agent.isPlaceholder ? agent.detail : `Drag to canvas: ${agent.name}`}
+                            draggable={!agent.isPlaceholder}
+                            className={`h-auto py-2 ${
+                              agent.isPlaceholder
+                                ? "cursor-default select-none opacity-50"
+                                : "cursor-grab active:cursor-grabbing"
+                            }`}
+                            onDragStart={
+                              !agent.isPlaceholder
+                                ? (event) => {
+                                    event.dataTransfer.setData(
+                                      "application/allocard-agent-id",
+                                      agent.id,
+                                    );
+                                    event.dataTransfer.effectAllowed = "copy";
+                                  }
+                                : undefined
+                            }
+                          >
+                            <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-foreground/70">
+                              <BotIcon className="size-3" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-[13px] font-medium leading-none">
+                                {agent.name}
+                              </p>
+                              <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
+                                {agent.detail}
+                              </p>
+                            </div>
+                          </SidebarMenuButton>
+                        </HoverCardTrigger>
+                        <HoverCardContent side="right" align="start" className="w-64 z-[100]">
+                          <div className="flex flex-col gap-1.5">
+                            <h4 className="text-sm font-semibold leading-none">{agent.name}</h4>
+                            <p className="text-xs text-muted-foreground leading-relaxed">{agent.detail}</p>
+                          </div>
+                        </HoverCardContent>
+                      </HoverCard>
                       {agent.isPlaceholder && (
                         <SidebarMenuBadge className="text-[9px] text-muted-foreground/40">
                           planned
@@ -562,6 +589,7 @@ export function AppSidebar({
   smartAccountAddress,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   roleLabel: _roleLabel,
+  employeeReferenceId,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   agents: SidebarAgent[];
@@ -580,6 +608,7 @@ export function AppSidebar({
   roleLabel: string;
   smartAccountLabel: string;
   smartAccountAddress?: string | null;
+  employeeReferenceId?: string;
 }) {
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -606,6 +635,11 @@ export function AppSidebar({
           <h2 className="mt-0.5 truncate text-base font-semibold text-foreground pr-6">
             {companyName}
           </h2>
+          {role === "employee" && employeeReferenceId && (
+            <p className="mt-1 text-[11px] text-muted-foreground font-mono bg-muted/50 inline-flex px-1.5 py-0.5 rounded border border-border/50">
+              {employeeReferenceId}
+            </p>
+          )}
         </div>
 
         <SmartAccountAddress 
