@@ -1,8 +1,8 @@
 import {
-  BotIcon,
   NetworkIcon,
   ShieldCheckIcon,
   UsersRoundIcon,
+  WalletIcon,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -16,12 +16,12 @@ import {
 
 export function SectionCards({
   employeeCount,
-  activeAgentCount,
+  smartAccountBalance,
   activeDelegationCount,
   delegatedNativeEthAllowance,
 }: {
   employeeCount: number;
-  activeAgentCount: number;
+  smartAccountBalance: string;
   activeDelegationCount: number;
   delegatedNativeEthAllowance: string;
 }) {
@@ -46,18 +46,18 @@ export function SectionCards({
 
       <Card size="sm" className="@container/card">
         <CardHeader>
-          <CardDescription>AI Agents</CardDescription>
+          <CardDescription>Smart Account Balance</CardDescription>
           <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
-            {activeAgentCount}
+            {smartAccountBalance} ETH
           </CardTitle>
           <CardAction>
             <Badge variant="outline" className="px-1 py-0">
-              <BotIcon className="h-3.5 w-3.5" />
+              <WalletIcon className="h-3.5 w-3.5" />
             </Badge>
           </CardAction>
         </CardHeader>
         <p className="px-4 text-[11px] text-muted-foreground">
-          Active Ai agents with delegations.
+          Current balance of the company smart account.
         </p>
       </Card>
 

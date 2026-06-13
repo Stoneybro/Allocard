@@ -573,19 +573,40 @@ export function EmployerClient() {
 
   if (auth.status === "initializing") {
     return (
-      <div className="flex h-full items-center justify-center">
-        <p className="text-sm text-muted-foreground">Loading company workspace...</p>
+      <div className="flex h-full min-h-screen flex-col items-center justify-center gap-8 bg-white">
+        <div className="flex flex-col items-center gap-6">
+          <svg className="animate-spin text-[#ccc]" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path strokeLinecap="round" d="M12 2a10 10 0 0 1 10 10" className="opacity-100 text-[#111]" />
+            <path strokeLinecap="round" d="M12 2a10 10 0 0 0-10 10" className="opacity-20" />
+          </svg>
+          <div className="flex flex-col items-center gap-2 text-center">
+            <p className="text-xl font-semibold text-[#111]">Loading your dashboard</p>
+            <p className="text-sm text-[#999]">Connecting to your wallet...</p>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (auth.status === "error") {
     return (
-      <div className="flex h-full items-center justify-center p-6">
-        <div className="flex flex-col items-center gap-4 text-center max-w-md">
-          <p className="text-sm font-semibold text-destructive">Wallet initialization failed</p>
-          <p className="mt-1 text-xs text-muted-foreground">{auth.message}</p>
-          <button onClick={auth.retry} className="rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90">Retry</button>
+      <div className="flex h-full min-h-screen flex-col items-center justify-center gap-8 bg-white p-8">
+        <div className="flex flex-col items-center gap-6 text-center max-w-md">
+          <div className="w-14 h-14 rounded-full border border-[#eaeaea] flex items-center justify-center">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[#999]">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+            </svg>
+          </div>
+          <div className="flex flex-col gap-2">
+            <p className="text-xl font-semibold text-[#111]">Wallet connection failed</p>
+            <p className="text-sm text-[#666] leading-relaxed">{auth.message}</p>
+          </div>
+          <button
+            onClick={auth.retry}
+            className="h-10 px-6 rounded-md bg-[#111] text-white text-sm font-medium hover:bg-[#333] transition-colors cursor-pointer"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -593,20 +614,20 @@ export function EmployerClient() {
 
   if (error) {
     return (
-      <div className="flex h-full items-center justify-center p-6">
-        <div className="flex flex-col items-center gap-4 text-center max-w-md">
-          <div className="rounded-full bg-destructive/10 p-3">
-            <svg className="h-6 w-6 text-destructive" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <div className="flex h-full min-h-screen flex-col items-center justify-center gap-8 bg-white p-8">
+        <div className="flex flex-col items-center gap-6 text-center max-w-md">
+          <div className="w-14 h-14 rounded-full border border-[#eaeaea] flex items-center justify-center">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[#999]">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
             </svg>
           </div>
-          <div>
-            <p className="text-sm font-semibold text-destructive">Dashboard failed to load</p>
-            <p className="mt-1 text-xs text-muted-foreground">{error}</p>
+          <div className="flex flex-col gap-2">
+            <p className="text-xl font-semibold text-[#111]">Dashboard failed to load</p>
+            <p className="text-sm text-[#666] leading-relaxed">{error}</p>
           </div>
           <button
             onClick={() => window.location.reload()}
-            className="rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90"
+            className="h-10 px-6 rounded-md bg-[#111] text-white text-sm font-medium hover:bg-[#333] transition-colors cursor-pointer"
           >
             Reload page
           </button>
@@ -617,10 +638,21 @@ export function EmployerClient() {
 
   if (!profile || profile.status !== "employer" || !company || !dashboardState) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <p className="text-sm text-muted-foreground">
-          {isPending ? "Loading company workspace..." : "Checking access..."}
-        </p>
+      <div className="flex h-full min-h-screen flex-col items-center justify-center gap-8 bg-white">
+        <div className="flex flex-col items-center gap-6">
+          <svg className="animate-spin text-[#ccc]" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path strokeLinecap="round" d="M12 2a10 10 0 0 1 10 10" className="opacity-100 text-[#111]" />
+            <path strokeLinecap="round" d="M12 2a10 10 0 0 0-10 10" className="opacity-20" />
+          </svg>
+          <div className="flex flex-col items-center gap-2 text-center">
+            <p className="text-xl font-semibold text-[#111]">
+              {isPending ? "Loading company dashboard" : "Verifying access"}
+            </p>
+            <p className="text-sm text-[#999]">
+              {isPending ? "Fetching your delegations and employees..." : "Checking your account status..."}
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -817,7 +849,7 @@ export function EmployerClient() {
       <div className="flex min-h-full flex-col gap-4">
         <SectionCards
           employeeCount={dashboardState.summary.employeeCount}
-      activeAgentCount={dashboardState.summary.activeAgentCount}
+          smartAccountBalance={ethBalance ?? "—"}
           activeDelegationCount={dashboardState.summary.activeDelegationCount}
           delegatedNativeEthAllowance={
             dashboardState.summary.delegatedNativeEthAllowance

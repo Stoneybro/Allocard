@@ -535,24 +535,32 @@ async function getEmployerProfileOrThrow(
 }
 
 async function getCompanyDelegationTree(companyId: string) {
-  const rootDelegations = await db
-    .select()
-    .from(delegations)
-    .where(
-      and(
-        eq(delegations.delegatorType, "company"),
-        eq(delegations.delegatorId, companyId),
-      ),
-    );
+  const rootDelegations = await withRetry(
+    () =>
+      db
+        .select()
+        .from(delegations)
+        .where(
+          and(
+            eq(delegations.delegatorType, "company"),
+            eq(delegations.delegatorId, companyId),
+          ),
+        ),
+    "getCompanyDelegationTree:root"
+  );
 
   const delegationTree = [...rootDelegations];
   let parentIds = rootDelegations.map((delegation) => delegation.id);
 
   while (parentIds.length > 0) {
-    const childDelegations = await db
-      .select()
-      .from(delegations)
-      .where(inArray(delegations.parentDelegationId, parentIds));
+    const childDelegations = await withRetry(
+      () =>
+        db
+          .select()
+          .from(delegations)
+          .where(inArray(delegations.parentDelegationId, parentIds)),
+      "getCompanyDelegationTree:children"
+    );
 
     if (childDelegations.length === 0) {
       break;
@@ -598,11 +606,14 @@ export async function getWalletProfile(address: string): Promise<WalletProfile> 
   const cached = getCachedProfile(walletAddress);
   if (cached) return cached;
 
-  const [user] = await db
-    .select()
-    .from(users)
-    .where(eq(users.embeddedWalletAddress, walletAddress))
-    .limit(1);
+  const [user] = await withRetry(() =>
+    db
+      .select()
+      .from(users)
+      .where(eq(users.embeddedWalletAddress, walletAddress))
+      .limit(1),
+    "getWalletProfile:user"
+  );
 
   if (!user) {
     const result: WalletProfile = {
@@ -1218,24 +1229,34 @@ export async function getCompanyDashboardState(
     throw new Error("Only a company owner can view the company dashboard");
   }
 
+  // Capture in a local const so TypeScript narrowing is preserved inside async callbacks.
+  const company = profile.company;
+
   const [companyEmployees, platformAgents, companyDelegations] =
     await Promise.all([
-      db
-        .select({
-          id: users.id,
-          walletAddress: users.embeddedWalletAddress,
-          smartAccountAddress: users.smartAccountAddress,
-          createdAt: users.createdAt,
-        })
-        .from(users)
-        .where(
-          and(eq(users.companyId, profile.company.id), eq(users.role, "employee")),
-        ),
+      withRetry(
+        () =>
+          db
+            .select({
+              id: users.id,
+              walletAddress: users.embeddedWalletAddress,
+              smartAccountAddress: users.smartAccountAddress,
+              createdAt: users.createdAt,
+            })
+            .from(users)
+            .where(
+              and(eq(users.companyId, company.id), eq(users.role, "employee")),
+            ),
+        "getCompanyDashboardState:employees"
+      ),
       // Platform agents — global catalog, cached.
       (async () => {
         const cached = getCachedAgents();
         if (cached) return cached;
-        const rows = await db.select().from(agents).where(eq(agents.isActive, true));
+        const rows = await withRetry(
+          () => db.select().from(agents).where(eq(agents.isActive, true)),
+          "getCompanyDashboardState:agents"
+        );
         const mapped = rows.map((agent) => ({
           id: agent.id,
           name: agent.name,
@@ -1248,17 +1269,21 @@ export async function getCompanyDashboardState(
         setCachedAgents(mapped);
         return mapped;
       })(),
-      getCompanyDelegationTree(profile.company.id),
+      getCompanyDelegationTree(company.id),
     ]);
   const companyDelegationIds = companyDelegations.map(
     (delegation) => delegation.id,
   );
   const companyCaveats =
     companyDelegationIds.length > 0
-      ? await db
-          .select()
-          .from(delegationCaveats)
-          .where(inArray(delegationCaveats.delegationId, companyDelegationIds))
+      ? await withRetry(
+          () =>
+            db
+              .select()
+              .from(delegationCaveats)
+              .where(inArray(delegationCaveats.delegationId, companyDelegationIds)),
+          "getCompanyDashboardState:caveats"
+        )
       : [];
   const caveatsByDelegationId = new Map<string, CompanyDelegationCaveat[]>();
 
@@ -1283,17 +1308,21 @@ export async function getCompanyDashboardState(
     const activeDelegationIds = activeDelegations.map(
       (delegation) => delegation.id,
     );
-    const nativeAllowanceCaveats = await db
-      .select({
-        caveatValue: delegationCaveats.caveatValue,
-      })
-      .from(delegationCaveats)
-      .where(
-        and(
-          inArray(delegationCaveats.delegationId, activeDelegationIds),
-          eq(delegationCaveats.caveatType, "nativeTokenTransferAmount"),
-        ),
-      );
+    const nativeAllowanceCaveats = await withRetry(
+      () =>
+        db
+          .select({
+            caveatValue: delegationCaveats.caveatValue,
+          })
+          .from(delegationCaveats)
+          .where(
+            and(
+              inArray(delegationCaveats.delegationId, activeDelegationIds),
+              eq(delegationCaveats.caveatType, "nativeTokenTransferAmount"),
+            ),
+          ),
+      "getCompanyDashboardState:allowanceCaveats"
+    );
 
     delegatedNativeEthAllowanceWei = nativeAllowanceCaveats.reduce(
       (total, caveat) => total + extractNativeAllowanceWei(caveat.caveatValue),
@@ -1302,12 +1331,12 @@ export async function getCompanyDashboardState(
   }
 
   return {
-    company: profile.company,
+    company,
     employees: companyEmployees.map((employee) => ({
       ...employee,
       createdAt: employee.createdAt.toISOString(),
     })),
-    companyPolicy: profile.company.companyPolicy,
+    companyPolicy: company.companyPolicy,
     agents: platformAgents,
     delegations: companyDelegations.map((delegation) =>
       toCompanyDelegation(
@@ -1369,30 +1398,38 @@ export async function getEmployeeDashboardState(
   const company = profile.company;
 
   // ── Inbound delegation (company → this employee) ─────────────────────────
-  const [inboundRow] = await db
-    .select()
-    .from(delegations)
-    .where(
-      and(
-        eq(delegations.delegatorType, "company"),
-        eq(delegations.delegatorId, company.id),
-        eq(delegations.delegateeType, "user"),
-        eq(delegations.delegateeId, user.id),
-        eq(delegations.status, "active"),
-      ),
-    )
-    .limit(1);
+  const [inboundRow] = await withRetry(
+    () =>
+      db
+        .select()
+        .from(delegations)
+        .where(
+          and(
+            eq(delegations.delegatorType, "company"),
+            eq(delegations.delegatorId, company.id),
+            eq(delegations.delegateeType, "user"),
+            eq(delegations.delegateeId, user.id),
+            eq(delegations.status, "active"),
+          ),
+        )
+        .limit(1),
+    "getEmployeeDashboardState:inbound"
+  );
 
   // ── Outbound delegations (this employee → agents) ────────────────────────
-  const outboundRows = await db
-    .select()
-    .from(delegations)
-    .where(
-      and(
-        eq(delegations.delegatorType, "user"),
-        eq(delegations.delegatorId, user.id),
-      ),
-    );
+  const outboundRows = await withRetry(
+    () =>
+      db
+        .select()
+        .from(delegations)
+        .where(
+          and(
+            eq(delegations.delegatorType, "user"),
+            eq(delegations.delegatorId, user.id),
+          ),
+        ),
+    "getEmployeeDashboardState:outbound"
+  );
 
   // ── Caveats for all relevant delegations ─────────────────────────────────
   const allDelegationIds = [
@@ -1402,10 +1439,14 @@ export async function getEmployeeDashboardState(
 
   const allCaveats =
     allDelegationIds.length > 0
-      ? await db
-          .select()
-          .from(delegationCaveats)
-          .where(inArray(delegationCaveats.delegationId, allDelegationIds))
+      ? await withRetry(
+          () =>
+            db
+              .select()
+              .from(delegationCaveats)
+              .where(inArray(delegationCaveats.delegationId, allDelegationIds)),
+          "getEmployeeDashboardState:caveats"
+        )
       : [];
 
   const caveatsByDelegationId = new Map<string, CompanyDelegationCaveat[]>();
@@ -1446,10 +1487,10 @@ export async function getEmployeeDashboardState(
   // ── Platform agent catalog ────────────────────────────────────────────────
   let platformAgents = getCachedAgents();
   if (!platformAgents) {
-    const rows = await db
-      .select()
-      .from(agents)
-      .where(eq(agents.isActive, true));
+    const rows = await withRetry(
+      () => db.select().from(agents).where(eq(agents.isActive, true)),
+      "getEmployeeDashboardState:agents"
+    );
     platformAgents = rows.map((agent) => ({
       id: agent.id,
       name: agent.name,
@@ -1486,11 +1527,15 @@ export async function getEmployeeDashboardState(
 // ---------------------------------------------------------------------------
 
 export async function getAgentSmartAccountAddress(agentId: string): Promise<`0x${string}`> {
-  const [agent] = await db
-    .select({ smartAccountAddress: agents.smartAccountAddress })
-    .from(agents)
-    .where(eq(agents.id, agentId))
-    .limit(1);
+  const [agent] = await withRetry(
+    () =>
+      db
+        .select({ smartAccountAddress: agents.smartAccountAddress })
+        .from(agents)
+        .where(eq(agents.id, agentId))
+        .limit(1),
+    "getAgentSmartAccountAddress"
+  );
 
   if (!agent) {
     throw new Error("Agent not found");
