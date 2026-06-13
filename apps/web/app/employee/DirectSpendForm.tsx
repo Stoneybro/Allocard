@@ -7,6 +7,17 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle, CheckCircle2, Loader2, UploadCloud } from "lucide-react";
 import { parseEther } from "viem";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 type Props = {
   delegationId: string;
@@ -144,9 +155,31 @@ export function DirectSpendForm({ delegationId, onExecute, onVerifyReceipt }: Pr
 
           <div className="flex space-x-4">
             <Button variant="outline" onClick={() => setStep("input")} className="flex-1">Back</Button>
-            <Button onClick={handleExecute} className="flex-1" variant={isFlagged ? "destructive" : "default"}>
-              Execute Spend
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button className="flex-1" variant={isFlagged ? "destructive" : "default"}>
+                  Execute Spend
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirm Direct Spend</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    You are about to send <strong>{amountEth} ETH</strong> to <strong className="break-all">{toAddress}</strong>.
+                    This is an irreversible on-chain transaction.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleExecute}
+                    className={isFlagged ? "bg-red-600 text-white hover:bg-red-700" : ""}
+                  >
+                    Yes, execute spend
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
       )}

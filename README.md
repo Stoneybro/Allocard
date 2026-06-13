@@ -153,7 +153,7 @@ Allocard's agents are not chat assistants. Each agent holds a smart account, rec
 
 ### Venice AI as the Decision Layer
 
-Before any agent executes a transaction, Venice AI serves as the intelligent decision layer, evaluating requests with complete privacy. Because corporate financial data and employee receipts are highly sensitive, using a privacy-first AI provider like Venice is not just a feature—it's a strict requirement for a viable corporate expense system. Venice ensures that no expense decisions or receipt images are ever stored or used for model training.
+Before any agent executes a transaction, Venice AI serves as the intelligent decision layer, evaluating requests with complete privacy. Because corporate financial data and employee receipts are highly sensitive, using a privacy-first AI provider like Venice is a strict requirement for a viable corporate expense system. Venice ensures that no expense decisions or receipt images are ever stored or used for model training.
 
 Venice receives a comprehensive three-layer policy context for every decision:
 - **Layer 1: On-chain caveats** (hard numeric limits from the delegation)
@@ -161,6 +161,8 @@ Venice receives a comprehensive three-layer policy context for every decision:
 - **Layer 3: Per-delegation rules** (e.g., "economy flights only" on a travel delegation)
 
 Venice intelligently evaluates all three layers together and returns a clear pass or reject decision with written reasoning. This natural language reasoning works hand-in-hand with the on-chain smart contracts. If Venice approves a transaction but it would still exceed an on-chain caveat, the Delegation Manager contract will securely revert it. The smart contract strictly enforces math, while Venice intelligently enforces policy.
+
+*This intelligent decision layer is the backbone of the entire system. Continue reading below to see exactly how Venice AI's text reasoning and vision capabilities power each of the autonomous agents and spend flows across Allocard.*
 
 ### Reimbursement Agent
 
@@ -194,7 +196,7 @@ With Allocard, an employee redelegates a portion of their budget to the Travel A
 
 `mistral-small-3-2-24b-instruct` reads the request alongside the caveat limits and company policy. It researches flight and hotel options, selects the best fit within the budget, and returns a proposed itinerary with an estimated ETH cost. The employee reviews the itinerary and clicks Approve.
 
-On approval, the agent's backend signer redeems the employee-to-agent delegation and executes the payment. The employee never had to touch the company's full budget. The agent only had access to what the employee delegated to it.
+On approval, the agent's backend signer redeems the employee-to-agent delegation and executes the payment (Mock). The employee never had to touch the company's full budget. The agent only had access to what the employee delegated to it.
 
 ### Procurement Agent
 
@@ -204,7 +206,7 @@ The Procurement Agent addresses this. An employee redelegates a procurement budg
 
 `mistral-small-3-2-24b-instruct` receives the request and the list of tools the company already subscribes to. It checks for duplicates first. If the requested category is already covered by an existing tool, it flags this. If no duplicate exists, it researches vendors, compares pricing against the delegation budget, and returns a recommendation with estimated monthly ETH cost.
 
-On employee approval, the agent redeems the delegation and executes the purchase. The employer sees the full activity in the delegation tree and can revoke the agent's delegation at any time.
+On employee approval, the agent redeems the delegation and executes (Mock) the purchase. The employer sees the full activity in the delegation tree and can revoke the agent's delegation at any time.
 
 ---
 
@@ -333,7 +335,7 @@ The employer can now see the agent node branching from the employee node on thei
 | Track | Status | Evidence |
 |---|---|---|
 | **Best A2A Coordination** | Eligible | Allocard implements two delegation patterns. In the first, a Company delegates to an Employee, who redelegates a subset to an AI Agent (Travel or Procurement). In the second, the Company delegates directly to the Reimbursement Agent, and the agent pays out to the Employee. All entities hold ERC-4337 smart accounts. Both patterns use ERC-7710 redelegation. |
-| **Best Agent** | Eligible | Allocard's agent system automates the core workflows of a corporate expense card: planned business spending via the Travel and Procurement Agents, and out-of-pocket expenses via the Reimbursement Agent. (Note: Direct ad-hoc spending is handled directly by employees, not agents). Each agent holds a smart account, receives a scoped delegation, evaluates the request with Venice AI, and executes the on-chain transaction autonomously. No human approves individual transactions. |
+| **Best Agent** | Eligible | Allocard's agent system automates the core workflows of a corporate expense card: planned business spending,  Agent spending via the Travel and Procurement Agents, and out-of-pocket expenses via the Reimbursement Agent. Each agent holds a smart account, receives a scoped delegation, evaluates the request with Venice AI, and executes the on-chain transaction autonomously. No human approves individual transactions. |
 | **Best Use of Venice AI** | Eligible | Venice AI acts as the decision layer across every agent and spend flow. It reads on-chain caveats and natural language policy together, then makes a pass or reject decision. It also performs receipt OCR. Two models are used: `mistral-small-3-2-24b-instruct` for policy reasoning and `qwen3-vl-235b-a22b` for vision. All decisions are stateless and private. |
 
 ---

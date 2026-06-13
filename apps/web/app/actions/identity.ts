@@ -1184,8 +1184,8 @@ export async function removePendingDelegation(input: {
     input.delegationId,
   );
 
-  if (delegation.status !== "pending_config") {
-    throw new Error("Only pending delegations can be removed");
+  if (delegation.status !== "pending_config" && delegation.status !== "revoked") {
+    throw new Error("Only pending or revoked delegations can be removed");
   }
 
   const descendants = await getDescendantDelegationIds([delegation.id]);

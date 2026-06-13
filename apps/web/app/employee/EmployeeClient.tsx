@@ -61,7 +61,7 @@ import { DirectSpendForm } from "./DirectSpendForm";
 import { createHybridSmartAccount } from "@/lib/smartAccount";
 import { cn } from "@/lib/utils";
 import { formatWalletAddress } from "@/lib/wallet";
-import { useWalletClient, useSwitchChain } from "wagmi";
+import { useWalletClient, useSwitchChain, useBalance } from "wagmi";
 import { baseSepolia } from "viem/chains";
 import { createSession } from "@/lib/session";
 
@@ -324,6 +324,14 @@ export function EmployeeClient() {
   const [caveatForm, setCaveatForm] = useState<CaveatForm>(buildEmptyCaveatForm("0.01"));
   const [formErrors, setFormErrors] = useState<FormErrors>({});
 
+  const { data: balanceData } = useBalance({
+    address: dashboardState?.employee?.smartAccountAddress as `0x${string}` | undefined,
+    query: {
+      enabled: !!dashboardState?.employee?.smartAccountAddress,
+      refetchInterval: 5000,
+    }
+  });
+
   useEffect(() => {
     if (auth.status !== "authenticated" || didLoadDashboard.current) return;
     didLoadDashboard.current = true;
@@ -428,6 +436,8 @@ export function EmployeeClient() {
     if (!s.includes(".")) return s;
     return s.replace(/(\.\d*?[1-9])0+$/, "$1").replace(/\.0+$/, "");
   }
+
+  const smartAccountBalanceEth = balanceData ? formatEthTrimmed(balanceData.value) : "0";
 
   const refreshDashboard = useCallback(async () => {
     if (auth.status !== "authenticated" || !auth.address) return;
@@ -630,6 +640,7 @@ export function EmployeeClient() {
           environment,
           from: savedState.employee.smartAccountAddress as Hex,
           to: agentSmartAccountAddress,
+          parentDelegation: parentSignedDelegation as any,
           scope: {
             type: ScopeType.NativeTokenTransferAmount,
             maxAmount: parseEther(caveatForm.maxAmountEth),
@@ -693,6 +704,13 @@ export function EmployeeClient() {
       transport: http(bundlerUrl),
     });
 
+    const { getSmartAccountsEnvironment } = await import("@metamask/smart-accounts-kit");
+    const env = getSmartAccountsEnvironment(baseSepolia.id);
+
+    const permissionContext = dashboardState?.inboundDelegation?.signedDelegation 
+      ? [dashboardState.inboundDelegation.signedDelegation] 
+      : undefined;
+
     // Send Transaction via Bundler / viem
     const userOpHash = await bundlerClient.sendUserOperation({
       account: smartAccount as any,
@@ -700,7 +718,11 @@ export function EmployeeClient() {
         to: details.toAddress as Hex,
         value: parseEther(details.amountEth),
         data: "0x",
-      }]
+        ...(permissionContext ? {
+          permissionContext,
+          delegationManager: env.DelegationManager as Hex,
+        } : {})
+      }] as any
     });
 
     const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash });
@@ -882,9 +904,9 @@ export function EmployeeClient() {
 
         {/* Summary cards */}
         <EmployeeSectionCards
+          smartAccountBalanceEth={smartAccountBalanceEth}
           approvedLimitEth={summary.approvedLimitEth}
           redelegatedEth={summary.redelegatedEth}
-          activeAgentCount={summary.activeAgentCount}
           remainingEth={formatEthTrimmed(remainingWei)}
         />
 

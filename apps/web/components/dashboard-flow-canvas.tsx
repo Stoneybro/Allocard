@@ -43,6 +43,17 @@ import {
 import { cn } from "@/lib/utils";
 import { formatWalletAddress } from "@/lib/wallet";
 import { layoutTree } from "@/lib/layoutTree";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export type DelegationCanvasCompany = {
   id: string;
@@ -235,17 +246,35 @@ function DelegationNode({ data }: NodeProps<Node<DelegationNodeData>>) {
           <div className="nodrag mt-3 flex gap-2">
             <Badge variant="destructive">Revoked</Badge>
             {data.onRemove && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 px-2 text-xs"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  data.onRemove?.(data.delegationId!);
-                }}
-              >
-                Remove
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Remove
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Remove pending delegation?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will discard your pending configuration. You will need to start over if you want to configure this delegation again.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => data.onRemove?.(data.delegationId!)}
+                      className="bg-red-600 text-white hover:bg-red-700"
+                    >
+                      Remove
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
           </div>
         ) : data.kind === "employee" && data.status === "active" ? (
@@ -263,17 +292,36 @@ function DelegationNode({ data }: NodeProps<Node<DelegationNodeData>>) {
               View Rules
             </Button>
             {data.onRevoke && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 px-2 text-xs text-red-600 hover:text-red-700"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  data.onRevoke?.(data.delegationId!);
-                }}
-              >
-                Revoke
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs text-red-600 hover:text-red-700"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Revoke
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently revoke the active delegation on-chain.
+                      If this is an employee delegation, all child AI agents will also lose spending authority immediately.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => data.onRevoke?.(data.delegationId!)}
+                      className="bg-red-600 text-white hover:bg-red-700"
+                    >
+                      Yes, revoke delegation
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
           </div>
         ) : data.kind === "employee" && data.status === "pending_config" ? (
@@ -292,21 +340,39 @@ function DelegationNode({ data }: NodeProps<Node<DelegationNodeData>>) {
               Configure
             </Button>
             {data.onRemove && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 px-2 text-xs text-red-600 hover:text-red-700"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  data.onRemove?.(data.delegationId!);
-                }}
-              >
-                Remove
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs text-red-600 hover:text-red-700"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Remove
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Remove pending delegation?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will discard your pending configuration. You will need to start over if you want to configure this delegation again.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => data.onRemove?.(data.delegationId!)}
+                      className="bg-red-600 text-white hover:bg-red-700"
+                    >
+                      Remove
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
           </div>
-        ) : data.kind === "agent" ? (
-          /* Agent nodes (any non-revoked status): Configure (pending) or View Rules (active) + Remove */
+        ) : data.kind === "agent" && data.status === "active" ? (
+          /* Active agent: View Rules + Revoke */
           <div className="nodrag mt-3 flex gap-2" onMouseDown={e => e.stopPropagation()}>
             <Button
               size="sm"
@@ -318,20 +384,85 @@ function DelegationNode({ data }: NodeProps<Node<DelegationNodeData>>) {
               }}
             >
               <Settings2Icon className="mr-1 size-3" />
-              {data.status === "pending_config" ? "Configure" : "View Rules"}
+              View Rules
+            </Button>
+            {data.onRevoke && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs text-red-600 hover:text-red-700"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Revoke
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently revoke the active delegation on-chain.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => data.onRevoke?.(data.delegationId!)}
+                      className="bg-red-600 text-white hover:bg-red-700"
+                    >
+                      Yes, revoke delegation
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
+        ) : data.kind === "agent" && data.status === "pending_config" ? (
+          /* Pending agent: Configure + Remove */
+          <div className="nodrag mt-3 flex gap-2" onMouseDown={e => e.stopPropagation()}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 text-xs"
+              onClick={(e) => {
+                e.stopPropagation();
+                data.onConfigure?.(data.delegationId!);
+              }}
+            >
+              <Settings2Icon className="mr-1 size-3" />
+              Configure
             </Button>
             {data.onRemove && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 px-2 text-xs text-red-600 hover:text-red-700"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  data.onRemove?.(data.delegationId!);
-                }}
-              >
-                Remove
-              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 px-2 text-xs text-red-600 hover:text-red-700"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Remove
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Remove pending delegation?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will discard your pending configuration. You will need to start over if you want to configure this delegation again.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => data.onRemove?.(data.delegationId!)}
+                      className="bg-red-600 text-white hover:bg-red-700"
+                    >
+                      Remove
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             )}
           </div>
         ) : null

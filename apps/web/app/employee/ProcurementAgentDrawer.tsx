@@ -37,6 +37,7 @@ export function ProcurementAgentDrawer({
   
   const [status, setStatus] = useState<"idle" | "researching" | "proposed" | "booking" | "success" | "error">("idle");
   const [resultMessage, setResultMessage] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<string | null>(null);
   const [vendorChoice, setVendorChoice] = useState<any>(null);
 
   const handleResearch = async () => {
@@ -102,7 +103,7 @@ export function ProcurementAgentDrawer({
       }
 
       setStatus("success");
-      setResultMessage(`Subscription purchased! Tx Hash: ${data.txHash}`);
+      setTxHash(data.txHash);
       toast.success("Subscription procured successfully!");
     } catch (err: any) {
       setStatus("error");
@@ -189,11 +190,24 @@ export function ProcurementAgentDrawer({
               </div>
             </div>
           ) : status === "success" ? (
-            <div className="bg-green-500/10 text-green-600 p-4 rounded-md text-sm flex flex-col gap-2 items-center text-center">
-              <CheckCircleIcon className="w-8 h-8" />
-              <p className="font-semibold text-base">Subscription Procured!</p>
-              <p className="text-xs break-all">{resultMessage}</p>
-              <Button variant="outline" className="mt-4" onClick={() => onOpenChange(false)}>
+            <div className="bg-green-500/10 text-green-800 p-4 rounded-md text-sm flex flex-col gap-3 items-center text-center">
+              <CheckCircleIcon className="w-8 h-8 text-green-600" />
+              <p className="font-semibold text-base">Transaction Successful!</p>
+              <p className="text-green-700/90 text-xs leading-relaxed">
+                Note: This is a mocked transaction. No real products were purchased.
+                The redelegated funds have been successfully sent to your smart account, and the company's treasury has been deducted accordingly.
+              </p>
+              {txHash && (
+                <a
+                  href={`https://sepolia.basescan.org/tx/${txHash}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 text-xs font-mono text-green-700 hover:underline break-all bg-green-600/10 p-2 rounded w-full"
+                >
+                  View on Explorer: {txHash.slice(0, 10)}...{txHash.slice(-8)}
+                </a>
+              )}
+              <Button variant="outline" className="mt-2 w-full border-green-600/20 hover:bg-green-600/10 text-green-700" onClick={() => onOpenChange(false)}>
                 Close
               </Button>
             </div>

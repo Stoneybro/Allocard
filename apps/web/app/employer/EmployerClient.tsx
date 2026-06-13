@@ -357,6 +357,7 @@ export function EmployerClient() {
   const [caveatForm, setCaveatForm] = useState<CaveatForm>(emptyCaveatForm);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isPending, startTransition] = useTransition();
+  const [isRefreshing, startRefreshTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [policyDraft, setPolicyDraft] = useState<string>("");
   const [policyHasChanges, setPolicyHasChanges] = useState(false);
@@ -836,11 +837,11 @@ export function EmployerClient() {
       onCopyInvite={handleCopyInvite}
       onCreateInvite={handleCreateInvite}
       onRefreshEmployees={() => {
-        startTransition(async () => {
+        startRefreshTransition(async () => {
           updateDashboard(await getCompanyDashboardState(currentAuthAddress as string));
         });
       }}
-      employeesRefreshing={isPending}
+      employeesRefreshing={isRefreshing}
       roleLabel="Company owner"
       smartAccountLabel={smartAccountLabel}
       smartAccountAddress={company?.smartAccountAddress}
@@ -884,6 +885,21 @@ export function EmployerClient() {
           <TabsContent value="canvas" className="mt-0">
             <DashboardFlowCanvas
               company={canvasCompany ?? company}
+              headerAction={
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => {
+                    startRefreshTransition(async () => {
+                      updateDashboard(await getCompanyDashboardState(currentAuthAddress as string));
+                    });
+                  }} 
+                  disabled={isRefreshing}
+                >
+                  {isRefreshing ? "Refreshing..." : "Refresh"}
+                </Button>
+              }
               employees={canvasEmployees}
               agents={dashboardState.agents.map((agent) => ({
                 id: agent.id,

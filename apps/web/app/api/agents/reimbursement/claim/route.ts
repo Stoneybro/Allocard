@@ -156,7 +156,10 @@ export async function POST(req: NextRequest) {
       const walletClient = createWalletClient({ account, chain: baseSepolia, transport: http() });
       
       const bundlerUrl = process.env.NEXT_PUBLIC_BUNDLER_RPC_URL;
+      const paymasterUrl = process.env.NEXT_PUBLIC_PAYMASTER_RPC_URL;
+      const sponsorId = process.env.NEXT_PUBLIC_PIMLICO_SPONSOR_ID;
       if (!bundlerUrl) throw new Error("Missing NEXT_PUBLIC_BUNDLER_RPC_URL");
+      if (!paymasterUrl) throw new Error("Missing NEXT_PUBLIC_PAYMASTER_RPC_URL");
 
       // 5a. Re-create the Reimbursement Agent Smart Account (deterministic salt 1)
       const { toMetaMaskSmartAccount, Implementation, getSmartAccountsEnvironment } = await import("@metamask/smart-accounts-kit");
@@ -169,10 +172,15 @@ export async function POST(req: NextRequest) {
       });
 
       // 5b. Create Bundler Client
-      const { createBundlerClient } = await import("viem/account-abstraction");
+      const { createBundlerClient, createPaymasterClient } = await import("viem/account-abstraction");
+      const paymasterClient = createPaymasterClient({
+        transport: http(paymasterUrl),
+      });
       const bundlerClient = createBundlerClient({
         client: publicClient,
         chain: baseSepolia,
+        paymaster: paymasterClient,
+        paymasterContext: sponsorId ? { policyId: sponsorId } : undefined,
         transport: http(bundlerUrl),
       });
 
@@ -182,9 +190,9 @@ export async function POST(req: NextRequest) {
         account: sa as any,
         calls: [{
           to: employee.smartAccountAddress as Hex,
-          value: parseEther(amountEth),
+          value: parseEther(amountEth.replace(/[^0-9.]/g, '')),
           data: "0x" as Hex,
-          permissionContext: delegation.signedDelegation as Hex,
+          permissionContext: [delegation.signedDelegation],
           delegationManager: env.DelegationManager as Hex,
         }] as any
       });
