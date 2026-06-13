@@ -4,6 +4,7 @@ import { useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { getWalletProfile } from "@/app/actions/identity";
+import { createSession } from "@/lib/session";
 
 function routeForStatus(status: "new" | "employer" | "employee") {
   if (status === "employer") return "/employer";
@@ -25,6 +26,11 @@ export default function LandingPage() {
     startRouting(async () => {
       try {
         const profile = await getWalletProfile(auth.address);
+        // Ensure the session cookie exists for returning users.
+        // New users will have it set by the onboarding page after account creation.
+        if (profile.status !== "new") {
+          await createSession(auth.address);
+        }
         router.replace(routeForStatus(profile.status));
       } catch {
         didAutoRoute.current = false;
@@ -38,6 +44,9 @@ export default function LandingPage() {
       startRouting(async () => {
         try {
           const profile = await getWalletProfile(auth.address);
+          if (profile.status !== "new") {
+            await createSession(auth.address);
+          }
           router.push(routeForStatus(profile.status));
         } catch {
           // stay on landing page

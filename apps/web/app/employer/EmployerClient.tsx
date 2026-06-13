@@ -33,6 +33,7 @@ import {
 import {
   ConnectRequiredCard,
 } from "@/components/auth-state";
+import { createSession } from "@/lib/session";
 import { useAuth } from "@/components/AuthProvider";
 import { DashboardFlowCanvas } from "@/components/dashboard-flow-canvas";
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -379,6 +380,12 @@ export function EmployerClient() {
           router.replace("/employee");
           return;
         }
+
+        // Ensure the session cookie is set for this wallet before calling
+        // any server actions that require a valid session (e.g. getCompanyDashboardState).
+        // Returning users who reconnect directly to /employer bypass the landing page
+        // and onboarding page, so the cookie must be refreshed here.
+        await createSession(addr);
 
         setProfile(nextProfile);
         const dashState = await getCompanyDashboardState(addr);

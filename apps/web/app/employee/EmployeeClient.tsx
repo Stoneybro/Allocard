@@ -63,6 +63,7 @@ import { cn } from "@/lib/utils";
 import { formatWalletAddress } from "@/lib/wallet";
 import { useWalletClient, useSwitchChain } from "wagmi";
 import { baseSepolia } from "viem/chains";
+import { createSession } from "@/lib/session";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -342,6 +343,10 @@ export function EmployeeClient() {
           router.replace("/employer");
           return;
         }
+
+        // Ensure the session cookie is set for returning users who reconnect
+        // directly to /employee, bypassing the landing page and onboarding page.
+        await createSession(addr);
 
         const state = await getEmployeeDashboardState(addr);
         setDashboardState(state);
