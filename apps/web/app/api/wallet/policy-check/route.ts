@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requireSession } from "@/lib/auth-guard";
 import { delegationCaveats, delegations, companies } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { advisoryPolicyCheck } from "@/lib/venice";
@@ -7,6 +8,7 @@ import { advisoryPolicyCheck } from "@/lib/venice";
 
 export async function POST(req: NextRequest) {
   try {
+    await requireSession();
     const { purpose, amountEth, delegationId } = await req.json();
 
     if (!purpose || !amountEth || !delegationId) {

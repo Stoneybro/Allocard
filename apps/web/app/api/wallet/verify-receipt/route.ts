@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requireSession } from "@/lib/auth-guard";
 import { manualTransactions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyReceipt } from "@/lib/venice";
 
 export async function POST(req: NextRequest) {
   try {
+    await requireSession();
     const { txHash, imageBase64, mimeType } = await req.json();
 
     if (!txHash || !imageBase64) {

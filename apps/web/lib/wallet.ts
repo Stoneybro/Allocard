@@ -15,7 +15,7 @@ export function normalizeWalletAddress(address: string): WalletAddress {
 export function formatWalletAddress(address: string) {
   const normalized = normalizeWalletAddress(address);
 
-  return `${normalized.slice(0, 6)}...${normalized.slice(-4)}`;
+  return `${normalized.slice(0, 6)}…${normalized.slice(-4)}`;
 }
 
 export function formatCompanyName(name: string) {

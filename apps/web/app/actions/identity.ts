@@ -17,6 +17,7 @@ import {
   validateCompanyName,
 } from "@/lib/wallet";
 import { withRetry } from "@/lib/db/withRetry";
+import { requireSession } from "@/lib/auth-guard";
 
 
 // ── Module-level caches (serverless-safe: each cold start resets) ───────────
@@ -25,6 +26,19 @@ type CacheEntry<T> = { data: T; expiresAt: number };
 
 let _agentCache: CacheEntry<PlatformAgent[]> | null = null;
 const AGENT_CACHE_TTL_MS = 60_000; // 60s — agents rarely change
+
+
+// ── Session validation helper ────────────────────────────────────────────────
+
+async function validateSessionWallet(walletAddress: string): Promise<string> {
+  const sessionAddr = await requireSession();
+  const normalizedSession = sessionAddr.toLowerCase();
+  const normalizedInput = walletAddress.toLowerCase();
+  if (normalizedSession !== normalizedInput) {
+    throw new Error("Session wallet does not match the requested wallet address.");
+  }
+  return normalizedSession;
+}
 
 function getCachedAgents(): PlatformAgent[] | null {
   if (_agentCache && Date.now() < _agentCache.expiresAt) {
@@ -203,6 +217,7 @@ export async function activateSmartAccount(input: {
   smartAccountAddress: string;
 }) {
   const walletAddress = normalizeWalletAddress(input.walletAddress);
+  await validateSessionWallet(walletAddress);
   const smartAccountAddress = normalizeWalletAddress(input.smartAccountAddress);
   const profile = await getWalletProfile(walletAddress);
 
@@ -615,6 +630,7 @@ export async function createEmployerAccount(input: {
   companyName: string;
 }) {
   const walletAddress = normalizeWalletAddress(input.walletAddress);
+  await validateSessionWallet(walletAddress);
   const companyName = validateCompanyName(input.companyName);
   const existingProfile = await getWalletProfile(walletAddress);
 
@@ -690,6 +706,7 @@ export async function acceptInvite(input: {
   inviteCode: string;
 }) {
   const walletAddress = normalizeWalletAddress(input.walletAddress);
+  await validateSessionWallet(walletAddress);
 
   const [invite] = await db
     .select()
@@ -766,6 +783,7 @@ export async function acceptInvite(input: {
 }
 
 export async function createCompanyInvite(walletAddress: string) {
+  await validateSessionWallet(walletAddress);
   const profile = await getWalletProfile(walletAddress);
 
   if (profile.status !== "employer" || !profile.company) {
@@ -815,6 +833,7 @@ async function getEmployerDelegationOrThrow(
   delegationId: string,
 ) {
   const profile = await getEmployerProfileOrThrow(walletAddress);
+  await validateSessionWallet(walletAddress);
   const [delegation] = await db
     .select()
     .from(delegations)
@@ -841,6 +860,7 @@ export async function createEmployeeDelegation(input: {
   canvasPositionY: number;
 }) {
   const profile = await getEmployerProfileOrThrow(input.walletAddress);
+  await validateSessionWallet(input.walletAddress);
 
   const [employee] = await db
     .select()
@@ -899,6 +919,7 @@ export async function createAgentDelegation(input: {
   canvasPositionY: number;
 }): Promise<CompanyDashboardState> {
   const profile = await getEmployerProfileOrThrow(input.walletAddress);
+  await validateSessionWallet(input.walletAddress);
 
   const [agent] = await db
     .select()
@@ -947,6 +968,7 @@ export async function updateDelegationPosition(input: {
   canvasPositionX: number;
   canvasPositionY: number;
 }) {
+  await validateSessionWallet(input.walletAddress);
   await getEmployerDelegationOrThrow(input.walletAddress, input.delegationId);
 
   await db
@@ -966,6 +988,7 @@ export async function saveDelegationCaveats(input: {
   caveats: DelegationCaveatInput;
   policyPrompt?: string;
 }) {
+  await validateSessionWallet(input.walletAddress);
   const { delegation } = await getEmployerDelegationOrThrow(
     input.walletAddress,
     input.delegationId,
@@ -1015,6 +1038,7 @@ export async function activateDelegation(input: {
   delegationHash: string;
   signedDelegation: unknown;
 }) {
+  await validateSessionWallet(input.walletAddress);
   const { profile, delegation } = await getEmployerDelegationOrThrow(
     input.walletAddress,
     input.delegationId,
@@ -1121,6 +1145,7 @@ export async function revokeDelegation(input: {
   walletAddress: string;
   delegationId: string;
 }) {
+  await validateSessionWallet(input.walletAddress);
   await getEmployerDelegationOrThrow(input.walletAddress, input.delegationId);
 
   const descendantIds = await getDescendantDelegationIds([input.delegationId]);
@@ -1142,6 +1167,7 @@ export async function removePendingDelegation(input: {
   walletAddress: string;
   delegationId: string;
 }) {
+  await validateSessionWallet(input.walletAddress);
   const { delegation } = await getEmployerDelegationOrThrow(
     input.walletAddress,
     input.delegationId,
@@ -1168,6 +1194,7 @@ export async function updateCompanyPolicy(input: {
   walletAddress: string;
   companyPolicy: string;
 }): Promise<CompanyDashboardState> {
+  await validateSessionWallet(input.walletAddress);
   const profile = await getWalletProfile(input.walletAddress);
   if (profile.status !== "employer" || !profile.company) {
     throw new Error("Only a company owner can update company policy");
@@ -1184,6 +1211,7 @@ export async function updateCompanyPolicy(input: {
 export async function getCompanyDashboardState(
   walletAddress: string,
 ): Promise<CompanyDashboardState> {
+  await validateSessionWallet(walletAddress);
   const profile = await getWalletProfile(walletAddress);
 
   if (profile.status !== "employer" || !profile.company) {
@@ -1330,6 +1358,7 @@ export type EmployeeDashboardState = {
 export async function getEmployeeDashboardState(
   walletAddress: string,
 ): Promise<EmployeeDashboardState> {
+  await validateSessionWallet(walletAddress);
   const profile = await getWalletProfile(walletAddress);
 
   if (profile.status !== "employee" || !profile.user || !profile.company) {
@@ -1673,6 +1702,7 @@ export async function createAgentRedelegation(input: {
   canvasPositionY?: number;
 }): Promise<EmployeeDashboardState> {
   const profile = await getEmployeeProfileOrThrow(input.walletAddress);
+  await validateSessionWallet(input.walletAddress);
   const { user, company } = profile;
 
   // Verify the agent exists
@@ -1733,6 +1763,7 @@ export async function saveEmployeeRedelegationCaveats(input: {
   caveats: DelegationCaveatInput;
 }): Promise<EmployeeDashboardState> {
   const profile = await getEmployeeProfileOrThrow(input.walletAddress);
+  await validateSessionWallet(input.walletAddress);
   const { user, company } = profile;
 
   const delegation = await getEmployeeOwnDelegationOrThrow(user.id, input.delegationId);
@@ -1789,6 +1820,7 @@ export async function activateEmployeeDelegation(input: {
   signedDelegation: unknown;
 }): Promise<EmployeeDashboardState> {
   const profile = await getEmployeeProfileOrThrow(input.walletAddress);
+  await validateSessionWallet(input.walletAddress);
   const { user } = profile;
 
   const delegation = await getEmployeeOwnDelegationOrThrow(user.id, input.delegationId);
@@ -1833,6 +1865,7 @@ export async function revokeEmployeeDelegation(input: {
   delegationId: string;
 }): Promise<EmployeeDashboardState> {
   const profile = await getEmployeeProfileOrThrow(input.walletAddress);
+  await validateSessionWallet(input.walletAddress);
   const { user } = profile;
 
   // Scoped check: only the employee's own outbound delegations

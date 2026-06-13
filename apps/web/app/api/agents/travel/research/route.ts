@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requireSession } from "@/lib/auth-guard";
 import { delegations, delegationCaveats, companies } from "@/lib/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import { researchTravel } from "@/lib/venice";
 
 export async function POST(req: Request) {
   try {
+    await requireSession();
     const { destination, departureDate, returnDate, notes, delegationId } = await req.json();
 
     if (!delegationId) {

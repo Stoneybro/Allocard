@@ -12,12 +12,19 @@ type Web3AuthStateStorage = {
   remove: (key: string) => Promise<void>
 }
 
+/**
+ * Custom storage that persists Web3Auth session to localStorage.
+ *
+ * On `get`: if the cached connector is NOT the in-app (embedded wallet)
+ * connector, we nullify it so Web3Auth doesn't try to reconnect to an
+ * external wallet (like MetaMask extension) that is no longer available.
+ * The in-app connector session is preserved as-is for seamless reconnection.
+ */
 class FilteredWeb3AuthStateStorage implements Web3AuthStateStorage {
   private memory = new Map<string, string>()
 
   private getLocalStorage() {
     if (typeof window === 'undefined') return null
-
     try {
       return window.localStorage
     } catch {
@@ -40,6 +47,8 @@ class FilteredWeb3AuthStateStorage implements Web3AuthStateStorage {
         activeAccount?: unknown
       }
 
+      // Only filter out external (non-in-app) connectors.
+      // The in-app connector session is preserved for reconnection.
       if (parsed.cachedConnector && parsed.cachedConnector !== IN_APP_CONNECTOR_ID) {
         parsed.cachedConnector = null
 
@@ -84,9 +93,6 @@ const web3AuthStorage = {
   sessionId: new FilteredWeb3AuthStateStorage(),
 } as unknown as NonNullable<Web3AuthContextConfig['web3AuthOptions']['storage']>
 
-// TODO(security): Ensure NEXT_PUBLIC_WEB3AUTH_CLIENT_ID is set in .env.local for development
-// and proper secrets management (e.g. Vercel env vars) for production.
-// Never hard-code the clientId; fail loud if it is missing.
 const clientId = process.env.NEXT_PUBLIC_WEB3AUTH_CLIENT_ID
 
 if (!clientId) {
@@ -96,9 +102,6 @@ if (!clientId) {
   )
 }
 
-// Use SAPPHIRE_DEVNET for local development (http://localhost).
-// Sapphire Mainnet does not allow localhost origins.
-// Switch to WEB3AUTH_NETWORK.SAPPHIRE_MAINNET for production.
 const web3AuthContextConfig: Web3AuthContextConfig = {
   web3AuthOptions: {
     clientId,

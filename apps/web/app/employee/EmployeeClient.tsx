@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { hashDelegation } from "@metamask/delegation-core";
 import {
@@ -24,8 +24,8 @@ import {
 } from "@/app/actions/identity";
 import {
   ConnectRequiredCard,
-  useConnectedWalletAddress,
 } from "@/components/auth-state";
+import { useAuth } from "@/components/AuthProvider";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { EmployeeSectionCards } from "@/components/employee-section-cards";
 import { EmployeeFlowCanvas } from "@/components/employee-flow-canvas";
@@ -289,7 +289,7 @@ function validateCaveatForm(form: CaveatForm, parentMaxEth: string): FormErrors 
   const addresses = splitAddresses(form.allowedTargets);
   const invalidAddresses = addresses.filter((a) => !ETH_ADDRESS_RE.test(a));
   if (invalidAddresses.length > 0) {
-    errors.allowedTargets = `Invalid address${invalidAddresses.length > 1 ? "es" : ""}: ${invalidAddresses.join(", ")}`;
+    errors.allowedTargets = `Invalid auth.address${invalidAddresses.length > 1 ? "es" : ""}: ${invalidAddresses.join(", ")}`;
   } else if (addresses.length === 0) {
     errors.allowedTargetsWarning = "No addresses specified — the agent can send to any address.";
   }
@@ -312,7 +312,8 @@ function toSignedDelegationJson(delegation: Delegation) {
 
 export function EmployeeClient() {
   const router = useRouter();
-  const { address, isConnected, isAuthLoading, shouldPromptConnect } = useConnectedWalletAddress();
+  const auth = useAuth();
+  const didLoadDashboard = useRef(false);
   const [dashboardState, setDashboardState] = useState<EmployeeDashboardState | null>(null);
   const [isPending, startTransition] = useTransition();
   const { data: walletClient } = useWalletClient();
@@ -323,12 +324,14 @@ export function EmployeeClient() {
   const [formErrors, setFormErrors] = useState<FormErrors>({});
 
   useEffect(() => {
-    if (!address || !isConnected) return;
+    if (auth.status !== "authenticated" || didLoadDashboard.current) return;
+    didLoadDashboard.current = true;
+    const addr = auth.address;
 
     startTransition(async () => {
       try {
         const { getWalletProfile } = await import("@/app/actions/identity");
-        const profile = await getWalletProfile(address);
+        const profile = await getWalletProfile(addr);
 
         if (profile.status === "new") {
           router.replace("/onboarding");
@@ -340,7 +343,7 @@ export function EmployeeClient() {
           return;
         }
 
-        const state = await getEmployeeDashboardState(address);
+        const state = await getEmployeeDashboardState(addr);
         setDashboardState(state);
         setError(null);
       } catch (caughtError) {
@@ -351,7 +354,7 @@ export function EmployeeClient() {
         );
       }
     });
-  }, [address, isConnected, router]);
+  }, [auth.status, router]);
 
 
   // ── Derived values ─────────────────────────────────────────────────────────
@@ -422,10 +425,10 @@ export function EmployeeClient() {
   }
 
   const refreshDashboard = useCallback(async () => {
-    if (!address) return;
-    const state = await getEmployeeDashboardState(address);
+    if (auth.status !== "authenticated" || !auth.address) return;
+    const state = await getEmployeeDashboardState(auth.address);
     setDashboardState(state);
-  }, [address]);
+  }, [auth]);
 
   // Manual refresh only — mutations already refresh state automatically
 
@@ -460,7 +463,8 @@ export function EmployeeClient() {
   // Task 4: agent picker — creates a new redelegation row then opens the drawer
   const handleSelectAgent = useCallback(
     (agentId: string, canvasPositionX?: number, canvasPositionY?: number) => {
-      if (!address || !dashboardState) return;
+      if (auth.status !== "authenticated" || !auth.address || !dashboardState) return;
+      const walletAddress = auth.address;
       setError(null);
 
       const selectedAgent = dashboardState.agents.find(a => a.id === agentId);
@@ -471,7 +475,7 @@ export function EmployeeClient() {
       
       startTransition(async () => {
         try {
-          const state = await createAgentRedelegation({ walletAddress: address, agentId, canvasPositionX, canvasPositionY });
+          const state = await createAgentRedelegation({ walletAddress, agentId, canvasPositionX, canvasPositionY });
           setDashboardState(state);
 
           const pending = state.outboundDelegations.find(
@@ -487,7 +491,7 @@ export function EmployeeClient() {
         }
       });
     },
-    [address, parentMaxEth, dashboardState],
+    [auth, parentMaxEth, dashboardState],
   );
 
   // Wrapper for drag-and-drop: canvas calls onDropAgent({ agentId, canvasPositionX, canvasPositionY })
@@ -548,17 +552,19 @@ export function EmployeeClient() {
   // Task 7b: revoke an employee's own outbound delegation
   const handleRevokeDelegation = useCallback(
     (delegationId: string) => {
-      if (!address) return;
+      if (auth.status !== "authenticated" || !auth.address) return;
+      const walletAddress = auth.address;
       runEmployeeMutation(() =>
-        revokeEmployeeDelegation({ walletAddress: address, delegationId }),
+        revokeEmployeeDelegation({ walletAddress, delegationId }),
       );
     },
-    [address, runEmployeeMutation],
+    [auth, runEmployeeMutation],
   );
 
   // Task 6: save caveats then sign and activate the delegation
   const handleActivateDelegation = useCallback(() => {
-    if (!selectedDelegation || !address) return;
+    if (auth.status !== "authenticated" || !selectedDelegation || !auth.address) return;
+    const walletAddress = auth.address;
 
     const errors = validateCaveatForm(caveatForm, parentMaxEth);
     setFormErrors(errors);
@@ -572,24 +578,24 @@ export function EmployeeClient() {
       try {
         // 1. Persist caveats (also validates against parent server-side)
         const savedState = await saveEmployeeRedelegationCaveats({
-          walletAddress: address,
+          walletAddress,
           delegationId: selectedDelegation.id,
           caveats: buildServerCaveats(caveatForm),
         });
         setDashboardState(savedState);
 
-        // 2. Resolve employee smart account address for signing
+        // 2. Resolve employee smart account auth.address for signing
         if (!savedState.employee.smartAccountAddress) {
           throw new Error("Activate your smart account before signing a delegation.");
         }
 
-        // 3. Resolve agent's smart account address as the delegate address
+        // 3. Resolve agent's smart account auth.address as the delegate auth.address
         const agentId = selectedDelegation.delegateeId;
         if (!agentId) {
           throw new Error("Delegation target agent is missing.");
         }
 
-        // Fetch the agent's smart account address from the database
+        // Fetch the agent's smart account auth.address from the database
         let agentSmartAccountAddress: `0x${string}`;
         agentSmartAccountAddress = await getAgentSmartAccountAddress(agentId);
 
@@ -605,7 +611,7 @@ export function EmployeeClient() {
           console.warn("Could not switch chain via wagmi", switchError);
         }
 
-        const smartAccount = await createHybridSmartAccount(walletClient, address);
+        const smartAccount = await createHybridSmartAccount(walletClient, walletAddress);
         const environment = getSmartAccountsEnvironment(84532);
         const sdkCaveats = buildSdkCaveats(caveatForm);
 
@@ -636,7 +642,7 @@ export function EmployeeClient() {
 
         // 5. Persist the signed delegation
         const activatedState = await activateEmployeeDelegation({
-          walletAddress: address,
+          walletAddress,
           delegationId: selectedDelegation.id,
           delegationHash,
           signedDelegation: toSignedDelegationJson(signedDelegation),
@@ -647,13 +653,15 @@ export function EmployeeClient() {
         setError(caughtError instanceof Error ? caughtError.message : "Could not activate delegation");
       }
     });
-  }, [selectedDelegation, address, caveatForm, parentMaxEth]);
+  }, [selectedDelegation, auth, caveatForm, parentMaxEth]);
 
   // Task 8: Direct Spend execution
   const handleExecuteSpend = async (details: { toAddress: string; amountEth: string; purpose: string; isFlagged: boolean }) => {
-    if (!address || !dashboardState?.employee?.smartAccountAddress) {
+    if (auth.status !== "authenticated" || !auth.address || !dashboardState?.employee?.smartAccountAddress) {
       throw new Error("Smart account not activated.");
     }
+    const walletAddress = auth.address;
+
     if (!walletClient) {
       throw new Error("Wallet signer is still loading. Please try again.");
     }
@@ -665,7 +673,7 @@ export function EmployeeClient() {
       console.warn("Could not switch chain via wagmi", switchError);
     }
 
-    const smartAccount = await createHybridSmartAccount(walletClient, address);
+    const smartAccount = await createHybridSmartAccount(walletClient, walletAddress);
     
     const { createBundlerClient } = await import("viem/account-abstraction");
     const { createPublicClient, http, parseEther } = await import("viem");
@@ -729,14 +737,26 @@ export function EmployeeClient() {
 
   // ── Render guards ──────────────────────────────────────────────────────────
 
-  if (shouldPromptConnect) {
+  if (auth.status === "unauthenticated") {
     return <ConnectRequiredCard />;
   }
 
-  if (isAuthLoading || !isConnected || !address) {
+  if (auth.status === "initializing") {
     return (
       <div className="flex h-full items-center justify-center">
         <p className="text-sm text-muted-foreground">Loading employee workspace...</p>
+      </div>
+    );
+  }
+
+  if (auth.status === "error") {
+    return (
+      <div className="flex h-full items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-4 text-center max-w-md">
+          <p className="text-sm font-semibold text-destructive">Wallet initialization failed</p>
+          <p className="mt-1 text-xs text-muted-foreground">{auth.message}</p>
+          <button onClick={auth.retry} className="rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90">Retry</button>
+        </div>
       </div>
     );
   }
@@ -809,7 +829,7 @@ export function EmployeeClient() {
               </p>
             </div>
             <SmartAccountActivationButton
-              walletAddress={address}
+              walletAddress={auth.address}
               existingSmartAccountAddress={employee.smartAccountAddress}
               onActivated={(result) => handleSmartAccountActivated(result.smartAccountAddress)}
             />
@@ -1064,7 +1084,7 @@ export function EmployeeClient() {
                   onChange={(e) =>
                     setCaveatForm((f) => ({ ...f, allowedTargets: e.target.value }))
                   }
-                  placeholder="One address per line or comma-separated"
+                  placeholder="One auth.address per line or comma-separated"
                 />
                 {formErrors.allowedTargets ? (
                   <p className="text-[0.8rem] text-destructive">{formErrors.allowedTargets}</p>

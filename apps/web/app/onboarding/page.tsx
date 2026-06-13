@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Building2Icon, UserRoundIcon } from "lucide-react";
-import { createEmployerAccount, getWalletProfile } from "@/app/actions/identity";
-import { ConnectRequiredCard, useConnectedWalletAddress } from "@/components/auth-state";
+import { useAuth } from "@/components/AuthProvider";
+import { createEmployerAccount } from "@/app/actions/identity";
+import { ConnectRequiredCard } from "@/components/auth-state";
+import { createSession } from "@/lib/session";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,48 +27,57 @@ function routeForStatus(status: "new" | "employer" | "employee") {
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { address, isConnected, isAuthLoading, shouldPromptConnect } = useConnectedWalletAddress();
+  const auth = useAuth();
   const [companyName, setCompanyName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [employeeSelected, setEmployeeSelected] = useState(false);
   const [isPending, startTransition] = useTransition();
 
-  useEffect(() => {
-    if (!address || !isConnected) return;
+  // ── Render guards ─────────────────────────────────────────────────────────
 
-    startTransition(async () => {
-      const profile = await getWalletProfile(address);
-      const route = routeForStatus(profile.status);
-
-      if (route) {
-        router.replace(route);
-      }
-    });
-  }, [address, isConnected, router]);
-
-  if (shouldPromptConnect) {
+  if (auth.status === "unauthenticated") {
     return <ConnectRequiredCard />;
   }
 
-  if (isAuthLoading || !isConnected || !address) {
+  if (auth.status === "initializing") {
     return (
       <div className="flex h-full items-center justify-center overflow-y-auto p-6">
-        <p className="text-sm text-muted-foreground">Loading your workspace...</p>
+        <p className="text-sm text-muted-foreground">
+          Initializing wallet… ({(auth.elapsed / 1000).toFixed(1)}s)
+        </p>
       </div>
     );
   }
 
+  if (auth.status === "error") {
+    return (
+      <div className="flex h-full items-center justify-center overflow-y-auto p-6">
+        <div className="flex flex-col items-center gap-4 text-center max-w-md">
+          <p className="text-sm font-semibold text-destructive">Wallet initialization failed</p>
+          <p className="text-xs text-muted-foreground">{auth.message}</p>
+          <Button onClick={auth.retry}>Retry</Button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Create company handler ────────────────────────────────────────────────
+
   const handleCreateCompany = () => {
+    if (companyName.trim().length < 2) return;
     setError(null);
 
     startTransition(async () => {
       try {
         const profile = await createEmployerAccount({
-          walletAddress: address,
-          companyName,
+          walletAddress: auth.address,
+          companyName: companyName.trim(),
         });
-        const route = routeForStatus(profile.status);
 
+        // Set session cookie so subsequent page loads don't re-trigger auth
+        await createSession(auth.address);
+
+        const route = routeForStatus(profile.status);
         router.replace(route ?? "/onboarding");
       } catch (caughtError) {
         const message =

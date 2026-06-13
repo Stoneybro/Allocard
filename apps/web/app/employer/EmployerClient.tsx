@@ -1,7 +1,7 @@
 "use client";
 
 import { toast } from "sonner";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useBalance, useWalletClient } from "wagmi";
 import { hashDelegation } from "@metamask/delegation-core";
 import {
@@ -32,8 +32,8 @@ import {
 } from "@/app/actions/identity";
 import {
   ConnectRequiredCard,
-  useConnectedWalletAddress,
 } from "@/components/auth-state";
+import { useAuth } from "@/components/AuthProvider";
 import { DashboardFlowCanvas } from "@/components/dashboard-flow-canvas";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { SectionCards } from "@/components/section-cards";
@@ -318,7 +318,7 @@ function validateCaveatForm(
   const addresses = splitAddresses(form.allowedTargets);
   const invalidAddresses = addresses.filter((a) => !ETH_ADDRESS_RE.test(a));
   if (invalidAddresses.length > 0) {
-    errors.allowedTargets = `Invalid address${invalidAddresses.length > 1 ? "es" : ""}: ${invalidAddresses.join(", ")}`;
+    errors.allowedTargets = `Invalid auth.address${invalidAddresses.length > 1 ? "es" : ""}: ${invalidAddresses.join(", ")}`;
   } else if (addresses.length === 0) {
     errors.allowedTargetsWarning = "No addresses specified — the delegatee can send to any address.";
   }
@@ -342,7 +342,9 @@ function toSignedDelegationJson(delegation: Delegation) {
 
 export function EmployerClient() {
   const router = useRouter();
-  const { address, isConnected, isAuthLoading, shouldPromptConnect } = useConnectedWalletAddress();
+  const auth = useAuth();
+  const currentAuthAddress = auth.status === "authenticated" ? (auth.address as `0x${string}`) : undefined;
+  const didLoadDashboard = useRef(false);
   const [profile, setProfile] = useState<WalletProfile | null>(null);
   const [dashboardState, setDashboardState] =
     useState<CompanyDashboardState | null>(null);
@@ -360,11 +362,13 @@ export function EmployerClient() {
   const { data: walletClient } = useWalletClient();
 
   useEffect(() => {
-    if (!address || !isConnected) return;
+    if (auth.status !== "authenticated" || didLoadDashboard.current) return;
+    didLoadDashboard.current = true;
+    const addr = auth.address;
 
     startTransition(async () => {
       try {
-        const nextProfile = await getWalletProfile(address);
+        const nextProfile = await getWalletProfile(addr);
 
         if (nextProfile.status === "new") {
           router.replace("/onboarding");
@@ -377,7 +381,7 @@ export function EmployerClient() {
         }
 
         setProfile(nextProfile);
-        const dashState = await getCompanyDashboardState(address);
+        const dashState = await getCompanyDashboardState(addr);
         setDashboardState(dashState);
         setPolicyDraft(dashState.companyPolicy ?? DEFAULT_COMPANY_POLICY);
         setError(null);
@@ -389,7 +393,7 @@ export function EmployerClient() {
         );
       }
     });
-  }, [address, isConnected, router]);
+  }, [auth.status, router]);
 
   const company = dashboardState?.company ?? profile?.company ?? null;
   const companyName = company?.name ?? "Allocard";
@@ -512,28 +516,28 @@ export function EmployerClient() {
       canvasPositionY: number;
     }) =>
       runDashboardMutation(() =>
-        createEmployeeDelegation({ walletAddress: address ?? "", ...input }),
+        createEmployeeDelegation({ walletAddress: currentAuthAddress as string, ...input }),
       ),
-    [runDashboardMutation, address],
+    [runDashboardMutation, currentAuthAddress],
   );
 
   const handleRevokeDelegation = useCallback(
     (delegationId: string) => {
       runDashboardMutation(() =>
         revokeDelegation({
-          walletAddress: address as string,
+          walletAddress: currentAuthAddress as string,
           delegationId,
         }),
       );
     },
-    [address, runDashboardMutation],
+    [currentAuthAddress, runDashboardMutation],
   );
 
   const handleRemoveDelegation = useCallback(
     (delegationId: string) => {
       runDashboardMutation(() =>
         removePendingDelegation({
-          walletAddress: address as string,
+          walletAddress: currentAuthAddress as string,
           delegationId,
         }),
       );
@@ -541,7 +545,7 @@ export function EmployerClient() {
         current === delegationId ? null : current,
       );
     },
-    [address, runDashboardMutation],
+    [currentAuthAddress, runDashboardMutation],
   );
 
   const handleMoveDelegation = useCallback(
@@ -551,19 +555,31 @@ export function EmployerClient() {
       canvasPositionY: number;
     }) =>
       runDashboardMutation(() =>
-        updateDelegationPosition({ walletAddress: address ?? "", ...input }),
+        updateDelegationPosition({ walletAddress: currentAuthAddress as string, ...input }),
       ),
-    [runDashboardMutation, address],
+    [runDashboardMutation, currentAuthAddress],
   );
 
-  if (shouldPromptConnect) {
+  if (auth.status === "unauthenticated") {
     return <ConnectRequiredCard />;
   }
 
-  if (isAuthLoading || !isConnected || !address) {
+  if (auth.status === "initializing") {
     return (
       <div className="flex h-full items-center justify-center">
         <p className="text-sm text-muted-foreground">Loading company workspace...</p>
+      </div>
+    );
+  }
+
+  if (auth.status === "error") {
+    return (
+      <div className="flex h-full items-center justify-center p-6">
+        <div className="flex flex-col items-center gap-4 text-center max-w-md">
+          <p className="text-sm font-semibold text-destructive">Wallet initialization failed</p>
+          <p className="mt-1 text-xs text-muted-foreground">{auth.message}</p>
+          <button onClick={auth.retry} className="rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90">Retry</button>
+        </div>
       </div>
     );
   }
@@ -607,7 +623,7 @@ export function EmployerClient() {
 
     startTransition(async () => {
       try {
-        const invite = await createCompanyInvite(address);
+        const invite = await createCompanyInvite(currentAuthAddress as string);
         setInviteLink(`${window.location.origin}/invite/${invite.inviteCode}`);
       } catch (caughtError) {
         toast.error(
@@ -697,7 +713,7 @@ export function EmployerClient() {
     startTransition(async () => {
       try {
         const savedState = await saveDelegationCaveats({
-          walletAddress: address,
+          walletAddress: currentAuthAddress as string,
           delegationId: selectedDelegation.id,
           caveats: buildServerCaveats(caveatForm),
           policyPrompt: caveatForm.policyPrompt,
@@ -712,7 +728,7 @@ export function EmployerClient() {
           throw new Error("Wallet signer is still loading. Please try again.");
         }
 
-        const smartAccount = await createHybridSmartAccount(walletClient, address);
+        const smartAccount = await createHybridSmartAccount(walletClient, currentAuthAddress);
         const environment = getSmartAccountsEnvironment(84532);
         const sdkCaveats = buildSdkCaveats(caveatForm);
         const delegation = createDelegation({
@@ -734,7 +750,7 @@ export function EmployerClient() {
 
         updateDashboard(
           await activateDelegation({
-            walletAddress: address,
+            walletAddress: currentAuthAddress as string,
             delegationId: selectedDelegation.id,
             delegationHash,
             signedDelegation: toSignedDelegationJson(signedDelegation),
@@ -771,7 +787,7 @@ export function EmployerClient() {
       onAddEmployee={(employeeId) =>
         runDashboardMutation(() =>
           createEmployeeDelegation({
-            walletAddress: address,
+            walletAddress: currentAuthAddress as string,
             employeeId,
             canvasPositionX: 420,
             canvasPositionY: 120 + dashboardState.delegations.length * 90,
@@ -782,7 +798,7 @@ export function EmployerClient() {
       onCreateInvite={handleCreateInvite}
       onRefreshEmployees={() => {
         startTransition(async () => {
-          updateDashboard(await getCompanyDashboardState(address));
+          updateDashboard(await getCompanyDashboardState(currentAuthAddress as string));
         });
       }}
       employeesRefreshing={isPending}
@@ -812,7 +828,7 @@ export function EmployerClient() {
               </p>
             </div>
             <SmartAccountActivationButton
-              walletAddress={address}
+              walletAddress={currentAuthAddress as `0x${string}`}
               existingSmartAccountAddress={company.smartAccountAddress}
               onActivated={(result) => handleSmartAccountActivated(result.smartAccountAddress)}
             />
@@ -841,7 +857,7 @@ export function EmployerClient() {
               onDropAgent={({ agentId, canvasPositionX, canvasPositionY }) =>
                 runDashboardMutation(() =>
                   createAgentDelegation({
-                    walletAddress: address,
+                    walletAddress: currentAuthAddress as string,
                     agentId,
                     canvasPositionX,
                     canvasPositionY,
@@ -869,7 +885,7 @@ export function EmployerClient() {
               companyPolicy={dashboardState?.companyPolicy ?? null}
               onSave={async (newPolicy) => {
                 await runDashboardMutation(() =>
-                  updateCompanyPolicy({ walletAddress: address, companyPolicy: newPolicy })
+                  updateCompanyPolicy({ walletAddress: currentAuthAddress as string, companyPolicy: newPolicy })
                 );
               }}
             />
@@ -1069,7 +1085,7 @@ export function EmployerClient() {
                       allowedTargets: event.target.value,
                     }))
                   }
-                  placeholder="One address per line or comma-separated"
+                  placeholder="One auth.address per line or comma-separated"
                 />
                 {formErrors.allowedTargets ? (
                   <p className="text-[0.8rem] text-destructive">{formErrors.allowedTargets}</p>

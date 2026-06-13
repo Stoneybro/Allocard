@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requireSession } from "@/lib/auth-guard";
 import { delegations, agentBookings } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { createPublicClient, createWalletClient, http, parseEther, type Hex } from "viem";
@@ -8,6 +9,7 @@ import { baseSepolia } from "viem/chains";
 
 export async function POST(req: Request) {
   try {
+    await requireSession();
     const { vendorChoice, delegationId, agentId, employeeId, companyId } = await req.json();
 
     if (!delegationId || !vendorChoice || !agentId) {

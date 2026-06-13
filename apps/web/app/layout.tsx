@@ -5,6 +5,7 @@ import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Web3Providers from "@/components/Web3Providers";
+import { AuthProvider } from "@/components/AuthProvider";
 import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
@@ -33,7 +34,9 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
           <TooltipProvider>
             <Web3Providers>
-              {children}
+              <AuthProvider>
+                {children}
+              </AuthProvider>
             </Web3Providers>
           </TooltipProvider>
           <Toaster />

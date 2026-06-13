@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { requireSession } from "@/lib/auth-guard";
 import { delegations, claimRedemptions, delegationCaveats, users, companies } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { checkPolicy, verifyReceipt } from "@/lib/venice";
@@ -14,6 +15,7 @@ import {
 
 export async function POST(req: NextRequest) {
   try {
+    await requireSession();
     const body = await req.json();
     const { claimDescription, amountEth, receiptBase64, companyId, employeeId, agentId } = body;
 
