@@ -1,20 +1,38 @@
 # Allocard
 
-Allocard is a corporate expense card system built on MetaMask Smart Accounts. It replicates the spend controls, receipt compliance, and policy enforcement that platforms like Brex and Ramp offer, but enforces those rules on-chain instead of through a centralized provider. The company's funds stay in one smart account. Only valid, within-policy transactions can move them.
-
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-allocard.vercel.app-6366f1?style=for-the-badge&logo=vercel)](https://allocard.vercel.app/)
 [![Network](https://img.shields.io/badge/Network-Base%20Sepolia-0052ff?style=for-the-badge&logo=coinbase)](https://sepolia.basescan.org/)
 [![MetaMask](https://img.shields.io/badge/Built%20With-MetaMask%20Smart%20Accounts%20Kit-f6851b?style=for-the-badge)](https://metamask.io/)
 
 ---
 
-## Hackathon Track Eligibility
+## Quick Summary
 
-| Track | Status | Evidence |
-|---|---|---|
-| **Best A2A Coordination** | Eligible | Allocard implements two delegation patterns. In the first, a Company delegates to an Employee, who redelegates a subset to an AI Agent (Travel or Procurement). In the second, the Company delegates directly to the Reimbursement Agent, and the agent pays out to the Employee. All entities hold ERC-4337 smart accounts. Both patterns use ERC-7710 redelegation. |
-| **Best Agent** | Eligible | Allocard's agent system replaces the three core workflows of a corporate expense card: direct spend via the Travel and Procurement Agents, and reimbursement via the Reimbursement Agent. Each agent holds a smart account, receives a scoped delegation, evaluates the request with Venice AI, and executes the on-chain transaction autonomously. No human approves individual transactions. |
-| **Best Use of Venice AI** | Eligible | Venice AI acts as the decision layer across every agent and spend flow. It reads on-chain caveats and natural language policy together, then makes a pass or reject decision. It also performs receipt OCR. Two models are used: `mistral-small-3-2-24b-instruct` for policy reasoning and `qwen3-vl-235b-a22b` for vision. All decisions are stateless and private. |
+Corporate expense card providers like Brex and Ramp allow companies to issue their employees credit cards for business expenses with predefined rules and spending controls. 
+
+Allocard replicates this system with improvements. Using MetaMask's delegation features, we don't need to give employees direct access to funds. Instead, the company has a master smart account that holds all the expense funds. We then delegate funds to employees, which they can only spend under certain rules (caveats).
+
+Allocard takes it a step further with the use of MetaMask's redelegation. We empower employees with AI agents (powered by Venice AI and smart accounts) built for specific expenses like travel and procurement. Employees can choose an agent that fits their expense need and redelegate the funds they received from the company to that agent to sort out the expense (e.g., the agent automatically books a flight).
+
+Finally, Allocard has a fallback reimbursement agent that allows employees to get refunded if they paid for any expenses out of their own pockets. The company delegates funds to the agent's smart account, and the employee uploads their receipt. Venice AI uses its image-capable models to extract information from the receipt, and if it matches the company's policy, the employee gets refunded.
+
+Using MetaMask Smart Account ERC-7710 delegation, redelegation features, and Venice AI, Allocard replicates and improves on the current state of corporate expense card systems.
+
+---
+
+## Table of Contents
+- [The Problem with Corporate Expense Cards](#the-problem-with-corporate-expense-cards)
+- [What Allocard Does Differently](#what-allocard-does-differently)
+- [How It Works](#how-it-works)
+- [MetaMask Delegation ERC-7710 Implementation](#metamask-delegation-erc-7710-implementation)
+- [Venice AI and the Agent System](#venice-ai-and-the-agent-system)
+- [The Delegation Canvas](#the-delegation-canvas)
+- [App Walkthrough](#app-walkthrough)
+- [Hackathon Track Eligibility](#hackathon-track-eligibility)
+- [Demo Tips](#demo-tips)
+- [Tech Stack](#tech-stack)
+- [Local Setup](#local-setup)
+- [Architecture](#architecture)
 
 ---
 
@@ -78,9 +96,9 @@ Allocard uses six caveat types:
 | `redeemer` | Locks which address can redeem the delegation |
 | `limitedCalls` | Maximum number of redemptions |
 
-### Three Spending Modes Using Delegation and Redelegation
+## MetaMask Delegation ERC-7710 Implementation
 
-Corporate expense cards cover three fundamental spending modes: employees spending directly on business needs, agents spending on an employee's behalf, and employees getting reimbursed for out-of-pocket purchases. Allocard covers all three using ERC-7710 delegation and redelegation. Each mode maps to a distinct delegation pattern.
+Allocard's corporate expense card system covers three fundamental spending modes: employees spending directly on business needs, agents spending on an employee's behalf, and employees getting reimbursed for out-of-pocket purchases. Allocard handles all three using ERC-7710 delegation and redelegation. Each mode maps to a distinct delegation pattern.
 
 **Pattern 1: Company to Employee to Agent (Redelegation, Agent Executes)**
 
@@ -109,10 +127,10 @@ Company Smart Account  (e.g. 0.5 ETH lifetime for reimbursements)
   |
   └── Reimbursement Agent Smart Account
         |
-        └── Pays out to Employee Wallet on approved claims
+        └── Pays out to Employee smart account on approved claims
 ```
 
-This mirrors how individual-liability corporate cards work. Employees pay first, then the system reimburses them. Allocard automates the approval and payment step through the agent.
+
 
 **Pattern 3: Company to Employee, Employee Redeems Directly (Direct Spend)**
 The employer creates a delegation from the company smart account to the employee's smart account. The employee redeems that delegation themselves, specifying a merchant address as the recipient. No new delegation is created. No agent holds the authority. The employee is the delegatee and the one executing the transaction.
@@ -129,23 +147,20 @@ Revoking a parent delegation revokes every delegation in its subtree. An employe
 
 ---
 
-## The Agent System
+## Venice AI and the Agent System
 
 Allocard's agents are not chat assistants. Each agent holds a smart account, receives a scoped delegation, and executes on-chain transactions. Together, they cover the core workflows of a corporate expense card.
 
 ### Venice AI as the Decision Layer
 
-Before any agent executes a transaction, Venice AI evaluates the request. Venice receives a three-layer policy context:
+Before any agent executes a transaction, Venice AI serves as the intelligent decision layer, evaluating requests with complete privacy. Because corporate financial data and employee receipts are highly sensitive, using a privacy-first AI provider like Venice is not just a feature—it's a strict requirement for a viable corporate expense system. Venice ensures that no expense decisions or receipt images are ever stored or used for model training.
 
-```
-Layer 1: On-chain caveats        (hard numeric limits from the delegation)
-Layer 2: Company expense policy  (natural language rules set by the employer)
-Layer 3: Per-delegation rules    (e.g. "economy flights only" on a travel delegation)
-```
+Venice receives a comprehensive three-layer policy context for every decision:
+- **Layer 1: On-chain caveats** (hard numeric limits from the delegation)
+- **Layer 2: Company expense policy** (natural language rules set by the employer)
+- **Layer 3: Per-delegation rules** (e.g., "economy flights only" on a travel delegation)
 
-Venice reads all three layers together and returns a pass or reject decision with reasoning. If Venice approves but the transaction would still exceed an on-chain caveat, the Delegation Manager contract rejects it. Venice cannot override the contract. The contract cannot know the natural language policy. Both checks run independently.
-
-Venice does not store data between requests. Expense decisions and receipt images are not retained by the AI provider.
+Venice intelligently evaluates all three layers together and returns a clear pass or reject decision with written reasoning. This natural language reasoning works hand-in-hand with the on-chain smart contracts. If Venice approves a transaction but it would still exceed an on-chain caveat, the Delegation Manager contract will securely revert it. The smart contract strictly enforces math, while Venice intelligently enforces policy.
 
 ### Reimbursement Agent
 
@@ -194,6 +209,8 @@ On employee approval, the agent redeems the delegation and executes the purchase
 ---
 
 ## The Delegation Canvas
+
+![Delegation Canvas](./apps/web/public/delegationCanvas.png)
 
 The delegation canvas is the primary interface for both the employer and the employee. It renders the delegation tree as a live graph using React Flow. Every node on the canvas represents a smart account. Every edge represents an active or pending delegation between two accounts.
 
@@ -311,6 +328,16 @@ The employer can now see the agent node branching from the employee node on thei
 ---
 
 
+## Hackathon Track Eligibility
+
+| Track | Status | Evidence |
+|---|---|---|
+| **Best A2A Coordination** | Eligible | Allocard implements two delegation patterns. In the first, a Company delegates to an Employee, who redelegates a subset to an AI Agent (Travel or Procurement). In the second, the Company delegates directly to the Reimbursement Agent, and the agent pays out to the Employee. All entities hold ERC-4337 smart accounts. Both patterns use ERC-7710 redelegation. |
+| **Best Agent** | Eligible | Allocard's agent system automates the core workflows of a corporate expense card: planned business spending via the Travel and Procurement Agents, and out-of-pocket expenses via the Reimbursement Agent. (Note: Direct ad-hoc spending is handled directly by employees, not agents). Each agent holds a smart account, receives a scoped delegation, evaluates the request with Venice AI, and executes the on-chain transaction autonomously. No human approves individual transactions. |
+| **Best Use of Venice AI** | Eligible | Venice AI acts as the decision layer across every agent and spend flow. It reads on-chain caveats and natural language policy together, then makes a pass or reject decision. It also performs receipt OCR. Two models are used: `mistral-small-3-2-24b-instruct` for policy reasoning and `qwen3-vl-235b-a22b` for vision. All decisions are stateless and private. |
+
+---
+
 ## Demo Tips
 
 ### Testing Both Roles at the Same Time
@@ -396,5 +423,7 @@ Delegation Manager Contract (Base Sepolia)
 ```
 
 ---
+
+
 
 *Built for the MetaMask Smart Accounts Kit x 1Shot API Hackathon. Network: Base Sepolia. Standards: ERC-7710, ERC-4337.*
