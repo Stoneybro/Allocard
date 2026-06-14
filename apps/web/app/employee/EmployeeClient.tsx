@@ -61,10 +61,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { DirectSpendForm } from "./DirectSpendForm";
 import { SmartAccountSpendForm } from "./SmartAccountSpendForm";
 import { createHybridSmartAccount } from "@/lib/smartAccount";
+import { publicClient, getPimlicoGasPrice } from "@/lib/client";
 import { cn } from "@/lib/utils";
 import { formatWalletAddress, generateEmployeeReferenceId } from "@/lib/wallet";
 import { useWalletClient, useSwitchChain, useBalance } from "wagmi";
-import { baseSepolia } from "viem/chains";
+import { sepolia } from "viem/chains";
 import { createSession } from "@/lib/session";
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -655,15 +656,15 @@ export function EmployeeClient() {
           throw new Error("Wallet signer is still loading. Please try again.");
         }
 
-        // Ensure the wallet is on Base Sepolia before signing
+        // Ensure the wallet is on ETH Sepolia before signing
         try {
-          await switchChainAsync({ chainId: baseSepolia.id });
+          await switchChainAsync({ chainId: sepolia.id });
         } catch (switchError) {
           console.warn("Could not switch chain via wagmi", switchError);
         }
 
         const smartAccount = await createHybridSmartAccount(walletClient, walletAddress);
-        const environment = getSmartAccountsEnvironment(84532);
+        const environment = getSmartAccountsEnvironment(sepolia.id);
         const sdkCaveats = buildSdkCaveats(caveatForm);
 
         // The parent signedDelegation is already stored in inboundDelegation
@@ -686,7 +687,7 @@ export function EmployeeClient() {
 
         const signature = await smartAccount.signDelegation({
           delegation,
-          chainId: 84532,
+          chainId: sepolia.id,
         });
 
         const signedDelegation = { ...delegation, signature };
@@ -718,9 +719,9 @@ export function EmployeeClient() {
       throw new Error("Wallet signer is still loading. Please try again.");
     }
 
-    // Ensure the wallet is on Base Sepolia before sending
+    // Ensure the wallet is on ETH Sepolia before sending
     try {
-      await switchChainAsync({ chainId: baseSepolia.id });
+      await switchChainAsync({ chainId: sepolia.id });
     } catch (switchError) {
       console.warn("Could not switch chain via wagmi", switchError);
     }
@@ -741,17 +742,22 @@ export function EmployeeClient() {
       transport: http(paymasterUrl),
     });
 
-    const publicClient = createPublicClient({ chain: baseSepolia, transport: http() });
+    const publicClient = createPublicClient({ chain: sepolia, transport: http() });
     const bundlerClient = createBundlerClient({
       client: publicClient,
-      chain: baseSepolia,
+      chain: sepolia,
       transport: http(bundlerUrl),
       paymaster: paymasterClient,
       paymasterContext: sponsorId ? { policyId: sponsorId } : undefined,
+      userOperation: {
+        estimateFeesPerGas: async () => {
+          return await getPimlicoGasPrice(bundlerUrl);
+        },
+      },
     });
 
     const { getSmartAccountsEnvironment } = await import("@metamask/smart-accounts-kit");
-    const env = getSmartAccountsEnvironment(baseSepolia.id);
+    const env = getSmartAccountsEnvironment(sepolia.id);
 
     const permissionContext = dashboardState?.inboundDelegation?.signedDelegation 
       ? [dashboardState.inboundDelegation.signedDelegation] 
@@ -823,7 +829,7 @@ export function EmployeeClient() {
     }
 
     try {
-      await switchChainAsync({ chainId: baseSepolia.id });
+      await switchChainAsync({ chainId: sepolia.id });
     } catch (switchError) {
       console.warn("Could not switch chain via wagmi", switchError);
     }
@@ -843,12 +849,17 @@ export function EmployeeClient() {
       transport: http(paymasterUrl),
     });
 
-    const publicClient = createPublicClient({ chain: baseSepolia, transport: http() });
+    const publicClient = createPublicClient({ chain: sepolia, transport: http() });
     const bundlerClient = createBundlerClient({
       client: publicClient,
-      chain: baseSepolia,
+      chain: sepolia,
       transport: http(bundlerUrl),
       paymaster: paymasterClient,
+      userOperation: {
+        estimateFeesPerGas: async () => {
+          return await getPimlicoGasPrice(bundlerUrl);
+        },
+      },
     });
 
     const userOpHash = await bundlerClient.sendUserOperation({

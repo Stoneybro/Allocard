@@ -38,4 +38,4 @@ This is the Next.js frontend for Allocard, a trustless corporate expense card sy
 
 ## Target Chain
 
-Allocard currently targets **Base Sepolia**.
+Allocard currently targets **ETH Sepolia**.

@@ -1,7 +1,7 @@
 import { publicClient } from './client'
 import { Implementation, toMetaMaskSmartAccount } from '@metamask/smart-accounts-kit'
 import { type Hex, type WalletClient } from 'viem'
-import { baseSepolia } from 'viem/chains'
+import { sepolia } from 'viem/chains'
 
 type SmartAccountClient = Parameters<typeof toMetaMaskSmartAccount>[0]['client']
 type SmartAccountWalletSigner = Extract<
@@ -25,10 +25,10 @@ export async function createHybridSmartAccount(
 
   // Wagmi's useWalletClient might return a client still on the default network
   // (e.g. Ethereum Sepolia) if the user's cached Web3Auth session hasn't updated.
-  // We override the chain property to explicitly force Base Sepolia.
-  const forcedBaseSepoliaClient = {
+  // We override the chain property to explicitly force ETH Sepolia.
+  const forcedSepoliaClient = {
     ...walletClient,
-    chain: baseSepolia,
+    chain: sepolia,
   }
 
   return toMetaMaskSmartAccount({
@@ -37,7 +37,7 @@ export async function createHybridSmartAccount(
     deployParams: [address, [], [], []],
     deploySalt: '0x' as Hex,
     signer: {
-      walletClient: forcedBaseSepoliaClient as unknown as SmartAccountWalletSigner['walletClient'],
+      walletClient: forcedSepoliaClient as unknown as SmartAccountWalletSigner['walletClient'],
     },
   })
 }

@@ -162,7 +162,7 @@ export default function LandingPage() {
         {/* ── Tech strip ── */}
         <section className="border-y border-[#eaeaea] bg-[#fafafa]">
           <div className="max-w-6xl mx-auto px-6 py-5 flex flex-wrap items-center justify-center gap-x-10 gap-y-3">
-            {["MetaMask Smart Accounts", "ERC-7710 Redelegation", "ERC-4337 Account Abstraction", "Venice AI", "Base Sepolia"].map((label) => (
+            {["MetaMask Smart Accounts", "ERC-7710 Redelegation", "ERC-4337 Account Abstraction", "Venice AI", "ETH Sepolia"].map((label) => (
               <span key={label} className="text-xs font-medium text-[#999] tracking-wide whitespace-nowrap">{label}</span>
             ))}
           </div>
@@ -404,7 +404,7 @@ export default function LandingPage() {
                 <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#999] mb-4">Tech Stack</p>
                 <h2 className="text-2xl sm:text-3xl font-bold tracking-[-0.03em] text-[#111] mb-3">What it runs on.</h2>
                 <p className="text-sm text-[#666] leading-relaxed">
-                  Next.js 15, MetaMask Smart Accounts Kit, Venice AI, and Neon Postgres. Deployed on Vercel. Network is Base Sepolia.
+                  Next.js 15, MetaMask Smart Accounts Kit, Venice AI, and Neon Postgres. Deployed on Vercel. Network is ETH Sepolia.
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -414,7 +414,7 @@ export default function LandingPage() {
                   { label: "Venice AI", sublabel: "openai-gpt-4o-2024-11-20" },
                   { label: "Neon + Drizzle ORM", sublabel: "Database" },
                   { label: "React Flow", sublabel: "Delegation canvas" },
-                  { label: "Base Sepolia", sublabel: "Network" },
+                  { label: "ETH Sepolia", sublabel: "Network" },
                 ].map(({ label, sublabel }) => (
                   <div key={label} className="p-4 rounded-lg border border-[#eaeaea] bg-white">
                     <p className="text-sm font-semibold text-[#111]">{label}</p>
@@ -431,7 +431,7 @@ export default function LandingPage() {
           <div className="max-w-6xl mx-auto px-6 py-24 flex flex-col items-center text-center">
             <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#999] mb-5">Open demo. No setup required.</p>
             <h2 className="text-4xl sm:text-5xl font-bold tracking-[-0.03em] leading-[1.05] max-w-xl text-[#111] mb-5">
-              See it run on Base Sepolia.
+              See it run on ETH Sepolia.
             </h2>
             <p className="text-sm text-[#666] max-w-sm mb-10 leading-relaxed">
               Connect a wallet. Issue a delegation. Redelegate to an agent. Watch ETH move under contract-enforced rules.
@@ -470,7 +470,7 @@ export default function LandingPage() {
             <span className="text-sm font-semibold text-[#111]">Allocard</span>
           </div>
           <p className="text-xs text-[#999] text-center">
-            MetaMask Smart Accounts Kit x 1Shot API Hackathon. Base Sepolia. ERC-7710 and ERC-4337.
+            MetaMask Smart Accounts Kit x 1Shot API Hackathon. ETH Sepolia. ERC-7710 and ERC-4337.
           </p>
           <a
             href="https://github.com/Stoneybro/Allocard"

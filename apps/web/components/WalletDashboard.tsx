@@ -8,9 +8,9 @@ import {
   createPaymasterClient,
 } from 'viem/account-abstraction'
 import { http } from 'viem'
-import { baseSepolia } from 'viem/chains'
+import { sepolia } from 'viem/chains'
 
-import { publicClient } from '@/lib/client'
+import { publicClient, getPimlicoGasPrice } from '@/lib/client'
 import { createInjectedWalletClient } from '@/lib/signer'
 import { createHybridSmartAccount } from '@/lib/smartAccount'
 
@@ -83,10 +83,15 @@ export default function WalletDashboard() {
       })
       const bundlerClient = createBundlerClient({
         client: publicClient,
-        chain: baseSepolia,
+        chain: sepolia,
         paymaster: paymasterClient,
         paymasterContext: sponsorId ? { policyId: sponsorId } : undefined,
         transport: http(bundlerUrl),
+        userOperation: {
+          estimateFeesPerGas: async () => {
+            return await getPimlicoGasPrice(bundlerUrl);
+          },
+        },
       })
 
       const userOperationHash = await bundlerClient.sendUserOperation({
@@ -206,7 +211,7 @@ export default function WalletDashboard() {
               Deploy the smart account
             </p>
             <p className="text-sm text-slate-500">
-              Sends a user operation on Base Sepolia through your bundler.
+              Sends a user operation on ETH Sepolia through your bundler.
             </p>
           </div>
           <button
@@ -221,7 +226,7 @@ export default function WalletDashboard() {
 
         <div className="grid gap-2 text-sm text-slate-600">
           <p>
-            Network: <span className="font-medium text-slate-900">Base Sepolia</span>
+            Network: <span className="font-medium text-slate-900">ETH Sepolia</span>
           </p>
           <p>
             Address:{' '}

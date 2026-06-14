@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth-guard";
 import { manualTransactions } from "@/lib/db/schema";
 import { createPublicClient, http } from "viem";
-import { baseSepolia } from "viem/chains";
+import { sepolia } from "viem/chains";
 
 export async function POST(req: NextRequest) {
   try {

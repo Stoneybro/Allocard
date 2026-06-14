@@ -14,7 +14,7 @@ export function SiteHeader({ title }: { title: string }) {
         <h1 className="text-base font-medium">{title}</h1>
         <div className="ml-auto flex items-center gap-2">
           <div className="hidden sm:flex items-center px-2.5 py-1 border border-border bg-background">
-            <span className="text-xs font-medium text-muted-foreground">Base Sepolia</span>
+            <span className="text-xs font-medium text-muted-foreground">ETH Sepolia</span>
           </div>
           <HelpModal />
         </div>

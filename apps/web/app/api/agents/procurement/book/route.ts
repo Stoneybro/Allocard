@@ -5,7 +5,8 @@ import { delegations, agentBookings, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { createPublicClient, createWalletClient, http, parseEther, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { baseSepolia } from "viem/chains";
+import { sepolia } from "viem/chains";
+import { getPimlicoGasPrice } from "@/lib/client";
 
 export async function POST(req: Request) {
   try {
@@ -61,8 +62,8 @@ export async function POST(req: Request) {
 
     try {
       const account = privateKeyToAccount(pkey.startsWith('0x') ? pkey as Hex : `0x${pkey}`);
-      const publicClient = createPublicClient({ chain: baseSepolia, transport: http() });
-      const walletClient = createWalletClient({ account, chain: baseSepolia, transport: http() });
+      const publicClient = createPublicClient({ chain: sepolia, transport: http() });
+      const walletClient = createWalletClient({ account, chain: sepolia, transport: http() });
       
       const bundlerUrl = process.env.NEXT_PUBLIC_BUNDLER_RPC_URL;
       const paymasterUrl = process.env.NEXT_PUBLIC_PAYMASTER_RPC_URL;
@@ -86,13 +87,18 @@ export async function POST(req: Request) {
       });
       const bundlerClient = createBundlerClient({
         client: publicClient,
-        chain: baseSepolia,
+        chain: sepolia,
         paymaster: paymasterClient,
         paymasterContext: sponsorId ? { policyId: sponsorId } : undefined,
         transport: http(bundlerUrl),
+        userOperation: {
+          estimateFeesPerGas: async () => {
+            return await getPimlicoGasPrice(bundlerUrl);
+          },
+        },
       });
 
-      const env = getSmartAccountsEnvironment(baseSepolia.id);
+      const env = getSmartAccountsEnvironment(sepolia.id);
       
       const totalWei = parseEther(vendorChoice.estimatedCostEth.replace(/[^0-9.]/g, ''));
 

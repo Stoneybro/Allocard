@@ -56,7 +56,7 @@ export function HelpModal() {
             <ol className="list-decimal pl-5 space-y-2 text-muted-foreground">
               <li><span className="text-foreground">Connect a wallet</span> via MetaMask Embedded Wallets.</li>
               <li><span className="text-foreground">Create a company</span> (enter a company name).</li>
-              <li><span className="text-foreground">Activate the company smart account</span>. This deploys an ERC-4337 contract on Base Sepolia.</li>
+              <li><span className="text-foreground">Activate the company smart account</span>. This deploys an ERC-4337 contract on ETH Sepolia.</li>
               <li>In the sidebar, <span className="text-foreground">generate an invite link</span> and copy it.</li>
             </ol>
           </section>

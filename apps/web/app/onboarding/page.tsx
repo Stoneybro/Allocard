@@ -114,7 +114,7 @@ export default function OnboardingPage() {
       {/* Top right badges */}
       <div className="absolute top-6 right-6 flex items-center gap-3">
         <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 border border-[#eaeaea] bg-white text-[#111]">
-          <span className="text-sm font-medium">Base Sepolia</span>
+          <span className="text-sm font-medium">ETH Sepolia</span>
         </div>
         <div className="inline-flex items-center gap-2 px-3 py-1.5 border border-[#eaeaea] bg-white text-[#111]">
           <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

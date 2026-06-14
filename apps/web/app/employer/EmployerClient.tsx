@@ -792,7 +792,7 @@ export function EmployerClient() {
         }
 
         const smartAccount = await createHybridSmartAccount(walletClient, currentAuthAddress);
-        const environment = getSmartAccountsEnvironment(84532);
+        const environment = getSmartAccountsEnvironment(11155111);
         const sdkCaveats = buildSdkCaveats(caveatForm);
         const delegation = createDelegation({
           environment,
@@ -806,7 +806,7 @@ export function EmployerClient() {
         });
         const signature = await smartAccount.signDelegation({
           delegation,
-          chainId: 84532,
+          chainId: 11155111,
         });
         const signedDelegation = { ...delegation, signature };
         const delegationHash = hashDelegation(toCoreDelegation(signedDelegation));

@@ -3,12 +3,12 @@
 import { useMemo, useState, useTransition } from "react";
 import { createBundlerClient, createPaymasterClient } from "viem/account-abstraction";
 import { http } from "viem";
-import { baseSepolia } from "viem/chains";
+import { sepolia } from "viem/chains";
 import { LoaderCircleIcon, RocketIcon } from "lucide-react";
 import { useWalletClient, useSwitchChain, useChainId } from "wagmi";
 import { activateSmartAccount } from "@/app/actions/identity";
 import { Button } from "@/components/ui/button";
-import { publicClient } from "@/lib/client";
+import { publicClient, getPimlicoGasPrice } from "@/lib/client";
 import { createHybridSmartAccount } from "@/lib/smartAccount";
 
 type ActivationResult = Awaited<ReturnType<typeof activateSmartAccount>>;
@@ -62,9 +62,9 @@ export function SmartAccountActivationButton({
 
     startTransition(async () => {
       try {
-        if (chainId !== baseSepolia.id) {
+        if (chainId !== sepolia.id) {
           try {
-            await switchChainAsync({ chainId: baseSepolia.id });
+            await switchChainAsync({ chainId: sepolia.id });
           } catch (switchError) {
             console.warn("Could not switch chain via wagmi", switchError);
             // Ignore switch error, we might be able to recreate the wallet client
@@ -94,10 +94,15 @@ export function SmartAccountActivationButton({
           });
           const bundlerClient = createBundlerClient({
             client: publicClient,
-            chain: baseSepolia,
+            chain: sepolia,
             paymaster: paymasterClient,
             paymasterContext: sponsorId ? { policyId: sponsorId } : undefined,
             transport: http(bundlerUrl),
+            userOperation: {
+              estimateFeesPerGas: async () => {
+                return await getPimlicoGasPrice(bundlerUrl);
+              },
+            },
           });
 
           const userOperationHash = await bundlerClient.sendUserOperation({
