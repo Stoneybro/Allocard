@@ -14,6 +14,7 @@ import {
 } from "@metamask/smart-accounts-kit";
 import { LoaderCircleIcon, ShieldCheckIcon, BotIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { parseEther, formatEther, type Hex } from "viem";
 import {
   updateCompanyPolicy,
@@ -636,21 +637,24 @@ export function EmployerClient() {
     return (
       <div className="flex h-full min-h-screen flex-col items-center justify-center gap-8 bg-white p-8">
         <div className="flex flex-col items-center gap-6 text-center max-w-md">
-          <div className="w-14 h-14 rounded-full border border-[#eaeaea] flex items-center justify-center">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[#999]">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-            </svg>
+          <div className="w-16 h-16 flex items-center justify-center mb-2">
+            <img src="/AllocardLogoBlack.svg" alt="Allocard Logo" className="w-full h-full object-contain opacity-50 grayscale" />
           </div>
           <div className="flex flex-col gap-2">
-            <p className="text-xl font-semibold text-[#111]">Dashboard failed to load</p>
-            <p className="text-sm text-[#666] leading-relaxed">{error}</p>
+            <p className="text-2xl font-bold text-[#111]">Dashboard failed to load</p>
+            <p className="text-base text-[#666] leading-relaxed">{error}</p>
           </div>
-          <button
-            onClick={() => window.location.reload()}
-            className="h-10 px-6 rounded-md bg-[#111] text-white text-sm font-medium hover:bg-[#333] transition-colors cursor-pointer"
-          >
-            Reload page
-          </button>
+          <div className="flex flex-col gap-3 w-full max-w-xs mt-2">
+            <button
+              onClick={() => window.location.reload()}
+              className="h-12 w-full rounded-md bg-[#111] text-white text-base font-semibold hover:bg-[#333] transition-colors cursor-pointer"
+            >
+              Reload page
+            </button>
+            <Link href="/" className="h-12 w-full rounded-md border border-[#eaeaea] bg-white text-[#111] text-base font-semibold hover:bg-[#f5f5f5] transition-colors flex items-center justify-center">
+              Return to Home Page
+            </Link>
+          </div>
         </div>
       </div>
     );
