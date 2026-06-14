@@ -58,6 +58,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { DirectSpendForm } from "./DirectSpendForm";
+import { SmartAccountSpendForm } from "./SmartAccountSpendForm";
 import { createHybridSmartAccount } from "@/lib/smartAccount";
 import { cn } from "@/lib/utils";
 import { formatWalletAddress, generateEmployeeReferenceId } from "@/lib/wallet";
@@ -787,6 +788,58 @@ export function EmployeeClient() {
     }
   };
 
+  const handleSmartAccountSpend = async (details: { toAddress: string; amountEth: string }) => {
+    if (auth.status !== "authenticated" || !auth.address || !dashboardState?.employee?.smartAccountAddress) {
+      throw new Error("Smart account not activated.");
+    }
+    const walletAddress = auth.address;
+
+    if (!walletClient) {
+      throw new Error("Wallet signer is still loading. Please try again.");
+    }
+
+    try {
+      await switchChainAsync({ chainId: baseSepolia.id });
+    } catch (switchError) {
+      console.warn("Could not switch chain via wagmi", switchError);
+    }
+
+    const smartAccount = await createHybridSmartAccount(walletClient, walletAddress);
+    
+    const { createBundlerClient, createPaymasterClient } = await import("viem/account-abstraction");
+    const { createPublicClient, http, parseEther } = await import("viem");
+
+    const bundlerUrl = process.env.NEXT_PUBLIC_BUNDLER_RPC_URL;
+    if (!bundlerUrl) throw new Error("Missing NEXT_PUBLIC_BUNDLER_RPC_URL");
+
+    const paymasterUrl = process.env.NEXT_PUBLIC_PAYMASTER_RPC_URL;
+    if (!paymasterUrl) throw new Error("Missing NEXT_PUBLIC_PAYMASTER_RPC_URL");
+
+    const paymasterClient = createPaymasterClient({
+      transport: http(paymasterUrl),
+    });
+
+    const publicClient = createPublicClient({ chain: baseSepolia, transport: http() });
+    const bundlerClient = createBundlerClient({
+      client: publicClient,
+      chain: baseSepolia,
+      transport: http(bundlerUrl),
+      paymaster: paymasterClient,
+    });
+
+    const userOpHash = await bundlerClient.sendUserOperation({
+      account: smartAccount as any,
+      calls: [{
+        to: details.toAddress as `0x${string}`,
+        value: parseEther(details.amountEth),
+        data: "0x",
+      }] as any
+    });
+
+    const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash });
+    return receipt.receipt.transactionHash;
+  };
+
   // ── Render guards ──────────────────────────────────────────────────────────
 
   if (auth.status === "unauthenticated") {
@@ -960,17 +1013,30 @@ export function EmployeeClient() {
           </TabsContent>
           
           <TabsContent value="wallet" className="mt-0">
-            <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6 max-w-2xl">
-              <h3 className="text-lg font-semibold mb-4">Manual Spend</h3>
-              <p className="text-sm text-muted-foreground mb-6">
-                Spend directly from your delegated wallet. Your intended purpose will be checked against the company policy by Venice AI.
-              </p>
-              <DirectSpendForm 
-                delegationId={dashboardState.inboundDelegation?.id || ""} 
-                onExecute={handleExecuteSpend}
-                onVerifyReceipt={handleVerifyReceipt}
-              />
-            </div>
+            <Tabs defaultValue="delegated" className="w-full">
+              <div className="mb-4 flex items-center justify-between">
+                <TabsList>
+                  <TabsTrigger value="delegated">Delegated Spend</TabsTrigger>
+                  <TabsTrigger value="smart-account">Smart Account Spend</TabsTrigger>
+                </TabsList>
+              </div>
+
+              <TabsContent value="delegated" className="mt-0">
+                <DirectSpendForm 
+                  delegationId={dashboardState.inboundDelegation?.id || ""} 
+                  remainingBalanceEth={formatEthTrimmed(remainingWei)}
+                  onExecute={handleExecuteSpend}
+                  onVerifyReceipt={handleVerifyReceipt}
+                />
+              </TabsContent>
+
+              <TabsContent value="smart-account" className="mt-0">
+                <SmartAccountSpendForm 
+                  availableBalanceEth={smartAccountBalanceEth}
+                  onExecute={handleSmartAccountSpend}
+                />
+              </TabsContent>
+            </Tabs>
           </TabsContent>
         </Tabs>
       </div>
@@ -1238,6 +1304,9 @@ export function EmployeeClient() {
           companyId={dashboardState.company.id}
           employeeId={dashboardState.employee.id}
           agentId={dashboardState.agents.find(a => a.name === "Reimbursement Agent")?.id || ""}
+          isEmployerActivated={dashboardState.activeCompanyAgentIds.includes(
+            dashboardState.agents.find(a => a.name === "Reimbursement Agent")?.id || ""
+          )}
         />
       )}
       

@@ -91,7 +91,7 @@ export function SectionCards({
           </CardAction>
         </CardHeader>
         <p className="px-4 text-[11px] text-muted-foreground">
-          Total ETH approved for spending.
+          Amount delegated to employees and agents.
         </p>
       </Card>
     </div>

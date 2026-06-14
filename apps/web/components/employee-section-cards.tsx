@@ -46,7 +46,7 @@ export function EmployeeSectionCards({
 
       <Card size="sm" className="@container/card">
         <CardHeader>
-          <CardDescription>Approved Limit</CardDescription>
+          <CardDescription>Delegated Balance</CardDescription>
           <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
             {approvedLimitEth} ETH
           </CardTitle>
@@ -57,7 +57,7 @@ export function EmployeeSectionCards({
           </CardAction>
         </CardHeader>
         <p className="px-4 text-[11px] text-muted-foreground">
-          Total ETH your company has authorised you to spend.
+          Total ETH delegated to you by the company.
         </p>
       </Card>
 
@@ -80,7 +80,7 @@ export function EmployeeSectionCards({
 
       <Card size="sm" className="@container/card">
         <CardHeader>
-          <CardDescription>Remaining Authority</CardDescription>
+          <CardDescription>Unallocated Balance</CardDescription>
           <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
             {remainingEth} ETH
           </CardTitle>
@@ -91,7 +91,7 @@ export function EmployeeSectionCards({
           </CardAction>
         </CardHeader>
         <p className="px-4 text-[11px] text-muted-foreground">
-          Authority available to delegate further.
+          Delegated ETH available to spend or assign to agents.
         </p>
       </Card>
     </div>

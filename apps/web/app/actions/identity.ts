@@ -1382,6 +1382,8 @@ export type EmployeeDashboardState = {
     /** Number of active outbound agent delegations. */
     activeAgentCount: number;
   };
+  /** List of agent IDs that the company has activated (delegated to). */
+  activeCompanyAgentIds: string[];
 };
 
 export async function getEmployeeDashboardState(
@@ -1430,6 +1432,24 @@ export async function getEmployeeDashboardState(
         ),
     "getEmployeeDashboardState:outbound"
   );
+
+  // ── Company → agent delegations (to check if employer activated agents) ──
+  const companyAgentRows = await withRetry(
+    () =>
+      db
+        .select()
+        .from(delegations)
+        .where(
+          and(
+            eq(delegations.delegatorType, "company"),
+            eq(delegations.delegatorId, company.id),
+            eq(delegations.delegateeType, "agent"),
+            eq(delegations.status, "active"),
+          ),
+        ),
+    "getEmployeeDashboardState:companyAgents"
+  );
+  const activeCompanyAgentIds = companyAgentRows.map((d) => d.delegateeId).filter(Boolean) as string[];
 
   // ── Caveats for all relevant delegations ─────────────────────────────────
   const allDelegationIds = [
@@ -1514,6 +1534,7 @@ export async function getEmployeeDashboardState(
     inboundDelegation,
     outboundDelegations,
     agents: platformAgents,
+    activeCompanyAgentIds,
     summary: {
       approvedLimitEth: formatEthAllowance(approvedLimitWei),
       redelegatedEth: formatEthAllowance(redelegatedWei),

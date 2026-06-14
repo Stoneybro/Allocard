@@ -18,8 +18,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { claimDescription, amountEth, receiptBase64, companyId, employeeId, agentId } = body;
 
-    if (!claimDescription || !amountEth || !companyId || !employeeId || !agentId) {
+    if (!companyId || !employeeId || !agentId || !receiptBase64) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+    if (!claimDescription || !amountEth) {
+      return NextResponse.json({ error: "Claim description and amount are required" }, { status: 400 });
     }
 
     // 1. Get the Employee
