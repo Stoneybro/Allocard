@@ -79,8 +79,8 @@ export default function LandingPage() {
       {/* ── Nav ── */}
       <nav className="fixed top-0 inset-x-0 z-50 border-b border-[#eaeaea] bg-white/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
-          <a href="#" className="flex items-center gap-2 text-sm font-semibold text-[#111]">
-            <Image src="/AllocardLogoBlack.svg" alt="Allocard Logo" width={24} height={24} />
+          <a href="#" className="flex items-center gap-2 text-xl font-bold tracking-tight text-[#111]">
+            <Image src="/AllocardLogoBlack.svg" alt="Allocard Logo" width={28} height={28} />
             Allocard
           </a>
           <div className="hidden md:flex items-center gap-6">
