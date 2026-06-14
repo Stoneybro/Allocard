@@ -1,12 +1,13 @@
 <div align="center">
   <img src="./apps/web/public/AllocardLogoBlack.svg" alt="Allocard Logo" width="150" />
 </div>
-
+<div align="center">
 # Allocard
-
+</div>
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-allocard.vercel.app-6366f1?style=for-the-badge&logo=vercel)](https://allocard.vercel.app/)
 [![Network](https://img.shields.io/badge/Network-Base%20Sepolia-0052ff?style=for-the-badge&logo=coinbase)](https://sepolia.basescan.org/)
 [![MetaMask](https://img.shields.io/badge/Built%20With-MetaMask%20Smart%20Accounts%20Kit-f6851b?style=for-the-badge)](https://metamask.io/)
+[![GitHub](https://img.shields.io/badge/GitHub-Stoneybro%2FAllocard-181717?style=for-the-badge&logo=github)](https://github.com/Stoneybro/Allocard)
 
 ---
 

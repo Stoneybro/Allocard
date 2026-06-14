@@ -3,6 +3,14 @@
   "version": "1.0.0",
   "description": "Allocard - Trustless Corporate Expense Cards",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Stoneybro/Allocard.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Stoneybro/Allocard/issues"
+  },
+  "homepage": "https://github.com/Stoneybro/Allocard#readme",
   "scripts": {
     "dev": "pnpm --filter allocard dev",
     "build": "pnpm --filter allocard build",

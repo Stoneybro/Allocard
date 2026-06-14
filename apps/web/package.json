@@ -2,6 +2,15 @@
   "name": "allocard",
   "version": "0.1.0",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Stoneybro/Allocard.git",
+    "directory": "apps/web"
+  },
+  "bugs": {
+    "url": "https://github.com/Stoneybro/Allocard/issues"
+  },
+  "homepage": "https://github.com/Stoneybro/Allocard#readme",
   "scripts": {
     "dev": "NODE_OPTIONS='--dns-result-order=ipv4first' next dev",
     "build": "next build",
