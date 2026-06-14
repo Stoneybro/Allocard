@@ -3,8 +3,16 @@ import { defineConfig } from "drizzle-kit";
 
 config({ path: ".env.local" });
 
-if (!process.env.DATABASE_URL) {
-  throw new Error("DATABASE_URL is required to run Drizzle commands");
+const databaseUrl = 
+  process.env.DATABASE_URL || 
+  process.env.ALLOCARD_STORAGE_DATABASE_URL ||
+  process.env.ALLOCARD_STORAGE_DATABASE_URL_UNPOOLED || 
+  process.env.ALLOCARD_STORAGE_POSTGRES_URL ||
+  process.env.POSTGRES_URL ||
+  process.env.POSTGRES_URL_NON_POOLING;
+
+if (!databaseUrl) {
+  throw new Error("DATABASE_URL or equivalent is required to run Drizzle commands");
 }
 
 export default defineConfig({
@@ -12,7 +20,7 @@ export default defineConfig({
   out: "./drizzle",
   dialect: "postgresql",
   dbCredentials: {
-    url: process.env.DATABASE_URL,
+    url: databaseUrl,
   },
   strict: true,
   verbose: true,
