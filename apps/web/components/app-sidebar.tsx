@@ -139,7 +139,7 @@ function SmartAccountAddress({ label, fullAddress, role }: { label: string; full
       </div>
       {isPending && (
         <p className="px-1 text-[10px] text-muted-foreground">
-          Activate below to fund and enable delegations.
+          Activate your smart account to fund and enable delegations.
         </p>
       )}
     </div>

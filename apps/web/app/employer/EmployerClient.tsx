@@ -871,14 +871,6 @@ export function EmployerClient() {
       title="Company dashboard"
     >
       <div className="flex min-h-full flex-col gap-4">
-        <SectionCards
-          employeeCount={dashboardState.summary.employeeCount}
-          smartAccountBalance={ethBalance ?? "—"}
-          activeDelegationCount={dashboardState.summary.activeDelegationCount}
-          delegatedNativeEthAllowance={
-            dashboardState.summary.delegatedNativeEthAllowance
-          }
-        />
         {/* Smart account activation banner */}
         {!company.smartAccountAddress && (
           <div className="flex items-center justify-between rounded-lg border border-border bg-muted/50 px-4 py-3">
@@ -897,6 +889,15 @@ export function EmployerClient() {
             />
           </div>
         )}
+
+        <SectionCards
+          employeeCount={dashboardState.summary.employeeCount}
+          smartAccountBalance={ethBalance ?? "—"}
+          activeDelegationCount={dashboardState.summary.activeDelegationCount}
+          delegatedNativeEthAllowance={
+            dashboardState.summary.delegatedNativeEthAllowance
+          }
+        />
 
         <Tabs defaultValue="canvas" className="w-full">
           <TabsList className="mb-4">

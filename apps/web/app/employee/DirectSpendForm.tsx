@@ -24,7 +24,7 @@ type Props = {
   delegationId: string;
   remainingBalanceEth: string;
   onExecute: (details: { toAddress: string; amountEth: string; purpose: string; isFlagged: boolean }) => Promise<string>;
-  onVerifyReceipt: (txHash: string, imageBase64: string) => Promise<void>;
+  onVerifyReceipt: (txHash: string, imageBase64: string) => Promise<any>;
 };
 
 export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, onVerifyReceipt }: Props) {
@@ -44,6 +44,7 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
   const [isSubmittingReceipt, setIsSubmittingReceipt] = useState(false);
+  const [verificationResult, setVerificationResult] = useState<any>(null);
 
   const handleEvaluate = async () => {
     const trimmedToAddress = toAddress.trim();
@@ -104,7 +105,6 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
   };
 
   const handleExecute = async (e?: React.MouseEvent) => {
-    if (e) e.preventDefault();
     setIsExecuting(true);
     setError(null);
     try {
@@ -135,7 +135,8 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
     if (!txHash || !receiptImage) return;
     setIsSubmittingReceipt(true);
     try {
-      await onVerifyReceipt(txHash, receiptImage);
+      const result = await onVerifyReceipt(txHash, receiptImage);
+      setVerificationResult(result);
       setStep("done");
     } catch (err) {
       console.error(err);
@@ -148,7 +149,7 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
   return (
     <Card className="w-full max-w-lg mx-auto shadow-sm border-border">
       <CardHeader>
-        <CardTitle>Unallocated Balance Spend</CardTitle>
+        <CardTitle>Delegated Balance Spend</CardTitle>
         <CardDescription>
           Spend funds from your remaining delegated balance. Your intended purpose will be verified against the company policy by Venice AI.
         </CardDescription>
@@ -285,7 +286,7 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
               <CheckCircle2 className="h-4 w-4 text-foreground" />
               <AlertTitle>Transaction Successful</AlertTitle>
               <AlertDescription className="text-muted-foreground font-mono text-xs break-all mt-1">
-                Tx Hash: {txHash}
+                Tx Hash: <a href={`https://sepolia.basescan.org/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">{txHash}</a>
               </AlertDescription>
             </Alert>
 
@@ -315,6 +316,14 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
 
         {step === "done" && (
           <div className="flex flex-col items-center justify-center py-8 space-y-6 text-center">
+            {verificationResult && (
+              <Alert className={verificationResult.verified ? "border-border text-left" : "border-destructive text-destructive text-left"}>
+                {verificationResult.verified ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                <AlertTitle>{verificationResult.verified ? "Receipt Verified" : "Flagged: Purpose Mismatch"}</AlertTitle>
+                <AlertDescription>{verificationResult.reasoning}</AlertDescription>
+              </Alert>
+            )}
+            
             <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center border border-border">
               <CheckCircle2 className="h-8 w-8 text-foreground" />
             </div>

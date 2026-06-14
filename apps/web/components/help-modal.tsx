@@ -16,7 +16,7 @@ export function HelpModal() {
         <Button
           variant="outline"
           size="sm"
-          className="h-8 gap-1.5 ml-auto text-muted-foreground hover:text-foreground"
+          className="h-8 gap-1.5 text-muted-foreground hover:text-foreground"
         >
           <HelpCircleIcon className="size-4" />
           <span className="hidden sm:inline-block">Help & Demo Tips</span>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Drawer,
   DrawerContent,
@@ -40,6 +40,22 @@ export function TravelAgentDrawer({
   const [resultMessage, setResultMessage] = useState<string | null>(null);
   const [txHash, setTxHash] = useState<string | null>(null);
   const [travelPlan, setTravelPlan] = useState<any>(null);
+
+  useEffect(() => {
+    if (!isOpen) {
+      const timer = setTimeout(() => {
+        setDestination("");
+        setDepartureDate("");
+        setReturnDate("");
+        setNotes("");
+        setStatus("idle");
+        setResultMessage(null);
+        setTxHash(null);
+        setTravelPlan(null);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
 
   const handleResearch = async () => {
     if (!destination || !departureDate || !returnDate) {
@@ -116,8 +132,8 @@ export function TravelAgentDrawer({
   return (
     <Drawer open={isOpen} onOpenChange={onOpenChange}>
       <DrawerContent>
-        <DrawerHeader>
-          <DrawerTitle>Travel Agent</DrawerTitle>
+        <DrawerHeader className="text-center sm:text-center">
+          <DrawerTitle className="text-center">Travel Agent</DrawerTitle>
           <DrawerDescription>
             Request a trip. The AI will research options and book within your approved budget.
           </DrawerDescription>
@@ -172,9 +188,9 @@ export function TravelAgentDrawer({
               </div>
 
               {status === "error" && resultMessage && (
-                <div className="bg-destructive/10 text-destructive p-3 rounded-md text-sm flex gap-2">
-                  <XCircleIcon className="w-5 h-5 shrink-0" />
-                  <p>{resultMessage}</p>
+                <div className="bg-muted/50 border p-3 rounded-md text-sm flex gap-2">
+                  <XCircleIcon className="w-5 h-5 shrink-0 text-muted-foreground" />
+                  <p className="text-foreground">{resultMessage}</p>
                 </div>
               )}
             </>
@@ -203,24 +219,26 @@ export function TravelAgentDrawer({
               </div>
             </div>
           ) : status === "success" ? (
-            <div className="bg-green-500/10 text-green-800 p-4 rounded-md text-sm flex flex-col gap-3 items-center text-center">
-              <CheckCircleIcon className="w-8 h-8 text-green-600" />
-              <p className="font-semibold text-base">Transaction Successful!</p>
-              <p className="text-green-700/90 text-xs leading-relaxed">
-                Note: This is a mocked transaction. No real flights were booked.
-                The redelegated funds have been successfully sent to your smart account, and the company's treasury has been deducted accordingly.
+            <div className="bg-muted/30 text-foreground p-6 rounded-md text-sm flex flex-col gap-3 items-center text-center border border-border">
+              <CheckCircleIcon className="w-12 h-12 text-primary mb-1" />
+              <p className="font-semibold text-lg">Transaction Successful</p>
+              <p className="text-muted-foreground leading-relaxed max-w-sm">
+                The operation was successful. Since live travel booking is currently simulated, the redelegated funds have been securely routed to your smart account and deducted from the company's master card balance.
               </p>
               {txHash && (
-                <a
-                  href={`https://sepolia.basescan.org/tx/${txHash}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-1 text-xs font-mono text-green-700 hover:underline break-all bg-green-600/10 p-2 rounded w-full"
-                >
-                  View on Explorer: {txHash.slice(0, 10)}...{txHash.slice(-8)}
-                </a>
+                <div className="mt-4 w-full p-3 bg-card rounded-md border border-border text-xs text-left break-all shadow-sm">
+                  <span className="font-semibold text-foreground block mb-1">Transaction Hash:</span>
+                  <a
+                    href={`https://sepolia.basescan.org/tx/${txHash}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-primary hover:underline font-mono"
+                  >
+                    {txHash}
+                  </a>
+                </div>
               )}
-              <Button variant="outline" className="mt-2 w-full border-green-600/20 hover:bg-green-600/10 text-green-700" onClick={() => onOpenChange(false)}>
+              <Button variant="outline" className="mt-4 w-full" onClick={() => onOpenChange(false)}>
                 Close
               </Button>
             </div>
@@ -235,7 +253,7 @@ export function TravelAgentDrawer({
         </div>
 
         {(status === "idle" || status === "error" || status === "researching") && (
-          <DrawerFooter className="border-t pt-4">
+          <DrawerFooter className="border-t pt-4 max-w-lg mx-auto w-full">
             <Button onClick={handleResearch} disabled={status === "researching"}>
               {status === "researching" ? (
                 <LoaderCircleIcon className="animate-spin w-4 h-4 mr-2" />
@@ -248,12 +266,16 @@ export function TravelAgentDrawer({
         )}
 
         {(status === "proposed" || status === "booking") && (
-          <DrawerFooter className="border-t pt-4 flex-row gap-2">
-            <Button variant="outline" className="flex-1" onClick={() => setStatus("idle")}>
+          <DrawerFooter className="border-t pt-4 flex-row gap-2 max-w-lg mx-auto w-full">
+            <Button variant="outline" className="flex-1" onClick={() => setStatus("idle")} disabled={status === "booking"}>
               Cancel
             </Button>
             <Button className="flex-1" onClick={handleBook} disabled={status === "booking"}>
-              <CheckCircleIcon className="w-4 h-4 mr-2" />
+              {status === "booking" ? (
+                <LoaderCircleIcon className="animate-spin w-4 h-4 mr-2" />
+              ) : (
+                <CheckCircleIcon className="w-4 h-4 mr-2" />
+              )}
               Accept & Book
             </Button>
           </DrawerFooter>

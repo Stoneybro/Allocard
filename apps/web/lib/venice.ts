@@ -279,7 +279,9 @@ export async function checkPolicy(input: {
   const systemPrompt = `You are the ${agentLabel} for Allocard, a corporate spend management platform.
 Your task is to evaluate whether an employee's reimbursement claim complies with the company's approved delegation policy.
 Return a JSON object with: approved (boolean), reasoning (string, 1-3 sentences), confidence (number 0.0-1.0).
-Be strict about policy compliance. Approve only if the claim clearly falls within all constraints.`;
+Be strict about policy compliance. Approve only if the claim clearly falls within all constraints.
+CRITICAL BUSINESS CONTEXT RULE: You MUST reject any claim that lacks a clear, explicit business justification (e.g., general "coffee", "lunch", "uber", or "supplies" without stating the corporate purpose like "client meeting" or "travel to conference"). Personal expenses or vague claims are strictly prohibited.
+IMPORTANT: When comparing numeric limits and amounts, evaluate them mathematically as numbers. Do not reject claims for formatting or decimal differences.`;
 
   const userPrompt = `${policy}
 
@@ -417,6 +419,7 @@ export async function verifyReceipt(input: {
   const systemPrompt = `You are a receipt verification assistant for Allocard corporate spend management.
 Examine the receipt image and verify whether it matches the stated claim.
 Extract the total amount, merchant name, and date if visible.
+IMPORTANT: When comparing amounts, evaluate them mathematically as numbers. Do NOT reject claims just because of formatting differences, currency symbols, or a different number of decimal places (e.g., 0.0001 ETH is exactly equal to 0.000100 ETH).
 Return JSON with: verified (boolean), reasoning (string), confidence (number 0-1), extractedAmount (string), extractedMerchant (string), extractedDate (string).`;
 
   const userMessage = {

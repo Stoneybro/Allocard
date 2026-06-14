@@ -10,7 +10,7 @@ import {
   useCallback,
 } from "react";
 import { useWeb3Auth, useWeb3AuthConnect } from "@web3auth/modal/react";
-import { useAccount, useDisconnect } from "wagmi";
+import { useAccount, useDisconnect, useReconnect } from "wagmi";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -35,6 +35,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { address, isConnected } = useAccount();
   const { connect, loading: connecting } = useWeb3AuthConnect();
   const { disconnect } = useDisconnect();
+  const { reconnect } = useReconnect();
 
   const [initTimedOut, setInitTimedOut] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -48,6 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (isInitialized) {
       initDoneAtRef.current = Date.now();
       setShowReconnecting(true);
+      reconnect();
       return;
     }
 

@@ -4,7 +4,6 @@ import { type Web3AuthContextConfig } from '@web3auth/modal/react'
 import { WEB3AUTH_NETWORK } from '@web3auth/modal'
 
 const WEB3AUTH_STATE_STORAGE_KEY = 'Web3Auth-state'
-const IN_APP_CONNECTOR_ID = 'auth'
 
 type Web3AuthStateStorage = {
   get: (key: string) => Promise<string | null>
@@ -35,34 +34,6 @@ class FilteredWeb3AuthStateStorage implements Web3AuthStateStorage {
   async get(key: string) {
     const storage = this.getLocalStorage()
     const value = storage?.getItem(key) ?? this.memory.get(key) ?? null
-
-    if (!value || key !== WEB3AUTH_STATE_STORAGE_KEY) {
-      return value
-    }
-
-    try {
-      const parsed = JSON.parse(value) as {
-        cachedConnector?: string | null
-        primaryConnectorName?: string | null
-        activeAccount?: unknown
-      }
-
-      // Only filter out external (non-in-app) connectors.
-      // The in-app connector session is preserved for reconnection.
-      if (parsed.cachedConnector && parsed.cachedConnector !== IN_APP_CONNECTOR_ID) {
-        parsed.cachedConnector = null
-
-        if (parsed.primaryConnectorName && parsed.primaryConnectorName !== IN_APP_CONNECTOR_ID) {
-          parsed.primaryConnectorName = null
-          parsed.activeAccount = null
-        }
-
-        return JSON.stringify(parsed)
-      }
-    } catch {
-      return value
-    }
-
     return value
   }
 

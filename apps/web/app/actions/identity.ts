@@ -1,7 +1,7 @@
 "use server";
 
 import { and, eq, inArray } from "drizzle-orm";
-import { formatEther, isAddress } from "viem";
+import { formatEther, isAddress, parseEther } from "viem";
 import { db } from "@/lib/db";
 import {
   agents,
@@ -9,6 +9,7 @@ import {
   delegationCaveats,
   delegations,
   invites,
+  manualTransactions,
   users,
 } from "@/lib/db/schema";
 import {
@@ -1381,6 +1382,8 @@ export type EmployeeDashboardState = {
     redelegatedEth: string;
     /** Number of active outbound agent delegations. */
     activeAgentCount: number;
+    /** Total ETH already spent via direct delegate spends. */
+    spentEth: string;
   };
   /** List of agent IDs that the company has activated (delegated to). */
   activeCompanyAgentIds: string[];
@@ -1504,6 +1507,29 @@ export async function getEmployeeDashboardState(
     (d) => d.delegateeType === "agent",
   ).length;
 
+  // ── Amount already spent via direct delegate spends ────────────────────────
+  const spentWei = inboundRow
+    ? (await withRetry(
+        () =>
+          db
+            .select()
+            .from(manualTransactions)
+            .where(
+              and(
+                eq(manualTransactions.delegationId, inboundRow.id),
+                eq(manualTransactions.employeeId, user.id),
+              ),
+            ),
+        "getEmployeeDashboardState:spent"
+      )).reduce((sum, tx) => {
+        try {
+          return sum + parseEther(tx.amountEth);
+        } catch {
+          return sum;
+        }
+      }, 0n)
+    : 0n;
+
   // ── Platform agent catalog ────────────────────────────────────────────────
   let platformAgents = getCachedAgents();
   if (!platformAgents) {
@@ -1538,6 +1564,7 @@ export async function getEmployeeDashboardState(
     summary: {
       approvedLimitEth: formatEthAllowance(approvedLimitWei),
       redelegatedEth: formatEthAllowance(redelegatedWei),
+      spentEth: formatEthAllowance(spentWei),
       activeAgentCount,
     },
   };

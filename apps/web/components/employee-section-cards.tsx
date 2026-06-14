@@ -46,7 +46,24 @@ export function EmployeeSectionCards({
 
       <Card size="sm" className="@container/card">
         <CardHeader>
-          <CardDescription>Delegated Balance</CardDescription>
+          <CardDescription>Remaining Delegated Balance</CardDescription>
+          <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
+            {remainingEth} ETH
+          </CardTitle>
+          <CardAction>
+            <Badge variant="outline" className="px-1 py-0">
+              <ShieldCheckIcon className="h-3.5 w-3.5" />
+            </Badge>
+          </CardAction>
+        </CardHeader>
+        <p className="px-4 text-[11px] text-muted-foreground">
+          Delegated ETH available to spend or assign to agents.
+        </p>
+      </Card>
+
+      <Card size="sm" className="@container/card">
+        <CardHeader>
+          <CardDescription>Approved delegated balance</CardDescription>
           <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
             {approvedLimitEth} ETH
           </CardTitle>
@@ -75,23 +92,6 @@ export function EmployeeSectionCards({
         </CardHeader>
         <p className="px-4 text-[11px] text-muted-foreground">
           ETH you have delegated to AI agents.
-        </p>
-      </Card>
-
-      <Card size="sm" className="@container/card">
-        <CardHeader>
-          <CardDescription>Unallocated Balance</CardDescription>
-          <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
-            {remainingEth} ETH
-          </CardTitle>
-          <CardAction>
-            <Badge variant="outline" className="px-1 py-0">
-              <ShieldCheckIcon className="h-3.5 w-3.5" />
-            </Badge>
-          </CardAction>
-        </CardHeader>
-        <p className="px-4 text-[11px] text-muted-foreground">
-          Delegated ETH available to spend or assign to agents.
         </p>
       </Card>
     </div>

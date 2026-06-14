@@ -424,7 +424,16 @@ export function EmployeeClient() {
     } catch { return 0n; }
   }, [dashboardState?.outboundDelegations]);
 
-  const remainingWei = approvedWei > redelegatedWei ? approvedWei - redelegatedWei : 0n;
+  const spentWei = useMemo(() => {
+    try {
+      return parseEther(dashboardState?.summary?.spentEth ?? '0');
+    } catch { return 0n; }
+  }, [dashboardState?.summary?.spentEth]);
+
+  const remainingWei = (() => {
+    const subtotal = approvedWei > redelegatedWei ? approvedWei - redelegatedWei : 0n;
+    return subtotal > spentWei ? subtotal - spentWei : 0n;
+  })();
 
   const parentMaxEth = useMemo(() => {
     try {
@@ -718,17 +727,27 @@ export function EmployeeClient() {
 
     const smartAccount = await createHybridSmartAccount(walletClient, walletAddress);
     
-    const { createBundlerClient } = await import("viem/account-abstraction");
+    const { createBundlerClient, createPaymasterClient } = await import("viem/account-abstraction");
     const { createPublicClient, http, parseEther } = await import("viem");
 
     const bundlerUrl = process.env.NEXT_PUBLIC_BUNDLER_RPC_URL;
     if (!bundlerUrl) throw new Error("Missing NEXT_PUBLIC_BUNDLER_RPC_URL");
+
+    const paymasterUrl = process.env.NEXT_PUBLIC_PAYMASTER_RPC_URL;
+    if (!paymasterUrl) throw new Error("Missing NEXT_PUBLIC_PAYMASTER_RPC_URL");
+    const sponsorId = process.env.NEXT_PUBLIC_PIMLICO_SPONSOR_ID;
+
+    const paymasterClient = createPaymasterClient({
+      transport: http(paymasterUrl),
+    });
 
     const publicClient = createPublicClient({ chain: baseSepolia, transport: http() });
     const bundlerClient = createBundlerClient({
       client: publicClient,
       chain: baseSepolia,
       transport: http(bundlerUrl),
+      paymaster: paymasterClient,
+      paymasterContext: sponsorId ? { policyId: sponsorId } : undefined,
     });
 
     const { getSmartAccountsEnvironment } = await import("@metamask/smart-accounts-kit");
@@ -772,6 +791,8 @@ export function EmployeeClient() {
       const errData = await res.json();
       console.error("Backend logging failed:", errData);
       // Even if backend fails, the tx was sent, so we still return txHash
+    } else {
+      await refreshDashboard();
     }
 
     return txHash;
@@ -787,6 +808,8 @@ export function EmployeeClient() {
       const data = await res.json();
       throw new Error(data.error || "Failed to verify receipt");
     }
+    const data = await res.json();
+    return data.verification;
   };
 
   const handleSmartAccountSpend = async (details: { toAddress: string; amountEth: string }) => {

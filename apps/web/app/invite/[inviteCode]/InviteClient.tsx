@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { acceptInvite, type InviteDetails } from "@/app/actions/identity";
+import { createSession } from "@/lib/session";
 import { ConnectRequiredCard } from "@/components/auth-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -49,10 +50,12 @@ export function InviteClient({ details }: { details: InviteDetails }) {
 
   if (auth.status === "initializing") {
     return (
-      <div className="flex h-full items-center justify-center overflow-y-auto p-6">
-        <p className="text-sm text-muted-foreground">
-          Initializing wallet… ({(auth.elapsed / 1000).toFixed(1)}s)
-        </p>
+      <div className="flex h-full min-h-screen items-center justify-center p-6 bg-white">
+        <div className="flex flex-col items-center gap-6 text-center">
+          <img src="/AllocardLogoBlack.svg" alt="Allocard Logo" className="w-16 h-16 object-contain mb-4" />
+          <div className="w-10 h-10 border-4 border-[#eaeaea] border-t-[#111] rounded-full animate-spin"></div>
+          <p className="text-xl font-bold text-[#111] tracking-[-0.02em]">Initializing wallet...</p>
+        </div>
       </div>
     );
   }
@@ -79,6 +82,7 @@ export function InviteClient({ details }: { details: InviteDetails }) {
 
     startTransition(async () => {
       try {
+        await createSession(auth.address);
         const profile = await acceptInvite({
           walletAddress: auth.address,
           inviteCode: details.invite.inviteCode,

@@ -170,8 +170,8 @@ export function ReimbursementAgentDrawer({
   return (
     <Drawer open={isOpen} onOpenChange={onOpenChange}>
       <DrawerContent>
-        <DrawerHeader>
-          <DrawerTitle className="flex items-center gap-2">
+        <DrawerHeader className="text-center sm:text-center">
+          <DrawerTitle className="flex items-center justify-center gap-2">
             <BotIcon className="w-5 h-5 text-primary" />
             Reimbursement Agent
           </DrawerTitle>
@@ -389,7 +389,7 @@ export function ReimbursementAgentDrawer({
 
         {/* ── Footer Buttons ───────────────────────────────────────────── */}
         {isEmployerActivated && (
-          <DrawerFooter className="border-t pt-4">
+          <DrawerFooter className="border-t pt-4 max-w-lg mx-auto w-full">
             {step === "upload" && (
               <Button onClick={handleExtract} disabled={!fileBase64}>
                 <ScanIcon className="w-4 h-4 mr-2" />
