@@ -48,8 +48,8 @@ The deeper problem is how the money moves. Corporate cards pre-load funds or cre
 
 The same problem applies to AI agents. Giving an agent a funded wallet means the agent can spend freely. Nothing in the wallet itself stops it from exceeding its intended scope. The faster the agent acts, the worse the problem gets.
 
-
 ---
+
 
 ## What Allocard Does Differently
 
@@ -100,6 +100,8 @@ Allocard uses six caveat types:
 | `redeemer` | Locks which address can redeem the delegation |
 | `limitedCalls` | Maximum number of redemptions |
 
+---
+
 ## MetaMask Delegation ERC-7710 Implementation
 
 Allocard's corporate expense card system covers three fundamental spending modes: employees spending directly on business needs, agents spending on an employee's behalf, and employees getting reimbursed for out-of-pocket purchases. Allocard handles all three using ERC-7710 delegation and redelegation. Each mode maps to a distinct delegation pattern.
@@ -134,11 +136,11 @@ Company Smart Account  (e.g. 0.5 ETH lifetime for reimbursements)
         └── Pays out to Employee smart account on approved claims
 ```
 
-
-
 **Pattern 3: Company to Employee, Employee Redeems Directly (Direct Spend)**
+
 The employer creates a delegation from the company smart account to the employee's smart account. The employee redeems that delegation themselves, specifying a merchant address as the recipient. No new delegation is created. No agent holds the authority. The employee is the delegatee and the one executing the transaction.
-This covers ad-hoc business purchases that the Travel or Procurement Agents do not handle: a one-off software license, a business meal, a conference ticket. Before the transaction executes, Venice AI checks the stated purpose against the company's expense policy. If Venice flags a violation, the employee sees the reason and decides whether to proceed.
+
+This covers ad-hoc business purchases that the Travel or Procurement Agents do not handle: a one-off software license, a business lunch, a conference ticket. Before the transaction executes, Venice AI checks the stated purpose against the company's expense policy. If Venice flags a violation, the employee sees the reason and decides whether to proceed.
 ```
 Company Smart Account
   |
@@ -157,16 +159,16 @@ Allocard's agents are not chat assistants. Each agent holds a smart account, rec
 
 ### Venice AI as the Decision Layer
 
-Before any agent executes a transaction, Venice AI serves as the intelligent decision layer, evaluating requests with complete privacy. Because corporate financial data and employee receipts are highly sensitive, using a privacy-first AI provider like Venice is a strict requirement for a viable corporate expense system. Venice ensures that no expense decisions or receipt images are ever stored or used for model training.
+Every transaction in Allocard passes through Venice AI before it executes. Venice is privacy-first: it does not retain data between requests, and no expense decisions or receipt images are stored or used for model training. This is a hard requirement for any system handling corporate financial data.
 
-Venice receives a comprehensive three-layer policy context for every decision:
-- **Layer 1: On-chain caveats** (hard numeric limits from the delegation)
-- **Layer 2: Company expense policy** (natural language rules set by the employer)
-- **Layer 3: Per-delegation rules** (e.g., "economy flights only" on a travel delegation)
+Before Venice evaluates any request, the app assembles three layers of context:
+- **Layer 1: On-chain caveats** — hard numeric limits from the delegation
+- **Layer 2: Company expense policy** — natural language rules the employer sets
+- **Layer 3: Per-delegation rules** — agent-specific additions, e.g. "economy flights only"
 
-Venice intelligently evaluates all three layers together and returns a clear pass or reject decision with written reasoning. This natural language reasoning works hand-in-hand with the on-chain smart contracts. If Venice approves a transaction but it would still exceed an on-chain caveat, the Delegation Manager contract will securely revert it. The smart contract strictly enforces math, while Venice intelligently enforces policy.
+Venice reads all three together and returns a pass or reject decision with written reasoning. The two enforcement mechanisms are independent. If Venice approves a request but the amount would still exceed an on-chain caveat, the Delegation Manager contract reverts the transaction. Venice enforces policy. The contract enforces math. Neither can override the other.
 
-*This intelligent decision layer is the backbone of the entire system. Continue reading below to see exactly how Venice AI's text reasoning and vision capabilities power each of the autonomous agents and spend flows across Allocard.*
+The agents below each call Venice at a specific point in their flow. The model used, the inputs it receives, and the decision it makes differ for each one.
 
 ### Reimbursement Agent
 
@@ -177,8 +179,8 @@ Allocard automates this entirely. The company creates a delegation directly to t
 How it works:
 
 1. The employee opens the Reimbursement Agent drawer and submits a claim: a description of the expense, the ETH amount, and an optional receipt image.
-2. If a receipt is uploaded, `qwen3-vl-235b-a22b` scans the image and extracts the merchant name, total amount, and date.
-3. `mistral-small-3-2-24b-instruct` reads the extracted receipt data alongside the claim description, the on-chain caveat limits, the company's expense policy, and any agent-specific rules. It returns a pass or reject decision with written reasoning.
+2. If a receipt is uploaded, `openai-gpt-4o-2024-11-20` scans the image and extracts the merchant name, total amount, and date.
+3. `openai-gpt-4o-2024-11-20` reads the extracted receipt data alongside the claim description, the on-chain caveat limits, the company's expense policy, and any agent-specific rules. It returns a pass or reject decision with written reasoning.
 4. If the claim passes, the agent's backend signer redeems the company-to-agent delegation on-chain and transfers ETH directly to the employee's wallet. No finance team involved. No delay.
 5. The full audit record is stored: the Venice prompt, the reasoning, a confidence score, and the transaction hash.
 
@@ -188,7 +190,7 @@ The company sets the budget ceiling in the delegation's caveats. Venice decides 
 
 The Travel and Procurement Agents cover planned, recurring business expenses. But employees sometimes need to pay a merchant that no agent covers. A one-off software license, a business lunch, a conference ticket. For these cases, employees can transfer ETH directly from their delegated smart account to any address.
 
-Before that transfer executes, Allocard runs a policy check. The employee enters the recipient address, the ETH amount, and a short description of the purpose. `mistral-small-3-2-24b-instruct` reads that description against the company's expense policy and returns a verdict with reasoning.
+Before that transfer executes, Allocard runs a policy check. The employee enters the recipient address, the ETH amount, and a short description of the purpose. `openai-gpt-4o-2024-11-20` reads that description against the company's expense policy and returns a verdict with reasoning.
 
 The check is advisory. If Venice flags a policy violation, the employee sees the reason and can choose to cancel or proceed. If they proceed, the transaction is flagged in the employer's activity log for review. This gives employees flexibility while preserving a full audit trail for the employer.
 
@@ -198,9 +200,9 @@ Business travel is one of the largest uncontrolled expense categories for compan
 
 With Allocard, an employee redelegates a portion of their budget to the Travel Agent's smart account. The caveats on that delegation define the exact budget available. The employee then opens the Travel Agent drawer and submits a travel request: destination, departure date, return date, and any specific requirements.
 
-`mistral-small-3-2-24b-instruct` reads the request alongside the caveat limits and company policy. It researches flight and hotel options, selects the best fit within the budget, and returns a proposed itinerary with an estimated ETH cost. The employee reviews the itinerary and clicks Approve.
+`openai-gpt-4o-2024-11-20` reads the request alongside the caveat limits and company policy. It researches flight and hotel options, selects the best fit within the budget, and returns a proposed itinerary with an estimated ETH cost. The employee reviews the itinerary and clicks Approve.
 
-On approval, the agent's backend signer redeems the employee-to-agent delegation and executes the payment (Mock). The employee never had to touch the company's full budget. The agent only had access to what the employee delegated to it.
+On approval, the agent's backend signer redeems the employee-to-agent delegation and transfers ETH to the employee's smart account. In a production deployment, this ETH would go to the vendor or airline directly. For this demo, there are no live merchant integrations, so the funds go to the employee's smart account instead. The important thing is that the full delegation flow completed on-chain: Venice evaluated the request, the agent redeemed a real delegation, and ETH actually moved from the company's budget to a recipient address. The employee never had to touch the company's full budget. The agent only had access to what the employee delegated to it.
 
 ### Procurement Agent
 
@@ -208,9 +210,9 @@ Teams buy software subscriptions regularly. Without central visibility, companie
 
 The Procurement Agent addresses this. An employee redelegates a procurement budget to the agent and opens the Procurement Agent drawer. They specify the tool category (e.g. project management, design, analytics), the team size, and any additional requirements.
 
-`mistral-small-3-2-24b-instruct` receives the request and the list of tools the company already subscribes to. It checks for duplicates first. If the requested category is already covered by an existing tool, it flags this. If no duplicate exists, it researches vendors, compares pricing against the delegation budget, and returns a recommendation with estimated monthly ETH cost.
+`openai-gpt-4o-2024-11-20` receives the request and the list of tools the company already subscribes to. It checks for duplicates first. If the requested category is already covered by an existing tool, it flags this. If no duplicate exists, it researches vendors, compares pricing against the delegation budget, and returns a recommendation with estimated monthly ETH cost.
 
-On employee approval, the agent redeems the delegation and executes (Mock) the purchase. The employer sees the full activity in the delegation tree and can revoke the agent's delegation at any time.
+On employee approval, the agent redeems the delegation and transfers ETH to the employee's smart account. In a production deployment, this ETH would go to the software vendor directly. For this demo, there are no live vendor integrations, so the funds go to the employee's smart account instead. The full on-chain flow completed: Venice evaluated the request, the agent redeemed a real delegation, and ETH moved from the company's budget. The employer sees the full activity in the delegation tree and can revoke the agent's delegation at any time.
 
 ---
 
@@ -333,14 +335,13 @@ The employer can now see the agent node branching from the employee node on thei
 
 ---
 
-
 ## Hackathon Track Eligibility
 
 | Track | Status | Evidence |
 |---|---|---|
 | **Best A2A Coordination** | Eligible | Allocard implements two delegation patterns. In the first, a Company delegates to an Employee, who redelegates a subset to an AI Agent (Travel or Procurement). In the second, the Company delegates directly to the Reimbursement Agent, and the agent pays out to the Employee. All entities hold ERC-4337 smart accounts. Both patterns use ERC-7710 redelegation. |
 | **Best Agent** | Eligible | Allocard's agent system automates the core workflows of a corporate expense card: planned business spending,  Agent spending via the Travel and Procurement Agents, and out-of-pocket expenses via the Reimbursement Agent. Each agent holds a smart account, receives a scoped delegation, evaluates the request with Venice AI, and executes the on-chain transaction autonomously. No human approves individual transactions. |
-| **Best Use of Venice AI** | Eligible | Venice AI acts as the decision layer across every agent and spend flow. It reads on-chain caveats and natural language policy together, then makes a pass or reject decision. It also performs receipt OCR. Two models are used: `mistral-small-3-2-24b-instruct` for policy reasoning and `qwen3-vl-235b-a22b` for vision. All decisions are stateless and private. |
+| **Best Use of Venice AI** | Eligible | Venice AI acts as the decision layer across every agent and spend flow. It reads on-chain caveats and natural language policy together, then makes a pass or reject decision. It also performs receipt OCR. One model handles both text reasoning and vision: `openai-gpt-4o-2024-11-20`. All decisions are stateless and private. |
 
 ---
 
@@ -360,8 +361,6 @@ Recommended for judges: open the employer dashboard in a normal browser window, 
 
 ---
 
-
-
 ## Tech Stack
 
 | Layer | Technology |
@@ -369,7 +368,7 @@ Recommended for judges: open the employer dashboard in a normal browser window, 
 | Framework | Next.js 15, React 19 |
 | UI | shadcn/ui, React Flow, Tailwind CSS |
 | Blockchain | MetaMask Smart Accounts Kit (ERC-7710, ERC-4337), Viem |
-| AI | Venice AI: `mistral-small-3-2-24b-instruct`, `qwen3-vl-235b-a22b` |
+| AI | Venice AI: `openai-gpt-4o-2024-11-20` (text + vision) |
 | Auth | MetaMask Embedded Wallets |
 | Database | Neon (Postgres), Drizzle ORM |
 | Deployment | Vercel, Base Sepolia testnet |
@@ -417,8 +416,8 @@ Next.js App Router
         |
  ┌──────────────────────────┐    ┌─────────────────────────────────┐
  │   Neon Postgres           │    │   Venice AI                     │
- │   Drizzle ORM             │    │   mistral-small-3-2-24b-instruct│
- │   Delegation records      │    │   qwen3-vl-235b-a22b            │
+ │   Drizzle ORM             │    │   openai-gpt-4o-2024-11-20     │
+ │   Delegation records      │    │   text + vision                 │
  │   Audit trail             │    └─────────────────────────────────┘
  └──────────────────────────┘
         |
