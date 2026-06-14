@@ -21,6 +21,12 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Allocard",
   description: "Trustless Corporate Expense Cards built on MetaMask Smart Accounts",
+  icons: {
+    icon: [
+      { url: '/AllocardLogoBlack.svg', media: '(prefers-color-scheme: light)' },
+      { url: '/AllocardLogoWhite.svg', media: '(prefers-color-scheme: dark)' }
+    ]
+  }
 };
 
 export default function RootLayout({

@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="./apps/web/public/AllocardLogoBlack.svg" alt="Allocard Logo" width="150" />
+</div>
+
 # Allocard
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-allocard.vercel.app-6366f1?style=for-the-badge&logo=vercel)](https://allocard.vercel.app/)

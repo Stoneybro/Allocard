@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="./public/AllocardLogoBlack.svg" alt="Allocard Logo" width="150" />
+</div>
+
 # Allocard Web Application
 
 This is the Next.js frontend for Allocard, a trustless corporate expense card system.

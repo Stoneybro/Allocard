@@ -80,7 +80,7 @@ export default function LandingPage() {
       <nav className="fixed top-0 inset-x-0 z-50 border-b border-[#eaeaea] bg-white/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
           <a href="#" className="flex items-center gap-2 text-sm font-semibold text-[#111]">
-            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#111] text-white text-xs font-bold">A</span>
+            <Image src="/AllocardLogoBlack.svg" alt="Allocard Logo" width={24} height={24} />
             Allocard
           </a>
           <div className="hidden md:flex items-center gap-6">
@@ -470,7 +470,7 @@ export default function LandingPage() {
       <footer className="border-t border-[#eaeaea]">
         <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#111] text-white text-[10px] font-bold">A</span>
+            <Image src="/AllocardLogoBlack.svg" alt="Allocard Logo" width={20} height={20} />
             <span className="text-sm font-semibold text-[#111]">Allocard</span>
           </div>
           <p className="text-xs text-[#999] text-center">
