@@ -189,26 +189,31 @@ function InviteSection({
               {invitePending ? "Generating…" : "Generate invite link"}
             </Button>
           ) : (
-            <div className="flex items-center gap-2 rounded-md border border-input bg-muted/50 px-2 py-1.5 focus-within:ring-1 focus-within:ring-ring">
-              <input
-                readOnly
-                value={inviteLink}
-                className="flex-1 bg-transparent text-[11px] outline-none text-foreground min-w-0"
-              />
-              <button
-                type="button"
-                id="copy-invite-btn"
-                aria-label={copiedInvite ? "Copied" : "Copy invite link"}
-                onClick={onCopyInvite}
-                disabled={!onCopyInvite}
-                className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                {copiedInvite ? (
-                  <CheckIcon className="size-3.5 text-foreground" />
-                ) : (
-                  <CopyIcon className="size-3.5" />
-                )}
-              </button>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 rounded-md border border-input bg-muted/50 px-2 py-1.5 focus-within:ring-1 focus-within:ring-ring">
+                <input
+                  readOnly
+                  value={inviteLink}
+                  className="flex-1 bg-transparent text-[11px] outline-none text-foreground min-w-0"
+                />
+                <button
+                  type="button"
+                  id="copy-invite-btn"
+                  aria-label={copiedInvite ? "Copied" : "Copy invite link"}
+                  onClick={onCopyInvite}
+                  disabled={!onCopyInvite}
+                  className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                >
+                  {copiedInvite ? (
+                    <CheckIcon className="size-3.5 text-foreground" />
+                  ) : (
+                    <CopyIcon className="size-3.5" />
+                  )}
+                </button>
+              </div>
+              <p className="text-[10px]  font-regular leading-tight">
+                Warning: Do not open this link in the same browser window as the company account.  Use a different browser or an incognito window.
+              </p>
             </div>
           )}
         </CardContent>
