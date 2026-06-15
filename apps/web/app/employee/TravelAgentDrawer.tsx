@@ -140,7 +140,7 @@ export function TravelAgentDrawer({
           </DrawerDescription>
         </DrawerHeader>
 
-        <div className="p-4 flex flex-col gap-4 max-w-lg mx-auto w-full">
+        <div className="p-4 flex flex-col gap-4 max-w-lg mx-auto w-full overflow-y-auto max-h-[65vh] mb-4">
           {status === "idle" || status === "error" || status === "researching" ? (
             <>
               <div className="flex flex-col gap-2">
@@ -191,7 +191,7 @@ export function TravelAgentDrawer({
               {status === "error" && resultMessage && (
                 <div className="bg-muted/50 border p-3 rounded-md text-sm flex gap-2">
                   <XCircleIcon className="w-5 h-5 shrink-0 text-muted-foreground" />
-                  <p className="text-foreground">{resultMessage}</p>
+                  <p className="text-foreground break-words whitespace-pre-wrap flex-1">{resultMessage}</p>
                 </div>
               )}
             </>
