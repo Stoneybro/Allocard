@@ -1357,6 +1357,10 @@ export async function getCompanyDashboardState(
     if (!limitCaveat) continue;
     const limitWei = extractNativeAllowanceWei(limitCaveat.caveatValue);
 
+    const bookingCondition = d.delegatorType === "company" 
+      ? eq(agentBookings.agentId, d.delegateeId ?? "")
+      : eq(agentBookings.delegationId, d.id);
+
     const [bookingResult] = await withRetry(
       () =>
         db
@@ -1364,7 +1368,7 @@ export async function getCompanyDashboardState(
             total: sql<string>`COALESCE(SUM(${agentBookings.amountEth}::numeric), 0)`,
           })
           .from(agentBookings)
-          .where(eq(agentBookings.agentId, d.delegateeId ?? "")),
+          .where(bookingCondition),
       "getCompanyDashboardState:remainingBooking"
     );
     const bookingSpentWei = (() => {
@@ -1375,6 +1379,13 @@ export async function getCompanyDashboardState(
       }
     })();
 
+    const claimCondition = d.delegatorType === "company"
+      ? eq(claimRedemptions.agentId, d.delegateeId ?? "")
+      : and(
+          eq(claimRedemptions.employeeId, d.delegatorId ?? ""),
+          eq(claimRedemptions.agentId, d.delegateeId ?? "")
+        );
+
     const [claimResult] = await withRetry(
       () =>
         db
@@ -1382,7 +1393,7 @@ export async function getCompanyDashboardState(
             total: sql<string>`COALESCE(SUM(${claimRedemptions.amountEth}::numeric), 0)`,
           })
           .from(claimRedemptions)
-          .where(eq(claimRedemptions.agentId, d.delegateeId ?? "")),
+          .where(claimCondition),
       "getCompanyDashboardState:remainingClaim"
     );
     const claimSpentWei = (() => {

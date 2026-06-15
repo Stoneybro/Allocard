@@ -399,9 +399,17 @@ Recommended for judges: open the employer dashboard in a normal browser window, 
 Create `apps/web/.env.local`:
 
 ```env
-VENICE_API_KEY=your_venice_api_key
-NEXT_PUBLIC_METAMASK_APP_ID=your_metamask_app_id
+NEXT_PUBLIC_WEB3AUTH_CLIENT_ID=your_web3auth_client_id
+NEXT_PUBLIC_BUNDLER_RPC_URL=https://api.pimlico.io/v2/sepolia/rpc?apikey=YOUR_PIMLICO_API_KEY
+NEXT_PUBLIC_PAYMASTER_RPC_URL=https://api.pimlico.io/v2/sepolia/rpc?apikey=YOUR_PIMLICO_API_KEY
+NEXT_PUBLIC_PIMLICO_SPONSOR_ID=your_pimlico_sponsor_id
 DATABASE_URL=your_neon_postgres_connection_string
+VENICE_API_KEY=your_venice_api_key
+AGENTS_PRIVATE_KEY=your_agents_private_key
+AGENT_REIMBURSEMENT_SMART_ACCOUNT=0xD61C510c51a1DD4a73C4Dfeca6893aeEE6A731c1
+AGENT_TRAVEL_SMART_ACCOUNT=0x916BE00E5cCd1A3a7930f20dFDC55D21947B8903
+AGENT_PROCUREMENT_SMART_ACCOUNT=0x1Cf7F91e72727AEfFb31603CBD3a7d5Ae03aa922
+SESSION_SECRET=your_session_secret
 ```
 
 Install and run:

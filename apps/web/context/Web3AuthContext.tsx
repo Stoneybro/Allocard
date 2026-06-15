@@ -79,6 +79,9 @@ const web3AuthContextConfig: Web3AuthContextConfig = {
     web3AuthNetwork: WEB3AUTH_NETWORK.SAPPHIRE_DEVNET,
     authBuildEnv: 'production',
     storage: web3AuthStorage,
+    uiConfig: {
+      uxMode: "popup",
+    },
   },
 }
 
