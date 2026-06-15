@@ -1026,7 +1026,14 @@ export function EmployerClient() {
                 {formErrors.maxAmountEth ? (
                   <p className="text-[0.8rem] text-destructive">{formErrors.maxAmountEth}</p>
                 ) : (
-                  <p className="text-[0.8rem] text-muted-foreground">The absolute maximum amount of ETH this delegatee can spend in total over the lifetime of this delegation.</p>
+                  <div className="text-[0.8rem] text-muted-foreground space-y-1">
+                    <p>The absolute maximum amount of ETH this delegatee can spend in total over the lifetime of this delegation.</p>
+                    {availableBalanceEth !== null && selectedDelegation?.status !== "active" && (
+                      <p>
+                        Remaining available to delegate: <span className="font-semibold text-foreground">{Number(availableBalanceEth.toFixed(4))} ETH</span>
+                      </p>
+                    )}
+                  </div>
                 )}
               </div>
 

@@ -96,7 +96,7 @@ export function ReimbursementAgentDrawer({
 
   const handleLoadSample = async () => {
     try {
-      const res = await fetch("/SampleReciept.png");
+      const res = await fetch("/SampleReciept.jpg");
       const blob = await res.blob();
       const reader = new FileReader();
       reader.onload = () => {
