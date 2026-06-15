@@ -1601,6 +1601,10 @@ export async function getEmployeeDashboardState(
     })();
 
     const totalSpentWei = bookingSpentWei + claimSpentWei;
+    
+    // Store spentWei on the delegation object to be able to extract it for revoked ones
+    (d as any).spentWei = totalSpentWei;
+
     const remainingWei = limitWei > totalSpentWei ? limitWei - totalSpentWei : 0n;
     d.remainingEth = formatEthAllowance(remainingWei);
   }
@@ -1648,6 +1652,13 @@ export async function getEmployeeDashboardState(
       }, 0n)
     : 0n;
 
+  // Add the spent amounts of REVOKED delegations
+  const revokedSpentWei = outboundDelegations
+    .filter((d) => d.status !== "active")
+    .reduce((sum, d) => sum + ((d as any).spentWei || 0n), 0n);
+
+  const totalEmployeeSpentWei = spentWei + revokedSpentWei;
+
   // ── Platform agent catalog ────────────────────────────────────────────────
   let platformAgents = getCachedAgents();
   if (!platformAgents) {
@@ -1682,7 +1693,7 @@ export async function getEmployeeDashboardState(
     summary: {
       approvedLimitEth: formatEthAllowance(approvedLimitWei),
       redelegatedEth: formatEthAllowance(redelegatedWei),
-      spentEth: formatEthAllowance(spentWei),
+      spentEth: formatEthAllowance(totalEmployeeSpentWei),
       activeAgentCount,
     },
   };

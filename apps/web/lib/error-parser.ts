@@ -37,9 +37,10 @@ export function parseUserOpError(err: any): string {
     return "Transaction blocked: The operation was rejected by the policy enforcer.";
   }
 
-  // If the error is still a massive unparsed string, truncate it safely
+  // If the error is a massive unparsed string, we still return the full thing 
+  // since the UI has been updated to correctly wrap and scroll long errors.
   if (msg.length > 120) {
-    return "Transaction error: " + msg.substring(0, 117) + "...";
+    return "Transaction error: " + msg;
   }
 
   return msg || "An unknown error occurred during transaction execution.";
