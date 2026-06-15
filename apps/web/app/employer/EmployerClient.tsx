@@ -840,11 +840,13 @@ export function EmployerClient() {
           ? formatWalletAddress(employee.smartAccountAddress)
           : "Smart account pending",
       }))}
-      agents={dashboardState.agents.map((agent) => ({
-        id: agent.id,
-        name: agent.name,
-        detail: agent.description ?? "Platform AI agent",
-      }))}
+      agents={dashboardState.agents
+        .filter((agent) => agent.name === "Reimbursement Agent")
+        .map((agent) => ({
+          id: agent.id,
+          name: agent.name,
+          detail: agent.description ?? "Platform AI agent",
+        }))}
       inviteLink={inviteLink}
       invitePending={isPending}
       onAddEmployee={(employeeId) =>

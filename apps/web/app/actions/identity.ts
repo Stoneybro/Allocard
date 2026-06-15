@@ -1,10 +1,12 @@
 "use server";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { formatEther, isAddress, parseEther } from "viem";
 import { db } from "@/lib/db";
 import {
+  agentBookings,
   agents,
+  claimRedemptions,
   companies,
   delegationCaveats,
   delegations,
@@ -246,6 +248,7 @@ export async function activateSmartAccount(input: {
       .where(eq(companies.id, profile.company.id))
       .returning();
 
+    _profileCache = null;
     return {
       target: "company" as const,
       smartAccountAddress: company.smartAccountAddress,
@@ -266,6 +269,7 @@ export async function activateSmartAccount(input: {
     .where(eq(users.id, profile.user.id))
     .returning();
 
+  _profileCache = null;
   return {
     target: "user" as const,
     smartAccountAddress: user.smartAccountAddress,
@@ -674,11 +678,14 @@ export async function createEmployerAccount(input: {
     .where(eq(users.id, user.id))
     .returning();
 
-  return {
+  const result = {
     status: "employer",
     user: toProfileUser(updatedUser),
     company: toProfileCompany(company),
   } satisfies WalletProfile;
+
+  _profileCache = null;
+  return result;
 }
 
 export async function getInviteDetails(
@@ -767,6 +774,7 @@ export async function acceptInvite(input: {
       })
       .where(eq(invites.id, invite.id));
 
+    _profileCache = null;
     return getWalletProfile(walletAddress);
   }
 
@@ -792,6 +800,7 @@ export async function acceptInvite(input: {
     })
     .where(eq(invites.id, invite.id));
 
+  _profileCache = null;
   return getWalletProfile(walletAddress);
 }
 
@@ -1332,6 +1341,63 @@ export async function getCompanyDashboardState(
     );
   }
 
+  const delegationsWithCaveats = companyDelegations.map((delegation) =>
+    toCompanyDelegation(
+      delegation,
+      caveatsByDelegationId.get(delegation.id) ?? [],
+    ),
+  );
+
+  // ── Calculate remaining ETH for each company → agent delegation ───────────
+  for (const d of delegationsWithCaveats) {
+    if (d.delegateeType !== "agent" || d.status !== "active") continue;
+    const limitCaveat = d.caveats.find(
+      (c) => c.caveatType === "nativeTokenTransferAmount",
+    );
+    if (!limitCaveat) continue;
+    const limitWei = extractNativeAllowanceWei(limitCaveat.caveatValue);
+
+    const [bookingResult] = await withRetry(
+      () =>
+        db
+          .select({
+            total: sql<string>`COALESCE(SUM(${agentBookings.amountEth}::numeric), 0)`,
+          })
+          .from(agentBookings)
+          .where(eq(agentBookings.agentId, d.delegateeId ?? "")),
+      "getCompanyDashboardState:remainingBooking"
+    );
+    const bookingSpentWei = (() => {
+      try {
+        return bookingResult?.total ? parseEther(bookingResult.total) : 0n;
+      } catch {
+        return 0n;
+      }
+    })();
+
+    const [claimResult] = await withRetry(
+      () =>
+        db
+          .select({
+            total: sql<string>`COALESCE(SUM(${claimRedemptions.amountEth}::numeric), 0)`,
+          })
+          .from(claimRedemptions)
+          .where(eq(claimRedemptions.agentId, d.delegateeId ?? "")),
+      "getCompanyDashboardState:remainingClaim"
+    );
+    const claimSpentWei = (() => {
+      try {
+        return claimResult?.total ? parseEther(claimResult.total) : 0n;
+      } catch {
+        return 0n;
+      }
+    })();
+
+    const totalSpentWei = bookingSpentWei + claimSpentWei;
+    const remainingWei = limitWei > totalSpentWei ? limitWei - totalSpentWei : 0n;
+    d.remainingEth = formatEthAllowance(remainingWei);
+  }
+
   return {
     company,
     employees: companyEmployees.map((employee) => ({
@@ -1340,12 +1406,7 @@ export async function getCompanyDashboardState(
     })),
     companyPolicy: company.companyPolicy,
     agents: platformAgents,
-    delegations: companyDelegations.map((delegation) =>
-      toCompanyDelegation(
-        delegation,
-        caveatsByDelegationId.get(delegation.id) ?? [],
-      ),
-    ),
+    delegations: delegationsWithCaveats,
     summary: {
       employeeCount: companyEmployees.length,
       activeAgentCount: activeAgentDelegationCount,
@@ -1487,6 +1548,62 @@ export async function getEmployeeDashboardState(
   const outboundDelegations = outboundRows.map((d) =>
     toCompanyDelegation(d, caveatsByDelegationId.get(d.id) ?? []),
   );
+
+  // ── Calculate remaining ETH for each outbound delegation ──────────────────
+  for (const d of outboundDelegations) {
+    const limitCaveat = d.caveats.find(
+      (c) => c.caveatType === "nativeTokenTransferAmount",
+    );
+    if (!limitCaveat) continue;
+    const limitWei = extractNativeAllowanceWei(limitCaveat.caveatValue);
+
+    // Sum of agent bookings for this delegation
+    const [bookingResult] = await withRetry(
+      () =>
+        db
+          .select({
+            total: sql<string>`COALESCE(SUM(${agentBookings.amountEth}::numeric), 0)`,
+          })
+          .from(agentBookings)
+          .where(eq(agentBookings.delegationId, d.id)),
+      "getEmployeeDashboardState:remainingBooking"
+    );
+    const bookingSpentWei = (() => {
+      try {
+        return bookingResult?.total ? parseEther(bookingResult.total) : 0n;
+      } catch {
+        return 0n;
+      }
+    })();
+
+    // Sum of claim redemptions for this employee + agent
+    const [claimResult] = await withRetry(
+      () =>
+        db
+          .select({
+            total: sql<string>`COALESCE(SUM(${claimRedemptions.amountEth}::numeric), 0)`,
+          })
+          .from(claimRedemptions)
+          .where(
+            and(
+              eq(claimRedemptions.employeeId, user.id),
+              eq(claimRedemptions.agentId, d.delegateeId ?? ""),
+            ),
+          ),
+      "getEmployeeDashboardState:remainingClaim"
+    );
+    const claimSpentWei = (() => {
+      try {
+        return claimResult?.total ? parseEther(claimResult.total) : 0n;
+      } catch {
+        return 0n;
+      }
+    })();
+
+    const totalSpentWei = bookingSpentWei + claimSpentWei;
+    const remainingWei = limitWei > totalSpentWei ? limitWei - totalSpentWei : 0n;
+    d.remainingEth = formatEthAllowance(remainingWei);
+  }
 
   // ── Summary metrics ───────────────────────────────────────────────────────
   const approvedLimitWei = inboundDelegation

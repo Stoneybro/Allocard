@@ -372,23 +372,10 @@ export function EmployeeFlowCanvas({
           subtitle: agent?.description ?? "Delegated AI agent",
           address: agent?.smartAccountAddress ?? undefined,
           balance:
-            delegation.status === "active"
-              ? (() => {
-                  const caveat = delegation.caveats?.find(
-                    (c: { caveatType: string }) => c.caveatType === "nativeTokenTransferAmount",
-                  );
-                  if (!caveat) return undefined;
-                  const value = caveat.caveatValue as Record<string, unknown>;
-                  const wei = String(value.maxAmount ?? value.amount ?? "");
-                  if (!wei || wei === "undefined") return undefined;
-                  try {
-                    return `${formatEther(BigInt(wei))} ETH`;
-                  } catch {
-                    return undefined;
-                  }
-                })()
+            delegation.status === "active" && delegation.remainingEth
+              ? `${delegation.remainingEth} ETH`
               : undefined,
-          balanceLabel: delegation.status === "active" ? "Spending limit" : undefined,
+          balanceLabel: delegation.status === "active" ? "Remaining Bal" : undefined,
           status: delegation.status,
           kind: "agent",
           canConfigure: true,

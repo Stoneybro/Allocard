@@ -30,12 +30,9 @@ export function HelpModal() {
           </SheetDescription>
         </SheetHeader>
 
-        <div className="space-y-6 text-sm text-foreground/90 pb-8">
-          <section className="rounded-xl border bg-muted/30 p-5 shadow-sm">
-            <h3 className="text-base font-semibold text-foreground mb-3 flex items-center gap-2">
-              <span className="flex size-6 items-center justify-center rounded-full bg-primary/10 text-primary text-xs">💡</span>
-              Demo Tips: Testing Both Roles
-            </h3>
+        <div className="space-y-8 text-sm text-foreground/90 pb-8 px-2">
+          <section>
+            <h3 className="text-base font-semibold text-foreground mb-3">Demo Tips: Testing Both Roles</h3>
             <div className="space-y-3 text-muted-foreground">
               <p>
                 MetaMask Embedded Wallets stores the session in your browser's local storage. To run employer and employee accounts simultaneously, you must use separate browser contexts so they don't share a wallet:
@@ -51,88 +48,55 @@ export function HelpModal() {
             </div>
           </section>
 
-          <section className="rounded-xl border bg-card p-5 shadow-sm">
-            <h3 className="text-base font-semibold text-foreground mb-3 border-b pb-2">Step 1: Employer Setup</h3>
+          <section>
+            <h3 className="text-base font-semibold text-foreground mb-3 border-b pb-2">Step 1: Company to Employee Delegation</h3>
             <ol className="list-decimal pl-5 space-y-2 text-muted-foreground">
-              <li><span className="text-foreground">Connect a wallet</span> via MetaMask Embedded Wallets.</li>
-              <li><span className="text-foreground">Create a company</span> (enter a company name).</li>
-              <li><span className="text-foreground">Activate the company smart account</span>. This deploys an ERC-4337 contract on ETH Sepolia.</li>
-              <li>In the sidebar, <span className="text-foreground">generate an invite link</span> and copy it.</li>
-            </ol>
-          </section>
-
-          <section className="rounded-xl border bg-card p-5 shadow-sm">
-            <h3 className="text-base font-semibold text-foreground mb-3 border-b pb-2">Step 2: Employee Onboarding</h3>
-            <ol className="list-decimal pl-5 space-y-2 text-muted-foreground">
-              <li>Paste the invite link into the second browser context (Incognito window).</li>
-              <li><span className="text-foreground">Authenticate with a different wallet</span>.</li>
-              <li><span className="text-foreground">Activate the employee smart account</span> from the dashboard banner.</li>
-            </ol>
-            <p className="mt-3 text-xs font-medium text-primary/80 bg-primary/5 p-2 rounded">The employee now appears in the employer's sidebar.</p>
-          </section>
-
-          <section className="rounded-xl border bg-card p-5 shadow-sm">
-            <h3 className="text-base font-semibold text-foreground mb-3 border-b pb-2">Step 3: Employer Issues a Delegation</h3>
-            <ol className="list-decimal pl-5 space-y-2 text-muted-foreground">
-              <li>Switch back to the employer window.</li>
-              <li><span className="text-foreground">Drag the employee node</span> from the sidebar onto the canvas.</li>
+              <li>Open the employer dashboard. Ensure the master company smart account is funded.</li>
+              <li>Drag the employee node from the sidebar onto the canvas.</li>
               <li>Click <strong>Configure</strong> on the new pending node.</li>
-              <li>Set the spending rules (e.g. lifetime limit, per-transaction cap).</li>
-              <li>Click <strong>Activate Delegation</strong>. The smart account signs the delegation.</li>
+              <li>Set a maximum delegation amount (e.g., 0.1 ETH) and click <strong>Activate Delegation</strong>.</li>
+              <li>Switch to the employee dashboard and refresh the canvas to see the delegated balance.</li>
             </ol>
           </section>
 
-          <section className="rounded-xl border bg-card p-5 shadow-sm">
-            <h3 className="text-base font-semibold text-foreground mb-3 border-b pb-2">Step 4: Employee Redelegates to an Agent</h3>
+          <section>
+            <h3 className="text-base font-semibold text-foreground mb-3 border-b pb-2">Step 2: Direct Spend Execution</h3>
             <ol className="list-decimal pl-5 space-y-2 text-muted-foreground">
-              <li>Switch back to the employee window.</li>
-              <li>From the sidebar, <span className="text-foreground">drag an AI agent</span> onto the canvas.</li>
-              <li>Click <strong>Configure</strong> on the new pending agent node.</li>
-              <li>Set child limits (capped at what the employer gave the employee).</li>
-              <li>Click <strong>Sign and Activate Delegation</strong>.</li>
+              <li>On the employee dashboard, open the <strong>Direct Spend</strong> tab.</li>
+              <li>Enter a recipient address, amount, and the purpose of the expense.</li>
+              <li>Click <strong>Review Spend</strong>. Allocard checks the delegation caveats and Venice AI reviews the purpose.</li>
+              <li>If the expense is valid, proceed with the transaction. The employee spends directly from delegated authority without holding company funds.</li>
             </ol>
           </section>
 
-          <section className="rounded-xl border bg-card p-5 shadow-sm">
-            <h3 className="text-base font-semibold text-foreground mb-4 border-b pb-2">Step 5: Agent Execution</h3>
-            
-            <div className="space-y-6">
-              <div className="bg-muted/30 rounded-lg p-4 border border-border/50">
-                <h4 className="font-semibold text-foreground mb-2 flex items-center gap-2">
-                  <span className="text-lg">🧾</span> Reimbursement claim
-                </h4>
-                <ol className="list-decimal pl-5 space-y-1.5 text-muted-foreground">
-                  <li>Click to open the Reimbursement Agent from the sidebar.</li>
-                  <li>Enter a description, amount, and optionally upload a receipt.</li>
-                  <li>Submit the claim. Venice AI scans the receipt and checks company policy.</li>
-                  <li>If approved, ETH is transferred directly to the employee's wallet.</li>
-                </ol>
-              </div>
+          <section>
+            <h3 className="text-base font-semibold text-foreground mb-3 border-b pb-2">Step 3: Company to Employee to Agent (Redelegation)</h3>
+            <ol className="list-decimal pl-5 space-y-2 text-muted-foreground">
+              <li>From the employee dashboard sidebar, drag the <strong>Procurement Agent</strong> onto the canvas.</li>
+              <li>Click <strong>Configure</strong> on the new pending agent node.</li>
+              <li>Set the child spending limits and click <strong>Sign and Activate Delegation</strong>.</li>
+              <li>Click <strong>Procure</strong> on the active agent node and enter a business request.</li>
+              <li>The agent uses Venice AI to find suitable options. Once approved, the agent executes the purchase using its redelegated authority.</li>
+            </ol>
+          </section>
 
-              <div className="bg-muted/30 rounded-lg p-4 border border-border/50">
-                <h4 className="font-semibold text-foreground mb-2 flex items-center gap-2">
-                  <span className="text-lg">✈️</span> Travel or Procurement request
-                </h4>
-                <ol className="list-decimal pl-5 space-y-1.5 text-muted-foreground">
-                  <li>Click <strong>Book Trip</strong> or <strong>Procure</strong> on the active agent node.</li>
-                  <li>Enter the request details.</li>
-                  <li>Venice AI returns a proposed itinerary or vendor recommendation.</li>
-                  <li>Click <strong>Approve</strong>. The agent executes the on-chain payment.</li>
-                </ol>
-              </div>
+          <section>
+            <h3 className="text-base font-semibold text-foreground mb-3 border-b pb-2">Step 4: Company to Agent to Employee (Reimbursements)</h3>
+            <ol className="list-decimal pl-5 space-y-2 text-muted-foreground">
+              <li>Switch back to the employer dashboard.</li>
+              <li>Activate the <strong>Reimbursement Agent</strong> to give it a direct delegation from the company.</li>
+              <li>Switch to the employee dashboard and open the Reimbursement Agent from the sidebar.</li>
+              <li>Upload a receipt and submit a reimbursement claim.</li>
+              <li>Venice AI validates the receipt data against company policy. If approved, the agent executes the payment automatically to the employee's wallet.</li>
+            </ol>
+          </section>
 
-              <div className="bg-muted/30 rounded-lg p-4 border border-border/50">
-                <h4 className="font-semibold text-foreground mb-2 flex items-center gap-2">
-                  <span className="text-lg">💳</span> Direct spend
-                </h4>
-                <ol className="list-decimal pl-5 space-y-1.5 text-muted-foreground">
-                  <li>Open the Wallet and Direct Spend tab.</li>
-                  <li>Enter a recipient address, ETH amount, and purpose.</li>
-                  <li>Click <strong>Review Spend</strong>. Venice evaluates the purpose against company policy.</li>
-                  <li>Review the verdict and proceed.</li>
-                </ol>
-              </div>
-            </div>
+          <section>
+            <h3 className="text-base font-semibold text-foreground mb-3 border-b pb-2">Step 5: Master Canvas Monitoring</h3>
+            <ol className="list-decimal pl-5 space-y-2 text-muted-foreground">
+              <li>Return to the employer canvas.</li>
+              <li>Monitor the entire delegation tree, including employees, agents, and activity from a single interface.</li>
+            </ol>
           </section>
         </div>
       </SheetContent>
