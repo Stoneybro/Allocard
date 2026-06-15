@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { parseEther } from "viem";
 import { db } from "@/lib/db";
 import { requireSession } from "@/lib/auth-guard";
-import { delegations, delegationCaveats, companies } from "@/lib/db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { delegations, delegationCaveats, agentBookings, companies } from "@/lib/db/schema";
+import { eq, sql } from "drizzle-orm";
 import { researchTravel } from "@/lib/venice";
 
 export async function POST(req: Request) {
@@ -36,14 +37,30 @@ export async function POST(req: Request) {
       caveatValue: c.caveatValue as any
     }));
     
-    // Find the max amount ETH
+    // Calculate remaining budget from caveat limit minus agentBookings
     let budgetEth = "0";
     const amountCaveat = mappedCaveats.find(c => c.caveatType === "nativeTokenTransferAmount");
     if (amountCaveat) {
       const val = amountCaveat.caveatValue as any;
       const wei = val.maxAmount || val.amount;
       if (wei) {
-        budgetEth = (Number(wei) / 1e18).toString();
+        const limitWei = BigInt(wei);
+        // Sum of agent bookings for this delegation to calculate remaining
+        const [bookingResult] = await db
+          .select({
+            total: sql<string>`COALESCE(SUM(${agentBookings.amountEth}::numeric), 0)`,
+          })
+          .from(agentBookings)
+          .where(eq(agentBookings.delegationId, delegationId));
+        const bookingSpentWei = (() => {
+        try {
+          return bookingResult?.total ? parseEther(bookingResult.total) : 0n;
+        } catch {
+          return 0n;
+        }
+      })();
+        const remainingWei = limitWei > bookingSpentWei ? limitWei - bookingSpentWei : 0n;
+        budgetEth = (Number(remainingWei) / 1e18).toString();
       }
     }
 

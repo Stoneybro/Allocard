@@ -127,6 +127,7 @@ type CompanyDelegation = {
   createdAt: string;
   activatedAt: string | null;
   revokedAt: string | null;
+  remainingEth?: string;
 };
 
 export type CompanyDelegationCaveat = {

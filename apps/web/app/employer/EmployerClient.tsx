@@ -320,7 +320,7 @@ function validateCaveatForm(
   const addresses = splitAddresses(form.allowedTargets);
   const invalidAddresses = addresses.filter((a) => !ETH_ADDRESS_RE.test(a));
   if (invalidAddresses.length > 0) {
-    errors.allowedTargets = `Invalid auth.address${invalidAddresses.length > 1 ? "es" : ""}: ${invalidAddresses.join(", ")}`;
+    errors.allowedTargets = `Invalid address${invalidAddresses.length > 1 ? "es" : ""}: ${invalidAddresses.join(", ")}`;
   } else if (addresses.length === 0) {
     errors.allowedTargetsWarning = "No addresses specified — the delegatee can send to any address.";
   }
@@ -481,7 +481,7 @@ export function EmployerClient() {
     [dashboardState?.employees],
   );
 
-  // Extract the configured spending allowance for each delegation from its caveats.
+  // Extract the configured spending allowance and remaining balance for each delegation.
   const canvasDelegations = useMemo(() => {
     if (!dashboardState) return [];
     return dashboardState.delegations.map((delegation) => {
@@ -494,7 +494,7 @@ export function EmployerClient() {
         const weiStr = String(val.maxAmount ?? val.amount ?? "");
         if (weiStr) allowance = formatAllowanceEth(weiStr);
       }
-      return { ...delegation, allowance };
+      return { ...delegation, allowance, remainingEth: delegation.remainingEth };
     });
   }, [dashboardState]);
 
@@ -1164,7 +1164,7 @@ export function EmployerClient() {
                       allowedTargets: event.target.value,
                     }))
                   }
-                  placeholder="One auth.address per line or comma-separated"
+                  placeholder="One address per line or comma-separated"
                 />
                 {formErrors.allowedTargets ? (
                   <p className="text-[0.8rem] text-destructive">{formErrors.allowedTargets}</p>

@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { LoaderCircleIcon, CheckCircleIcon, XCircleIcon, PlaneIcon } from "lucide-react";
 import { toast } from "sonner";
+import { parseUserOpError } from "@/lib/error-parser";
 
 export function TravelAgentDrawer({
   isOpen,
@@ -83,7 +84,7 @@ export function TravelAgentDrawer({
 
       if (!res.ok) {
         setStatus("error");
-        setResultMessage(data.error || "An error occurred during research");
+        setResultMessage(parseUserOpError(data.error) || "An error occurred during research");
         return;
       }
 
@@ -91,7 +92,7 @@ export function TravelAgentDrawer({
       setStatus("proposed");
     } catch (err: any) {
       setStatus("error");
-      setResultMessage(err.message);
+      setResultMessage(parseUserOpError(err));
     }
   };
 
@@ -116,7 +117,7 @@ export function TravelAgentDrawer({
 
       if (!res.ok) {
         setStatus("error");
-        setResultMessage(data.error || "An error occurred during booking");
+        setResultMessage(parseUserOpError(data.error) || "An error occurred during booking");
         return;
       }
 
@@ -125,7 +126,7 @@ export function TravelAgentDrawer({
       toast.success("Travel booked successfully!");
     } catch (err: any) {
       setStatus("error");
-      setResultMessage(err.message);
+      setResultMessage(parseUserOpError(err));
     }
   };
 

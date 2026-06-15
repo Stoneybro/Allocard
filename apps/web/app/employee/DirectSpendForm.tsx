@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { parseUserOpError } from "@/lib/error-parser";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle, CheckCircle2, Loader2, UploadCloud, ArrowRight } from "lucide-react";
 import { parseEther } from "viem";
@@ -113,7 +114,7 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
       setStep("receipt");
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "Execution failed");
+      setError(parseUserOpError(err));
     } finally {
       setIsExecuting(false);
     }

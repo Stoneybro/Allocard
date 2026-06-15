@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { LoaderCircleIcon, CheckCircleIcon, XCircleIcon, ShoppingCartIcon } from "lucide-react";
 import { toast } from "sonner";
+import { parseUserOpError } from "@/lib/error-parser";
 
 export function ProcurementAgentDrawer({
   isOpen,
@@ -80,7 +81,7 @@ export function ProcurementAgentDrawer({
 
       if (!res.ok) {
         setStatus("error");
-        setResultMessage(data.error || "An error occurred during research");
+        setResultMessage(parseUserOpError(data.error) || "An error occurred during research");
         return;
       }
 
@@ -88,7 +89,7 @@ export function ProcurementAgentDrawer({
       setStatus("proposed");
     } catch (err: any) {
       setStatus("error");
-      setResultMessage(err.message);
+      setResultMessage(parseUserOpError(err));
     }
   };
 
@@ -113,7 +114,7 @@ export function ProcurementAgentDrawer({
 
       if (!res.ok) {
         setStatus("error");
-        setResultMessage(data.error || "An error occurred during booking");
+        setResultMessage(parseUserOpError(data.error) || "An error occurred during booking");
         return;
       }
 
@@ -122,7 +123,7 @@ export function ProcurementAgentDrawer({
       toast.success("Subscription procured successfully!");
     } catch (err: any) {
       setStatus("error");
-      setResultMessage(err.message);
+      setResultMessage(parseUserOpError(err));
     }
   };
 

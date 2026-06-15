@@ -28,6 +28,7 @@ import {
   ShieldCheckIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { parseUserOpError } from "@/lib/error-parser";
 
 type ExtractionResult = {
   merchant: string;
@@ -118,13 +119,13 @@ export function ReimbursementAgentDrawer({
         body: JSON.stringify({ receiptBase64: fileBase64 }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Extraction failed");
+      if (!res.ok) throw new Error(parseUserOpError(data.error) || "Extraction failed");
       setExtraction(data.extraction);
       setReviewPurpose(data.extraction.suggestedPurpose);
       setReviewAmountEth(data.extraction.estimatedEth);
       setStep("review");
     } catch (err: any) {
-      setErrorMessage(err.message);
+      setErrorMessage(parseUserOpError(err));
       setStep("error");
     }
   };
@@ -147,7 +148,7 @@ export function ReimbursementAgentDrawer({
       });
       const data = await res.json();
       if (!res.ok) {
-        setErrorMessage(data.error || "An error occurred");
+        setErrorMessage(parseUserOpError(data.error) || "An error occurred");
         setStep("error");
         return;
       }
@@ -162,7 +163,7 @@ export function ReimbursementAgentDrawer({
         toast.error("Claim was rejected by the agent");
       }
     } catch (err: any) {
-      setErrorMessage(err.message);
+      setErrorMessage(parseUserOpError(err));
       setStep("error");
     }
   };

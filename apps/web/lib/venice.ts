@@ -558,6 +558,8 @@ export async function researchTravel(input: {
   const policy = buildPolicyBlock(input);
 
   const systemPrompt = `You are the Allocard Travel Agent — an AI that books business travel within a company's approved delegation policy.
+The budget provided is the REMAINING balance available — not the original allocation. You MUST propose options whose estimated total cost fits within this remaining budget.
+If no options fit within the remaining budget, you MUST reject the request with approved=false and explain that the remaining balance is insufficient.
 Research realistic travel options (you have knowledge of major airlines, hotel chains, and typical pricing) and select the best value options within budget.
 Merchant targets should be example smart contract or wallet addresses for whitelisted merchants (use placeholder format: 0xTRAVEL_MERCHANT_1, 0xHOTEL_MERCHANT_1).
 Return a structured JSON travel plan.`;
@@ -565,12 +567,12 @@ Return a structured JSON travel plan.`;
   const userPrompt = `Travel request:
 - Destination: ${input.destination}
 - Approximate dates: ${input.departureDateApprox} to ${input.returnDateApprox}
-- Budget: ${input.budgetEth} ETH
+- Remaining Budget: ${input.budgetEth} ETH
 ${input.employeeDescription ? `- Notes: ${input.employeeDescription}` : ""}
 
 ${policy}
 
-Select the best flight and hotel options within budget and policy. Estimate total cost in ETH (1 ETH ≈ $3000 for pricing reference). Return JSON.`;
+Select the best flight and hotel options that fit within the remaining budget and policy. You MUST reject (approved=false) if the total estimated cost exceeds the remaining budget. Estimate total cost in ETH (1 ETH ≈ $3000 for pricing reference). Return JSON.`;
 
   const fallback: TravelPlan = {
     approved: false,
@@ -627,6 +629,8 @@ export async function researchVendor(input: {
   const existingToolsList = input.existingTools?.length ? input.existingTools.join(", ") : "None provided";
 
   const systemPrompt = `You are the Allocard Procurement Agent — an AI that researches and selects software tools and vendor subscriptions for corporate teams.
+The budget provided is the REMAINING balance available — not the original allocation. You MUST propose options whose estimated monthly cost fits within this remaining budget.
+If no options fit within the remaining budget, you MUST reject the request with approved=false and explain that the remaining balance is insufficient.
 You have broad knowledge of SaaS tools, their pricing, and feature sets.
 IMPORTANT: Before recommending a purchase, check if the requested tool category overlaps with existing tools to avoid duplicate spend.
 Merchant targets should use placeholder format: 0xVENDOR_MERCHANT_1.
@@ -635,7 +639,7 @@ Return structured JSON with your vendor recommendation.`;
   const userPrompt = `Procurement request:
 - Tool category: ${input.toolCategory}
 - Team size: ${input.teamSize} people
-- Budget: ${input.budgetEth} ETH per month
+- Remaining Budget: ${input.budgetEth} ETH per month
 ${input.additionalRequirements ? `- Requirements: ${input.additionalRequirements}` : ""}
 
 Existing tools already subscribed to:
@@ -643,7 +647,7 @@ ${existingToolsList}
 
 ${policy}
 
-Research the best vendor options. Check for duplicates. Select the best value option within budget and policy. Estimate monthly cost in ETH (1 ETH ≈ $3000). Return JSON.`;
+Research the best vendor options. Check for duplicates. Select the best value option that fits within the remaining budget and policy. You MUST reject (approved=false) if the estimated monthly cost exceeds the remaining budget. Estimate monthly cost in ETH (1 ETH ≈ $3000). Return JSON.`;
 
   const fallback: VendorChoice = {
     approved: false,

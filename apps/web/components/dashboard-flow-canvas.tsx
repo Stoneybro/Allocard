@@ -86,6 +86,7 @@ export type DelegationCanvasDelegation = {
   canvasPositionX: number;
   canvasPositionY: number;
   allowance?: string;
+  remainingEth?: string;
 };
 
 type DelegationNodeData = {
@@ -634,6 +635,11 @@ export function DashboardFlowCanvas({
             title: agent.name,
             subtitle: delegation.parentDelegationId ? "AI Agent · Redelegated" : "AI Agent",
             address: agent.smartAccountAddress ?? undefined,
+            balance:
+              delegation.status === "active" && delegation.remainingEth
+                ? `${delegation.remainingEth} ETH`
+                : undefined,
+            balanceLabel: delegation.status === "active" ? "Remaining Bal" : undefined,
             status: delegation.status,
             kind: "agent",
             isPlaceholder: agent.isPlaceholder,

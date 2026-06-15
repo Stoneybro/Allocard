@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getPimlicoGasPrice } from "@/lib/client";
 import { requireSession } from "@/lib/auth-guard";
 import { delegations, claimRedemptions, delegationCaveats, users, companies } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { checkPolicy, verifyReceipt } from "@/lib/venice";
 import { createWalletClient, http, parseEther, type Hex, createPublicClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
@@ -59,10 +59,53 @@ export async function POST(req: NextRequest) {
       caveatValue: c.caveatValue as any
     }));
 
-    // Add policyPrompt if it exists as a fake caveat for summary
-    const combinedPolicyCaveats = [...mappedCaveats];
-    if (delegation.policyPrompt) {
-       // We can just pass the policyPrompt directly to checkPolicy
+    // ── Calculate remaining balance and enforce check ────────────────────────
+    const amountCaveat = mappedCaveats.find(
+      c => c.caveatType === "nativeTokenTransferAmount",
+    );
+    if (amountCaveat) {
+      const val = amountCaveat.caveatValue as any;
+      const wei = val.maxAmount || val.amount;
+      if (wei) {
+        const limitWei = BigInt(wei);
+
+        // Sum of previously approved claims for this employee + agent
+        const [claimResult] = await db
+          .select({
+            total: sql<string>`COALESCE(SUM(${claimRedemptions.amountEth}::numeric), 0)`,
+          })
+          .from(claimRedemptions)
+          .where(
+            and(
+              eq(claimRedemptions.employeeId, employeeId),
+              eq(claimRedemptions.agentId, agentId),
+            ),
+          );
+
+        const claimSpentWei = (() => {
+          try {
+            return claimResult?.total ? parseEther(claimResult.total) : 0n;
+          } catch {
+            return 0n;
+          }
+        })();
+
+        const remainingWei =
+          limitWei > claimSpentWei ? limitWei - claimSpentWei : 0n;
+
+        // Reject if the new claim exceeds remaining balance
+        const claimWei = parseEther(amountEth.replace(/[^0-9.]/g, ""));
+        if (claimWei > remainingWei) {
+          return NextResponse.json(
+            {
+              error: `Insufficient remaining balance. Remaining: ${(Number(remainingWei) / 1e18).toString()} ETH, requested: ${amountEth} ETH`,
+              veniceApproved: false,
+              veniceReasoning: "Claim exceeds remaining delegation balance.",
+            },
+            { status: 400 },
+          );
+        }
+      }
     }
 
     // 3. Verify Receipt with Venice Vision (Stateless, no storage)
@@ -95,8 +138,6 @@ export async function POST(req: NextRequest) {
     }
 
     // 4. Fetch company policy
-    const [company] = await db.select({ companyPolicy: companies.companyPolicy })
-      .from(companies).where(eq(companies.id, companyId)).limit(0);
     let companyPolicy: string | null = null;
     if (companyId) {
       const [co] = await db.select({ companyPolicy: companies.companyPolicy })

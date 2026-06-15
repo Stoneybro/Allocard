@@ -293,7 +293,7 @@ function validateCaveatForm(form: CaveatForm, availableMaxEth: string): FormErro
   const addresses = splitAddresses(form.allowedTargets);
   const invalidAddresses = addresses.filter((a) => !ETH_ADDRESS_RE.test(a));
   if (invalidAddresses.length > 0) {
-    errors.allowedTargets = `Invalid auth.address${invalidAddresses.length > 1 ? "es" : ""}: ${invalidAddresses.join(", ")}`;
+    errors.allowedTargets = `Invalid address${invalidAddresses.length > 1 ? "es" : ""}: ${invalidAddresses.join(", ")}`;
   } else if (addresses.length === 0) {
     errors.allowedTargetsWarning = "No addresses specified — the agent can send to any address.";
   }
@@ -1161,7 +1161,7 @@ export function EmployeeClient() {
                   <p className="text-[0.8rem] text-destructive">{formErrors.maxAmountEth}</p>
                 ) : (
                   <p className="text-[0.8rem] text-muted-foreground">
-                    Max: {parentMaxEth} ETH (your parent delegation limit).
+                    Max: {availableMaxEth} ETH (your remaining available balance).
                   </p>
                 )}
               </div>
@@ -1292,7 +1292,7 @@ export function EmployeeClient() {
                   onChange={(e) =>
                     setCaveatForm((f) => ({ ...f, allowedTargets: e.target.value }))
                   }
-                  placeholder="One auth.address per line or comma-separated"
+                  placeholder="One address per line or comma-separated"
                 />
                 {formErrors.allowedTargets ? (
                   <p className="text-[0.8rem] text-destructive">{formErrors.allowedTargets}</p>
