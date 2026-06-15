@@ -107,7 +107,7 @@ export async function POST(req: Request) {
         throw new Error("No merchant targets defined by AI");
       }
       
-      const totalWei = parseEther(travelPlan.estimatedTotalEth.replace(/[^0-9.]/g, ''));
+      const totalWei = parseEther(travelPlan.estimatedCostEth.replace(/[^0-9.]/g, ''));
       const splitWei = totalWei / BigInt(targets.length);
 
       // Chain: [employee→agent (inner), company→employee (outer)]
@@ -142,7 +142,7 @@ export async function POST(req: Request) {
       employeeId,
       companyId,
       bookingDetails: travelPlan,
-      amountEth: travelPlan.estimatedTotalEth,
+      amountEth: travelPlan.estimatedCostEth,
       txHash: txHash || "pending",
       venicePrompt: travelPlan.prompt,
       veniceReasoning: travelPlan.reasoning,

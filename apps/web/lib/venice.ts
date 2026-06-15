@@ -56,9 +56,16 @@ export type TravelPlan = {
   approved: boolean;
   reasoning: string;
   confidence: number;
-  flightOption: string;
-  hotelOption: string;
-  estimatedTotalEth: string;
+  flight: {
+    airline: string;
+    flightNumber: string;
+    time: string;
+  };
+  hotel: {
+    name: string;
+    nights: number;
+  };
+  estimatedCostEth: string;
   merchantTargets: string[];
   prompt: string;
 };
@@ -237,12 +244,27 @@ const TRAVEL_SCHEMA = {
     approved: { type: "boolean" },
     reasoning: { type: "string" },
     confidence: { type: "number" },
-    flightOption: { type: "string" },
-    hotelOption: { type: "string" },
-    estimatedTotalEth: { type: "string" },
+    flight: {
+      type: "object",
+      properties: {
+        airline: { type: "string" },
+        flightNumber: { type: "string" },
+        time: { type: "string" },
+      },
+      required: ["airline", "flightNumber", "time"]
+    },
+    hotel: {
+      type: "object",
+      properties: {
+        name: { type: "string" },
+        nights: { type: "number" },
+      },
+      required: ["name", "nights"]
+    },
+    estimatedCostEth: { type: "string" },
     merchantTargets: { type: "array", items: { type: "string" } },
   },
-  required: ["approved", "reasoning", "confidence", "flightOption", "hotelOption", "estimatedTotalEth", "merchantTargets"],
+  required: ["approved", "reasoning", "confidence", "flight", "hotel", "estimatedCostEth", "merchantTargets"],
 };
 
 const VENDOR_SCHEMA = {
@@ -347,11 +369,16 @@ export async function advisoryPolicyCheck(input: {
 }): Promise<PolicyCheckResult> {
   const policy = buildPolicyBlock(input);
 
-  const systemPrompt = `You are a policy compliance advisor for Allocard.
+  const systemPrompt = `You are a strict policy compliance advisor for Allocard corporate spend management.
 An employee is attempting a direct, manual on-chain spend from their delegated wallet.
-Evaluate whether the stated purpose and amount comply with the company's approved delegation policy.
+Evaluate whether the stated purpose and amount comply with the company's approved delegation policy AND general corporate spending standards.
+CRITICAL RULES:
+1. ALL expenses MUST be strictly for legitimate, provable business purposes.
+2. Vague or obviously personal expenses (e.g., "coffee", "lunch", "ice cream", "snacks") MUST be REJECTED unless accompanied by a clear, explicit business justification (e.g., "lunch with client X").
+3. Do not assume business context if none is provided.
+
 Return a JSON object with: approved (boolean), reasoning (string, 1-3 sentences advising the employee), confidence (number 0.0-1.0).
-If the spend violates policy, set approved to false and explain why.`;
+If the spend violates policy or lacks business context, set approved to false and explain why.`;
 
   const userPrompt = `${policy}
 
@@ -549,9 +576,16 @@ Select the best flight and hotel options within budget and policy. Estimate tota
     approved: false,
     reasoning: "Venice AI not available. Travel booking requires AI research — cannot proceed without Venice API.",
     confidence: 0,
-    flightOption: "Unavailable",
-    hotelOption: "Unavailable",
-    estimatedTotalEth: "0",
+    flight: {
+      airline: "Unavailable",
+      flightNumber: "N/A",
+      time: "N/A",
+    },
+    hotel: {
+      name: "Unavailable",
+      nights: 0,
+    },
+    estimatedCostEth: "0",
     merchantTargets: [],
     prompt: userPrompt,
   };
