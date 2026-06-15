@@ -8,6 +8,12 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
 export function HelpModal() {
   return (
@@ -30,74 +36,85 @@ export function HelpModal() {
           </SheetDescription>
         </SheetHeader>
 
-        <div className="space-y-8 text-sm text-foreground/90 pb-8 px-2">
-          <section>
-            <h3 className="text-base font-semibold text-foreground mb-3">Demo Tips: Testing Both Roles</h3>
-            <div className="space-y-3 text-muted-foreground">
-              <p>
-                MetaMask Embedded Wallets stores the session in your browser's local storage. To run employer and employee accounts simultaneously, you must use separate browser contexts so they don't share a wallet:
-              </p>
-              <ul className="list-disc pl-5 space-y-1.5 text-foreground/80">
-                <li><strong>Normal window + Incognito window (easiest)</strong>: Employer in the normal window, employee in an Incognito window.</li>
-                <li><strong>Two browser profiles</strong>: Chrome Profile 1 for employer, Chrome Profile 2 for employee.</li>
-                <li><strong>Two different browsers</strong>: Employer in Chrome, employee in Firefox.</li>
-              </ul>
-              <p className="font-medium text-foreground">
-                Recommended: Open the employer dashboard in a normal window, then open the employee invite link in an Incognito window and authenticate with a different account.
-              </p>
-            </div>
-          </section>
+        <div className="text-sm text-foreground/90 pb-8 px-2">
+          
+          <div className="mb-8 p-4 rounded-lg border border-border bg-muted/40">
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2 mb-2">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">!</span>
+              Demo Tip: Testing Both Roles
+            </h3>
+            <p className="text-muted-foreground text-sm mb-3 leading-relaxed">
+              MetaMask stores sessions in browser local storage. To run employer and employee accounts simultaneously without sharing a wallet, use separate contexts:
+            </p>
+            <ul className="list-disc pl-5 space-y-1 text-muted-foreground text-sm mb-1">
+              <li><strong>Easiest:</strong> Normal window for employer, Incognito window for employee.</li>
+              <li><strong>Alternative:</strong> Two different Chrome profiles or browsers.</li>
+            </ul>
+          </div>
 
-          <section>
-            <h3 className="text-base font-semibold text-foreground mb-3 border-b pb-2">Step 1: Company to Employee Delegation</h3>
-            <ol className="list-decimal pl-5 space-y-2 text-muted-foreground">
-              <li>Open the employer dashboard. Ensure the master company smart account is funded.</li>
-              <li>Drag the employee node from the sidebar onto the canvas.</li>
-              <li>Click <strong>Configure</strong> on the new pending node.</li>
-              <li>Set a maximum delegation amount (e.g., 0.1 ETH) and click <strong>Activate Delegation</strong>.</li>
-              <li>Switch to the employee dashboard and refresh the canvas to see the delegated balance.</li>
-            </ol>
-          </section>
+          <Accordion type="single" collapsible className="w-full" defaultValue="step-1">
+            <AccordionItem value="step-1">
+              <AccordionTrigger className="text-base font-semibold hover:no-underline">1. Setup & Onboarding</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground pt-2 pb-4">
+                <ol className="list-decimal pl-5 space-y-2.5">
+                  <li><strong>Employer:</strong> Create a company and activate the master smart account.</li>
+                  <li><strong>Employer:</strong> Generate an invite link from the sidebar and copy it.</li>
+                  <li><strong>Employee:</strong> Open the invite link in an Incognito window and connect a different wallet.</li>
+                  <li><strong>Employee:</strong> Activate the employee smart account from the dashboard banner.</li>
+                </ol>
+              </AccordionContent>
+            </AccordionItem>
 
-          <section>
-            <h3 className="text-base font-semibold text-foreground mb-3 border-b pb-2">Step 2: Direct Spend Execution</h3>
-            <ol className="list-decimal pl-5 space-y-2 text-muted-foreground">
-              <li>On the employee dashboard, open the <strong>Direct Spend</strong> tab.</li>
-              <li>Enter a recipient address, amount, and the purpose of the expense.</li>
-              <li>Click <strong>Review Spend</strong>. Allocard checks the delegation caveats and Venice AI reviews the purpose.</li>
-              <li>If the expense is valid, proceed with the transaction. The employee spends directly from delegated authority without holding company funds.</li>
-            </ol>
-          </section>
+            <AccordionItem value="step-2">
+              <AccordionTrigger className="text-base font-semibold hover:no-underline">2. Employer: Issue a Delegation</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground pt-2 pb-4">
+                <ol className="list-decimal pl-5 space-y-2.5">
+                  <li>Switch to the employer window. The employee now appears in the sidebar.</li>
+                  <li>Drag the employee from the sidebar onto the canvas.</li>
+                  <li>Click <strong>Configure</strong> on the pending node.</li>
+                  <li>Set the spending limits (e.g., 0.1 ETH) and click <strong>Activate Delegation</strong>.</li>
+                </ol>
+              </AccordionContent>
+            </AccordionItem>
 
-          <section>
-            <h3 className="text-base font-semibold text-foreground mb-3 border-b pb-2">Step 3: Company to Employee to Agent (Redelegation)</h3>
-            <ol className="list-decimal pl-5 space-y-2 text-muted-foreground">
-              <li>From the employee dashboard sidebar, drag the <strong>Procurement Agent</strong> onto the canvas.</li>
-              <li>Click <strong>Configure</strong> on the new pending agent node.</li>
-              <li>Set the child spending limits and click <strong>Sign and Activate Delegation</strong>.</li>
-              <li>Click <strong>Procure</strong> on the active agent node and enter a business request.</li>
-              <li>The agent uses Venice AI to find suitable options. Once approved, the agent executes the purchase using its redelegated authority.</li>
-            </ol>
-          </section>
+            <AccordionItem value="step-3">
+              <AccordionTrigger className="text-base font-semibold hover:no-underline">3. Employee: Direct Spend</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground pt-2 pb-4">
+                <ol className="list-decimal pl-5 space-y-2.5">
+                  <li>Switch to the employee window.</li>
+                  <li>Go to the <strong>Direct Spend</strong> tab.</li>
+                  <li>Enter recipient, amount, and purpose.</li>
+                  <li>Click <strong>Review Spend</strong>. The contract checks math limits. Venice AI checks policy.</li>
+                  <li>Proceed to execute. You spend directly from delegated authority.</li>
+                </ol>
+              </AccordionContent>
+            </AccordionItem>
 
-          <section>
-            <h3 className="text-base font-semibold text-foreground mb-3 border-b pb-2">Step 4: Company to Agent to Employee (Reimbursements)</h3>
-            <ol className="list-decimal pl-5 space-y-2 text-muted-foreground">
-              <li>Switch back to the employer dashboard.</li>
-              <li>Activate the <strong>Reimbursement Agent</strong> to give it a direct delegation from the company.</li>
-              <li>Switch to the employee dashboard and open the Reimbursement Agent from the sidebar.</li>
-              <li>Upload a receipt and submit a reimbursement claim.</li>
-              <li>Venice AI validates the receipt data against company policy. If approved, the agent executes the payment automatically to the employee's wallet.</li>
-            </ol>
-          </section>
+            <AccordionItem value="step-4">
+              <AccordionTrigger className="text-base font-semibold hover:no-underline">4. Employee: Redelegate to an Agent</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground pt-2 pb-4">
+                <ol className="list-decimal pl-5 space-y-2.5">
+                  <li>Drag the <strong>Procurement Agent</strong> (or Travel Agent) from the sidebar to the canvas.</li>
+                  <li>Click <strong>Configure</strong> and set child spending limits.</li>
+                  <li>Click <strong>Sign and Activate Delegation</strong>.</li>
+                  <li>Click <strong>Procure</strong> on the active agent and enter a business request.</li>
+                  <li>Venice AI finds options. Approve one, and the agent executes autonomously.</li>
+                </ol>
+              </AccordionContent>
+            </AccordionItem>
 
-          <section>
-            <h3 className="text-base font-semibold text-foreground mb-3 border-b pb-2">Step 5: Master Canvas Monitoring</h3>
-            <ol className="list-decimal pl-5 space-y-2 text-muted-foreground">
-              <li>Return to the employer canvas.</li>
-              <li>Monitor the entire delegation tree, including employees, agents, and activity from a single interface.</li>
-            </ol>
-          </section>
+            <AccordionItem value="step-5">
+              <AccordionTrigger className="text-base font-semibold hover:no-underline">5. Agent: Autonomous Reimbursement</AccordionTrigger>
+              <AccordionContent className="text-muted-foreground pt-2 pb-4">
+                <ol className="list-decimal pl-5 space-y-2.5">
+                  <li>On the employer dashboard, <strong>Activate</strong> the Reimbursement Agent.</li>
+                  <li>On the employee dashboard, click the Reimbursement Agent in the sidebar.</li>
+                  <li>Upload a receipt and submit a claim.</li>
+                  <li>Venice Vision validates the receipt against company policy. If approved, the agent pays the employee directly.</li>
+                </ol>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </div>
       </SheetContent>
     </Sheet>

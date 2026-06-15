@@ -1,13 +1,14 @@
 <div align="center">
-  <img src="./apps/web/public/AllocardLogoBlack.svg" alt="Allocard Logo" width="150" />
+  <img src="./apps/web/public/AllocardLogoWhite.svg" alt="Allocard Logo" width="150" />
 </div>
 <div align="center">
 # Allocard
-</div>
+
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-allocard.vercel.app-6366f1?style=for-the-badge&logo=vercel)](https://allocard.vercel.app/)
 [![Network](https://img.shields.io/badge/Network-ETH%20Sepolia-0052ff?style=for-the-badge&logo=ethereum)](https://sepolia.etherscan.io/)
 [![MetaMask](https://img.shields.io/badge/Built%20With-MetaMask%20Smart%20Accounts%20Kit-f6851b?style=for-the-badge)](https://metamask.io/)
 [![GitHub](https://img.shields.io/badge/GitHub-Stoneybro%2FAllocard-181717?style=for-the-badge&logo=github)](https://github.com/Stoneybro/Allocard)
+</div>
 
 ---
 
@@ -287,7 +288,7 @@ At this point, no employees appear on the canvas yet. The employer cannot issue 
 
 ### Step 2: Employee Onboarding
 
-Open a separate browser context to avoid sharing the wallet session. See the Demo Tips section below for options.
+Open a separate browser context to avoid sharing the wallet session. Either use an ingognito tab, a different browser profile or a different browser.
 
 1. Paste the invite link into the second browser context and open it.
 2. Authenticate with a different wallet via MetaMask Embedded Wallets.
@@ -298,7 +299,7 @@ The employee now appears in the employer's sidebar.
 
 ### Step 3: Employer Issues a Delegation
 
-Switch back to the employer window.
+Switch back to the employer window adn refresh the employee list.
 
 1. The employee now appears in the sidebar under Recipients.
 2. Drag the employee node from the sidebar onto the canvas.
@@ -314,35 +315,38 @@ The employee can now see their approved spending limit on their own canvas.
 Switch back to the employee window.
 
 1. The canvas now shows the inbound delegation from the company with the approved limit.
-2. From the sidebar, drag an AI agent onto the canvas.
+2. From the sidebar, drag an AI agent  (either procurement or travel) onto the canvas.
 3. Click **Configure** on the new pending agent node.
 4. Set child caveat values. Every field is capped at the parent delegation's limits.
 5. Click **Sign and Activate Delegation**. The delegation is signed in the browser using the employee's smart account.
 
 The employer can now see the agent node branching from the employee node on their canvas.
 
-### Step 5: Agent Execution
+### Step 5: Direct Spend Execution
 
-**Reimbursement claim:**
+1. On the employee dashboard, open the **Direct Spend** tab.
+2. Enter a recipient address, amount, and the purpose of the expense.
+3. Click **Review Spend**. Allocard checks the delegation caveats and Venice AI reviews the purpose.
+4. If the expense is valid, proceed with the transaction. The employee spends directly from delegated authority without holding company funds.
 
-1. On the employee canvas, click **Claim** on the Reimbursement Agent node.
-2. Enter an expense description, ETH amount, and optionally upload a receipt image.
-3. Submit the claim. Venice Vision scans the receipt. Venice Text checks the claim against the policy.
-4. If approved, the agent transfers ETH from the company smart account to the employee's wallet.
+### Step 6: Agent Execution (Travel / Procurement)
 
-**Travel or Procurement request:**
+1. Click **Book Trip** on the active Travel Agent node, or **Procure** on the Procurement Agent node.
+2. Enter a business request.
+3. The agent uses Venice AI to find suitable options. Once approved, the agent executes the purchase using its redelegated authority.
 
-1. Click **Book Trip** on the Travel Agent node, or **Procure** on the Procurement Agent node.
-2. Enter the request details.
-3. Venice returns a proposed itinerary or vendor recommendation.
-4. Click **Approve**. The agent redeems the delegation and executes the on-chain payment.
+### Step 7: Company to Agent (Reimbursements)
 
-**Direct spend:**
+1. Switch back to the employer dashboard.
+2. Activate the **Reimbursement Agent** to give it a direct delegation from the company.
+3. Switch to the employee dashboard and open the Reimbursement Agent from the sidebar.
+4. Upload a receipt and submit a reimbursement claim.
+5. Venice AI validates the receipt data against company policy. If approved, the agent executes the payment automatically to the employee's wallet.
 
-1. Open the Wallet and Direct Spend tab on the employee dashboard.
-2. Enter a recipient address, ETH amount, and purpose.
-3. Click **Review Spend**. Venice evaluates the purpose against company policy.
-4. Review the Venice verdict and proceed or cancel. If you proceed despite a flag, the transaction is logged for employer review.
+### Step 8: Master Canvas Monitoring
+
+1. Return to the employer canvas.
+2. Monitor the entire delegation tree, including employees, agents, and activity from a single interface.
 
 ---
 
@@ -350,7 +354,7 @@ The employer can now see the agent node branching from the employee node on thei
 
 | Track | Status | Evidence |
 |---|---|---|
-| **Best A2A Coordination** | Eligible | Allocard implements two delegation patterns. In the first, a Company delegates to an Employee, who redelegates a subset to an AI Agent (Travel or Procurement). In the second, the Company delegates directly to the Reimbursement Agent, and the agent pays out to the Employee. All entities hold ERC-4337 smart accounts. Both patterns use ERC-7710 redelegation. |
+| **Best A2A Coordination** | Eligible | Allocard implements three delegation patterns using ERC-7710. Pattern 1: Company delegates to an Employee, who redelegates a subset to an AI Agent (Travel or Procurement). Pattern 2: Company delegates directly to the Reimbursement Agent, and the agent pays out to the Employee. Pattern 3: Direct employee spend from the company delegation. All entities hold ERC-4337 smart accounts. |
 | **Best Agent** | Eligible | Allocard's agent system automates the core workflows of a corporate expense card: planned business spending,  Agent spending via the Travel and Procurement Agents, and out-of-pocket expenses via the Reimbursement Agent. Each agent holds a smart account, receives a scoped delegation, evaluates the request with Venice AI, and executes the on-chain transaction autonomously. No human approves individual transactions. |
 | **Best Use of Venice AI** | Eligible | Venice AI acts as the decision layer across every agent and spend flow. It reads on-chain caveats and natural language policy together, then makes a pass or reject decision. It also performs receipt OCR. One model handles both text reasoning and vision: `openai-gpt-4o-2024-11-20`. All decisions are stateless and private. |
 
