@@ -263,8 +263,19 @@ function validateCaveatForm(
     const max = parseFloat(form.maxAmountEth);
     if (max <= 0) {
       errors.maxAmountEth = "Spending limit must be greater than 0.";
-    } else if (availableBalanceEth !== null && max > availableBalanceEth) {
-      errors.maxAmountEth = `Exceeds available balance. Max you can delegate: ${availableBalanceEth.toFixed(6)} ETH.`;
+    } else if (availableBalanceEth !== null) {
+      try {
+        const maxWei = parseEther(form.maxAmountEth);
+        const availableWei = parseEther(availableBalanceEth.toString());
+        if (maxWei > availableWei) {
+          errors.maxAmountEth = `Exceeds available balance. Max you can delegate: ${availableBalanceEth} ETH.`;
+        }
+      } catch {
+        // Fallback if parsing fails for some reason
+        if (max > availableBalanceEth) {
+          errors.maxAmountEth = `Exceeds available balance. Max you can delegate: ${availableBalanceEth} ETH.`;
+        }
+      }
     }
   }
 
@@ -447,21 +458,25 @@ export function EmployerClient() {
   // Available balance = master balance minus the sum of all *other* active delegations' limits.
   const availableBalanceEth = useMemo(() => {
     if (ethBalance === undefined || !dashboardState) return null;
-    const masterEth = parseFloat(ethBalance);
-    if (isNaN(masterEth)) return null;
-    const alreadyDelegated = dashboardState.delegations
-      .filter(
-        (d) => d.status === "active" && d.id !== selectedDelegationId,
-      )
-      .reduce((sum, d) => {
-        const caveat = d.caveats.find((c) => c.caveatType === "nativeTokenTransferAmount");
-        if (!caveat) return sum;
-        const val = caveat.caveatValue as Record<string, unknown>;
-        const weiStr = String(val.maxAmount ?? val.amount ?? "");
-        if (!weiStr) return sum;
-        try { return sum + parseFloat(formatEther(BigInt(weiStr))); } catch { return sum; }
-      }, 0);
-    return Math.max(0, masterEth - alreadyDelegated);
+    try {
+      const masterWei = parseEther(ethBalance);
+      const alreadyDelegatedWei = dashboardState.delegations
+        .filter((d) => d.status === "active" && d.id !== selectedDelegationId)
+        .reduce((sum, d) => {
+          const caveat = d.caveats.find((c) => c.caveatType === "nativeTokenTransferAmount");
+          if (!caveat) return sum;
+          const val = caveat.caveatValue as Record<string, unknown>;
+          const weiStr = String(val.maxAmount ?? val.amount ?? "");
+          if (!weiStr) return sum;
+          try { return sum + BigInt(weiStr); } catch { return sum; }
+        }, 0n);
+      
+      const availableWei = masterWei - alreadyDelegatedWei;
+      if (availableWei <= 0n) return 0;
+      return parseFloat(formatEther(availableWei));
+    } catch {
+      return null;
+    }
   }, [ethBalance, dashboardState, selectedDelegationId]);
   const selectedDelegation = useMemo(
     () =>

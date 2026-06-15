@@ -2,12 +2,13 @@
   <img src="./apps/web/public/AllocardLogoWhite.svg" alt="Allocard Logo" width="150" />
 </div>
 <div align="center">
-# Allocard
+  <h1>Allocard</h1>
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-allocard.vercel.app-6366f1?style=for-the-badge&logo=vercel)](https://allocard.vercel.app/)
-[![Network](https://img.shields.io/badge/Network-ETH%20Sepolia-0052ff?style=for-the-badge&logo=ethereum)](https://sepolia.etherscan.io/)
-[![MetaMask](https://img.shields.io/badge/Built%20With-MetaMask%20Smart%20Accounts%20Kit-f6851b?style=for-the-badge)](https://metamask.io/)
-[![GitHub](https://img.shields.io/badge/GitHub-Stoneybro%2FAllocard-181717?style=for-the-badge&logo=github)](https://github.com/Stoneybro/Allocard)
+  [![Live Demo](https://img.shields.io/badge/Live%20Demo-allocard.vercel.app-6366f1?style=for-the-badge&logo=vercel)](https://allocard.vercel.app/)
+  [![Video Demo](https://img.shields.io/badge/YouTube-Video_Demo-FF0000?style=for-the-badge&logo=youtube)](https://youtu.be/8Cbk6FIz9hg)
+  [![Network](https://img.shields.io/badge/Network-ETH%20Sepolia-0052ff?style=for-the-badge&logo=ethereum)](https://sepolia.etherscan.io/)
+  [![MetaMask](https://img.shields.io/badge/Built%20With-MetaMask%20Smart%20Accounts%20Kit-f6851b?style=for-the-badge)](https://metamask.io/)
+  [![GitHub](https://img.shields.io/badge/GitHub-Stoneybro%2FAllocard-181717?style=for-the-badge&logo=github)](https://github.com/Stoneybro/Allocard)
 </div>
 
 ---

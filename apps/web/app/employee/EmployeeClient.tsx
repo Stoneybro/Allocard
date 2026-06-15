@@ -241,8 +241,18 @@ function validateCaveatForm(form: CaveatForm, availableMaxEth: string): FormErro
     const max = parseFloat(form.maxAmountEth);
     if (max <= 0) {
       errors.maxAmountEth = "Spending limit must be greater than 0.";
-    } else if (!isNaN(availableMax) && max > availableMax) {
-      errors.maxAmountEth = `Cannot exceed your remaining delegated balance of ${availableMaxEth} ETH.`;
+    } else if (availableMaxEth) {
+      try {
+        const maxWei = parseEther(form.maxAmountEth);
+        const availableWei = parseEther(availableMaxEth);
+        if (maxWei > availableWei) {
+          errors.maxAmountEth = `Cannot exceed your remaining delegated balance of ${availableMaxEth} ETH.`;
+        }
+      } catch {
+        if (!isNaN(availableMax) && max > availableMax) {
+          errors.maxAmountEth = `Cannot exceed your remaining delegated balance of ${availableMaxEth} ETH.`;
+        }
+      }
     }
   }
 
