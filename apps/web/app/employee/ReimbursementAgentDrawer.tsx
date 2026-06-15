@@ -378,7 +378,7 @@ export function ReimbursementAgentDrawer({
             <div className="bg-muted/30 text-foreground p-6 rounded-md text-sm flex flex-col gap-3 items-center text-center border border-border">
               <XCircleIcon className="w-12 h-12 text-muted-foreground mb-1" />
               <h3 className="font-semibold text-lg">Claim Rejected</h3>
-              <p className="text-muted-foreground leading-relaxed max-w-sm break-words whitespace-pre-wrap w-full">
+              <p className="text-muted-foreground leading-relaxed max-w-sm break-all whitespace-pre-wrap w-full">
                 {errorMessage}
               </p>
               <Button variant="outline" className="mt-4" onClick={() => { setStep("upload"); setErrorMessage(null); setFileBase64(null); }}>

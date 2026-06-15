@@ -189,9 +189,9 @@ export function TravelAgentDrawer({
               </div>
 
               {status === "error" && resultMessage && (
-                <div className="bg-muted/50 border p-3 rounded-md text-sm flex gap-2">
-                  <XCircleIcon className="w-5 h-5 shrink-0 text-muted-foreground" />
-                  <p className="text-foreground break-words whitespace-pre-wrap flex-1">{resultMessage}</p>
+                <div className="bg-muted/50 border p-3 rounded-md text-sm flex items-start gap-2 overflow-hidden">
+                  <XCircleIcon className="w-5 h-5 shrink-0 text-muted-foreground mt-0.5" />
+                  <p className="text-foreground break-all whitespace-pre-wrap flex-1 min-w-0">{resultMessage}</p>
                 </div>
               )}
             </>
