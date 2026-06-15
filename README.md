@@ -5,7 +5,7 @@
 # Allocard
 </div>
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-allocard.vercel.app-6366f1?style=for-the-badge&logo=vercel)](https://allocard.vercel.app/)
-[![Network](https://img.shields.io/badge/Network-Base%20Sepolia-0052ff?style=for-the-badge&logo=coinbase)](https://sepolia.basescan.org/)
+[![Network](https://img.shields.io/badge/Network-ETH%20Sepolia-0052ff?style=for-the-badge&logo=ethereum)](https://sepolia.etherscan.io/)
 [![MetaMask](https://img.shields.io/badge/Built%20With-MetaMask%20Smart%20Accounts%20Kit-f6851b?style=for-the-badge)](https://metamask.io/)
 [![GitHub](https://img.shields.io/badge/GitHub-Stoneybro%2FAllocard-181717?style=for-the-badge&logo=github)](https://github.com/Stoneybro/Allocard)
 
@@ -72,6 +72,10 @@ This maps directly onto the corporate card feature set:
 | Virtual cards for agents | Agent delegations: each agent gets a scoped, revocable delegation |
 
 The difference is that every rule in this table is enforced at the contract level. There is no provider to call, no support ticket to raise, and no override available to anyone outside the delegation chain.
+
+### A Note on Fraud Protection
+
+Allocard cannot prevent sophisticated employee fraud. An employee could collaborate with a malicious merchant or submit a highly manipulated receipt. However, combining on-chain caveats with Venice AI creates a strict defense layer. The smart contract blocks any transaction that exceeds hard limits. Venice AI flags policy violations before funds move. Every spend generates a permanent, auditable on-chain record. This setup limits the impact of any fraudulent act and guarantees full visibility for the employer.
 
 ---
 
@@ -157,6 +161,12 @@ Revoking a parent delegation revokes every delegation in its subtree. An employe
 ## Venice AI and the Agent System
 
 Allocard's agents are not chat assistants. Each agent holds a smart account, receives a scoped delegation, and executes on-chain transactions. Together, they cover the core workflows of a corporate expense card.
+
+### Agent Smart Accounts (ETH Sepolia)
+
+- **Reimbursement Agent:** `0xD61C510c51a1DD4a73C4Dfeca6893aeEE6A731c1`
+- **Travel Agent:** `0x916BE00E5cCd1A3a7930f20dFDC55D21947B8903`
+- **Procurement Agent:** `0x1Cf7F91e72727AEfFb31603CBD3a7d5Ae03aa922`
 
 ### Venice AI as the Decision Layer
 
@@ -270,7 +280,7 @@ The employer and employee flows are not independent. The employer generates an i
 1. Open [allocard.vercel.app](https://allocard.vercel.app) in a normal browser window.
 2. Connect a wallet via MetaMask Embedded Wallets.
 3. Create a company. Enter a company name and submit.
-4. Activate the company smart account. This deploys an ERC-4337 contract on Base Sepolia.
+4. Activate the company smart account. This deploys an ERC-4337 contract on ETH Sepolia.
 5. In the sidebar, generate an invite link. Copy it.
 
 At this point, no employees appear on the canvas yet. The employer cannot issue a delegation until an employee exists in the system.
@@ -372,7 +382,7 @@ Recommended for judges: open the employer dashboard in a normal browser window, 
 | AI | Venice AI: `openai-gpt-4o-2024-11-20` (text + vision) |
 | Auth | MetaMask Embedded Wallets |
 | Database | Neon (Postgres), Drizzle ORM |
-| Deployment | Vercel, Base Sepolia testnet |
+| Deployment | Vercel, ETH Sepolia testnet |
 | Package Manager | pnpm (monorepo) |
 
 ---
@@ -422,7 +432,7 @@ Next.js App Router
  │   Audit trail             │    └─────────────────────────────────┘
  └──────────────────────────┘
         |
-Delegation Manager Contract (Base Sepolia)
+Delegation Manager Contract (ETH Sepolia)
   ERC-7710 delegation validation
   Caveat enforcer execution
   On-chain ETH transfer
@@ -432,4 +442,4 @@ Delegation Manager Contract (Base Sepolia)
 
 
 
-*Built for the MetaMask Smart Accounts Kit x 1Shot API Hackathon. Network: Base Sepolia. Standards: ERC-7710, ERC-4337.*
+*Built for the MetaMask Smart Accounts Kit x 1Shot API Hackathon. Network: ETH Sepolia. Standards: ERC-7710, ERC-4337.*

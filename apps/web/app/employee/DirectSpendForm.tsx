@@ -286,7 +286,7 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
               <CheckCircle2 className="h-4 w-4 text-foreground" />
               <AlertTitle>Transaction Successful</AlertTitle>
               <AlertDescription className="text-muted-foreground font-mono text-xs break-all mt-1">
-                Tx Hash: <a href={`https://sepolia.basescan.org/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">{txHash}</a>
+                Tx Hash: <a href={`https://sepolia.etherscan.io/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">{txHash}</a>
               </AlertDescription>
             </Alert>
 

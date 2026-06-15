@@ -231,9 +231,9 @@ function buildSdkCaveats(form: CaveatForm) {
   return caveats;
 }
 
-function validateCaveatForm(form: CaveatForm, parentMaxEth: string): FormErrors {
+function validateCaveatForm(form: CaveatForm, availableMaxEth: string): FormErrors {
   const errors: FormErrors = {};
-  const parentMax = parseFloat(parentMaxEth);
+  const availableMax = parseFloat(availableMaxEth);
 
   if (!ETH_AMOUNT_RE.test(form.maxAmountEth.trim())) {
     errors.maxAmountEth = "Enter a valid ETH amount (e.g. 0.005).";
@@ -241,8 +241,8 @@ function validateCaveatForm(form: CaveatForm, parentMaxEth: string): FormErrors 
     const max = parseFloat(form.maxAmountEth);
     if (max <= 0) {
       errors.maxAmountEth = "Spending limit must be greater than 0.";
-    } else if (!isNaN(parentMax) && max > parentMax) {
-      errors.maxAmountEth = `Cannot exceed the parent delegation limit of ${parentMaxEth} ETH.`;
+    } else if (!isNaN(availableMax) && max > availableMax) {
+      errors.maxAmountEth = `Cannot exceed your remaining delegated balance of ${availableMaxEth} ETH.`;
     }
   }
 
@@ -448,6 +448,22 @@ export function EmployeeClient() {
     } catch { return "0.01"; }
   }, [dashboardState?.inboundDelegation]);
 
+  const availableMaxEth = useMemo(() => {
+    let baseRemaining = remainingWei;
+    if (selectedDelegationId && dashboardState) {
+      const currentDel = dashboardState.outboundDelegations.find(d => d.id === selectedDelegationId);
+      if (currentDel && currentDel.status === "active") {
+        const caveat = currentDel.caveats.find((c) => c.caveatType === "nativeTokenTransferAmount");
+        if (caveat) {
+          const val = caveat.caveatValue as Record<string, unknown>;
+          const currentWei = BigInt(String(val.maxAmount ?? val.amount ?? "0"));
+          baseRemaining += currentWei;
+        }
+      }
+    }
+    return baseRemaining > 0n ? weiToEthInput(baseRemaining.toString()) : "0";
+  }, [remainingWei, selectedDelegationId, dashboardState]);
+
   const selectedDelegation = useMemo(
     () => dashboardState?.outboundDelegations.find((d) => d.id === selectedDelegationId) ?? null,
     [dashboardState?.outboundDelegations, selectedDelegationId],
@@ -595,10 +611,13 @@ export function EmployeeClient() {
 
       // Default: open the caveat configuration drawer (for pending agents or employees)
       setSelectedDelegationId(delegationId);
-      setCaveatForm(formFromDelegation(delegation, parentMaxEth));
-      setFormErrors({});
+      // Wait for React to process selectedDelegationId state update so availableMaxEth recalculates
+      setTimeout(() => {
+        setCaveatForm(formFromDelegation(delegation, availableMaxEth));
+        setFormErrors({});
+      }, 0);
     },
-    [dashboardState?.outboundDelegations, dashboardState?.agents, parentMaxEth],
+    [dashboardState?.outboundDelegations, dashboardState?.agents, availableMaxEth],
   );
 
   // Task 7b: revoke an employee's own outbound delegation
@@ -618,7 +637,7 @@ export function EmployeeClient() {
     if (auth.status !== "authenticated" || !selectedDelegation || !auth.address) return;
     const walletAddress = auth.address;
 
-    const errors = validateCaveatForm(caveatForm, parentMaxEth);
+    const errors = validateCaveatForm(caveatForm, availableMaxEth);
     setFormErrors(errors);
     const hasErrors = Object.keys(errors).some(
       (k) => k !== "allowedTargetsWarning" && errors[k as keyof FormErrors],
@@ -706,7 +725,7 @@ export function EmployeeClient() {
         setError(caughtError instanceof Error ? caughtError.message : "Could not activate delegation");
       }
     });
-  }, [selectedDelegation, auth, caveatForm, parentMaxEth]);
+  }, [selectedDelegation, auth, caveatForm, availableMaxEth, dashboardState?.inboundDelegation]);
 
   // Task 8: Direct Spend execution
   const handleExecuteSpend = async (details: { toAddress: string; amountEth: string; purpose: string; isFlagged: boolean }) => {
@@ -1097,7 +1116,7 @@ export function EmployeeClient() {
             <DrawerDescription>
               {selectedDelegation?.status === "active"
                 ? "These rules are active and enforced on-chain. Values are constrained by your inbound delegation."
-                : "Configure what this agent is allowed to spend. Values cannot exceed your approved limit."}
+                : "Configure what this agent is allowed to spend. Values cannot exceed your remaining delegated balance."}
             </DrawerDescription>
           </DrawerHeader>
 
@@ -1111,7 +1130,7 @@ export function EmployeeClient() {
                   {formatDelegationStatus(selectedDelegation.status)}
                 </Badge>
                 <p className="text-xs text-muted-foreground">
-                  Parent limit: <span className="font-semibold text-foreground">{parentMaxEth} ETH</span>
+                  Remaining available: <span className="font-semibold text-foreground">{availableMaxEth} ETH</span>
                 </p>
               </div>
             )}

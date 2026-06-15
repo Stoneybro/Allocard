@@ -98,7 +98,7 @@ export function ActivityLogTable({ companyId }: { companyId: string }) {
               <TableCell>
                 {item.txHash ? (
                   <a
-                    href={`https://sepolia.basescan.org/tx/${item.txHash}`}
+                    href={`https://sepolia.etherscan.io/tx/${item.txHash}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-500 hover:text-blue-700"

@@ -356,7 +356,7 @@ export function ReimbursementAgentDrawer({
                 <div className="mt-4 w-full p-3 bg-card rounded-md border border-border text-xs text-left break-all shadow-sm">
                   <span className="font-semibold text-foreground block mb-1">Transaction Hash:</span>
                   <a
-                    href={`https://sepolia.basescan.org/tx/${txHash}`}
+                    href={`https://sepolia.etherscan.io/tx/${txHash}`}
                     target="_blank"
                     rel="noreferrer"
                     className="text-primary hover:underline font-mono"
