@@ -13,6 +13,38 @@
 
 ---
 
+## Hackathon Required Links
+
+### Smart Accounts Kit Usage
+
+**Smart Account Creation**
+- [Code usage link to user Smart Account creation](https://github.com/Stoneybro/Allocard/blob/main/apps/web/lib/smartAccount.ts#L34)
+
+**Advanced Permissions**
+*Not used for this project.*
+
+**Delegations**
+- [Code usage link to create delegation](https://github.com/Stoneybro/Allocard/blob/main/apps/web/app/employer/EmployerClient.tsx#L812)
+- [Code usage link to redeeming delegation](https://github.com/Stoneybro/Allocard/blob/main/apps/web/app/api/agents/reimbursement/claim/route.ts#L237)
+
+**Redelegation**
+- [Code usage link to creating redelegation](https://github.com/Stoneybro/Allocard/blob/main/apps/web/app/employee/EmployeeClient.tsx#L705)
+- [Code usage link to redeeming redelegation](https://github.com/Stoneybro/Allocard/blob/main/apps/web/app/employee/EmployeeClient.tsx#L802)
+
+**x402**
+*Not used for this project.*
+
+### 1Shot API Usage
+*Not used for this project (applied specifically for the Venice AI track).*
+
+### Venice AI Usage
+- [Low-level Venice fetch helper](https://github.com/Stoneybro/Allocard/blob/main/apps/web/lib/venice.ts#L113)
+- [Reimbursement Agent Policy Check Execution](https://github.com/Stoneybro/Allocard/blob/main/apps/web/app/api/agents/reimbursement/claim/route.ts#L149)
+- [Travel Agent Research Execution](https://github.com/Stoneybro/Allocard/blob/main/apps/web/app/api/agents/travel/research/route.ts#L75)
+- [Procurement Agent Research Execution](https://github.com/Stoneybro/Allocard/blob/main/apps/web/app/api/agents/procurement/research/route.ts#L77)
+
+---
+
 ## Quick Summary
 
 Corporate expense card providers like Brex and Ramp allow companies to issue their employees credit cards for business expenses with predefined rules and spending controls. 
@@ -454,5 +486,6 @@ Delegation Manager Contract (ETH Sepolia)
 ---
 
 
+---
 
 *Built for the MetaMask Smart Accounts Kit x 1Shot API Hackathon. Network: ETH Sepolia. Standards: ERC-7710, ERC-4337.*
