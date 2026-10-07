@@ -48,52 +48,34 @@ export function InviteClient({ details }: { details: InviteDetails }) {
     );
   }
 
-  if (auth.status === "initializing") {
+  if (auth.status === "connecting") {
     return (
       <div className="flex h-full min-h-screen items-center justify-center p-6 bg-white">
         <div className="flex flex-col items-center gap-6 text-center">
           <img src="/AllocardLogoBlack.svg" alt="Allocard Logo" className="w-16 h-16 object-contain mb-4" />
           <div className="w-10 h-10 border-4 border-[#eaeaea] border-t-[#111] rounded-full animate-spin"></div>
-          <p className="text-xl font-bold text-[#111] tracking-[-0.02em]">Initializing wallet...</p>
+          <p className="text-xl font-bold text-[#111] tracking-[-0.02em]">Connecting wallet...</p>
         </div>
-      </div>
-    );
-  }
-
-  if (auth.status === "error") {
-    return (
-      <div className="flex h-full items-center justify-center overflow-y-auto p-6">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>Connection Error</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            <p className="text-sm text-destructive">{auth.message}</p>
-            <Button onClick={auth.retry}>Retry</Button>
-          </CardContent>
-        </Card>
       </div>
     );
   }
 
   // ── Accept invite handler ─────────────────────────────────────────────────
   const handleAcceptInvite = () => {
-    setError(null);
+    if (auth.status !== "authenticated") return;
 
+    setError(null);
     startTransition(async () => {
       try {
         await createSession(auth.address);
-        const profile = await acceptInvite({
-          walletAddress: auth.address,
+        await acceptInvite({
           inviteCode: details.invite.inviteCode,
+          walletAddress: auth.address,
         });
-
-        router.replace(profile.status === "employee" ? "/employee" : "/employer");
+        
+        router.push("/employee");
       } catch (caughtError) {
-        const message =
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Invite acceptance failed";
+        const message = caughtError instanceof Error ? caughtError.message : "Failed to accept invite";
         setError(message);
       }
     });

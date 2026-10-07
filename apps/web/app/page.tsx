@@ -37,7 +37,6 @@ export default function LandingPage() {
     });
   }, [auth, router]);
 
-  // ── CTA handler ───────────────────────────────────────────────────────────
   const handleConnect = () => {
     if (auth.status === "authenticated") {
       startRouting(async () => {
@@ -56,22 +55,16 @@ export default function LandingPage() {
     if (auth.status === "unauthenticated") {
       auth.connect();
     }
-    if (auth.status === "initializing") {
-      const checkInterval = setInterval(() => {
-        clearInterval(checkInterval);
-      }, 500);
-    }
   };
 
   const buttonLabel = (() => {
-    if (auth.status === "error") return "Retry";
     if (isRouting) return "Loading...";
     if (auth.status === "unauthenticated" && auth.connecting) return "Connecting...";
     return "Try the Demo";
   })();
 
   const isBusy =
-    (auth.status === "unauthenticated" && auth.connecting) || isRouting;
+    (auth.status === "unauthenticated" && auth.connecting) || isRouting || auth.status === "connecting";
 
   return (
     <div className="min-h-screen bg-white text-[#111] font-sans antialiased overflow-y-auto">

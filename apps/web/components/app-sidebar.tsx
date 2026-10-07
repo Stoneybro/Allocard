@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useWeb3AuthDisconnect } from "@web3auth/modal/react";
+import { useDisconnect } from "wagmi";
 import {
   BotIcon,
   CheckIcon,
@@ -562,7 +562,7 @@ function CanvasSection({
 // ---------------------------------------------------------------------------
 
 function LogoutMenuItem() {
-  const { disconnect } = useWeb3AuthDisconnect();
+  const { disconnect } = useDisconnect();
 
   return (
     <DropdownMenuItem onClick={() => void disconnect()} className="cursor-pointer text-muted-foreground hover:text-foreground">

@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { useAccount } from 'wagmi'
-import { useWeb3AuthConnect, useWeb3AuthDisconnect } from '@web3auth/modal/react'
+import { useAccount, useConnect, useDisconnect } from 'wagmi'
+import { injected } from 'wagmi/connectors'
 import {
   createBundlerClient,
   createPaymasterClient,
@@ -36,9 +36,9 @@ function formatAddress(address: string | undefined) {
 }
 
 export default function WalletDashboard() {
-  const { connect, loading, isConnected } = useWeb3AuthConnect()
-  const { disconnect } = useWeb3AuthDisconnect()
-  const { address } = useAccount()
+  const { connect, isPending: loading } = useConnect()
+  const { disconnect } = useDisconnect()
+  const { address, isConnected } = useAccount()
   const [deployment, setDeployment] = useState<DeploymentState>(
     initialDeploymentState,
   )
@@ -49,7 +49,7 @@ export default function WalletDashboard() {
 
   const handleDisconnect = async () => {
     setDeployment(initialDeploymentState)
-    await disconnect()
+    disconnect()
   }
 
   const handleDeploy = async () => {
@@ -154,7 +154,7 @@ export default function WalletDashboard() {
           </div>
           <button
             id="connect-wallet-btn"
-            onClick={() => connect()}
+            onClick={() => connect({ connector: injected() })}
             disabled={loading}
             className="w-fit rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
           >

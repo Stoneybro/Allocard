@@ -1,6 +1,6 @@
 "use client"
 
-import { useWeb3AuthDisconnect } from "@web3auth/modal/react"
+import { useDisconnect } from "wagmi"
 import {
   Avatar,
   AvatarFallback,
@@ -38,7 +38,7 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
-  const { disconnect } = useWeb3AuthDisconnect()
+  const { disconnect } = useDisconnect()
 
   return (
     <SidebarMenu>

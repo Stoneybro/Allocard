@@ -48,37 +48,13 @@ export default function OnboardingPage() {
     return <ConnectRequiredCard />;
   }
 
-  if (auth.status === "initializing") {
+  if (auth.status === "connecting") {
     return (
       <div className="flex h-full min-h-screen items-center justify-center p-6 bg-white">
         <div className="flex flex-col items-center gap-6 text-center">
           <img src="/AllocardLogoBlack.svg" alt="Allocard Logo" className="w-16 h-16 object-contain mb-4" />
           <div className="w-10 h-10 border-4 border-[#eaeaea] border-t-[#111] rounded-full animate-spin"></div>
-          <p className="text-xl font-bold text-[#111] tracking-[-0.02em]">Initializing wallet...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (auth.status === "error") {
-    return (
-      <div className="flex h-full min-h-[400px] items-center justify-center p-6 bg-white">
-        <div className="flex flex-col items-center gap-5 text-center max-w-sm">
-          <div className="w-10 h-10 rounded-full border border-[#eaeaea] flex items-center justify-center text-[#999]">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-            </svg>
-          </div>
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-semibold text-[#111]">Wallet initialization failed</p>
-            <p className="text-xs text-[#666] leading-relaxed">{auth.message}</p>
-          </div>
-          <button
-            onClick={auth.retry}
-            className="h-9 px-5 rounded-md bg-[#111] text-white text-sm font-medium hover:bg-[#333] transition-colors cursor-pointer"
-          >
-            Retry
-          </button>
+          <p className="text-xl font-bold text-[#111] tracking-[-0.02em]">Connecting wallet...</p>
         </div>
       </div>
     );
