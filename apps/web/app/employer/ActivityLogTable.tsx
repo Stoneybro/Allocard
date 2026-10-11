@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ExternalLink } from "lucide-react";
 import { getActivityLog, ActivityLogItem } from "@/app/actions/activity";
+import { getTxExplorerUrl } from "@/lib/chain";
 
 export function ActivityLogTable({ companyId }: { companyId: string }) {
   const [log, setLog] = useState<ActivityLogItem[]>([]);
@@ -98,7 +99,7 @@ export function ActivityLogTable({ companyId }: { companyId: string }) {
               <TableCell>
                 {item.txHash ? (
                   <a
-                    href={`https://sepolia.etherscan.io/tx/${item.txHash}`}
+                    href={getTxExplorerUrl(item.txHash)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-blue-500 hover:text-blue-700"

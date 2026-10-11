@@ -1,5 +1,5 @@
 import { createWalletClient, custom, type EIP1193Provider } from 'viem'
-import { sepolia as chain } from 'viem/chains'
+import { chain } from './chain'
 
 export function createInjectedWalletClient(account?: `0x${string}`) {
   if (typeof window === 'undefined') {

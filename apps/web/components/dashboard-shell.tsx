@@ -17,8 +17,11 @@ export function DashboardShell({
   workspaceOptions,
   onWorkspaceChange,
   employees,
+  pendingEmployees,
   agents,
   onAddEmployee,
+  onInviteEmployeeByEmail,
+  onAddSelfAsEmployee,
   onSelectAgent,
   onRefreshEmployees,
   employeesRefreshing,
@@ -35,8 +38,11 @@ export function DashboardShell({
   workspaceOptions?: WorkspaceOption[];
   onWorkspaceChange?: (companyId: string, role: "employer" | "employee") => void;
   employees?: SidebarEmployee[];
+  pendingEmployees?: { id: string; email: string; createdAt: string }[];
   agents?: SidebarAgent[];
   onAddEmployee?: (employeeId: string) => void;
+  onInviteEmployeeByEmail?: (email: string) => Promise<void>;
+  onAddSelfAsEmployee?: () => Promise<void>;
   onSelectAgent?: (agentId: string) => void;
   onRefreshEmployees?: () => void;
   employeesRefreshing?: boolean;
@@ -63,8 +69,11 @@ export function DashboardShell({
         workspaceOptions={workspaceOptions ?? []}
         onWorkspaceChange={onWorkspaceChange}
         employees={employees ?? []}
+        pendingEmployees={pendingEmployees}
         agents={agents ?? []}
         onAddEmployee={onAddEmployee}
+        onInviteEmployeeByEmail={onInviteEmployeeByEmail}
+        onAddSelfAsEmployee={onAddSelfAsEmployee}
         onSelectAgent={onSelectAgent}
         onRefreshEmployees={onRefreshEmployees}
         employeesRefreshing={employeesRefreshing}

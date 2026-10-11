@@ -3,14 +3,14 @@
 import { PrivyProvider } from '@privy-io/react-auth'
 import { WagmiProvider, createConfig } from '@privy-io/wagmi'
 import { http } from 'viem'
-import { sepolia } from 'viem/chains'
+import { chain } from '@/lib/chain'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 
 const wagmiConfig = createConfig({
-  chains: [sepolia],
+  chains: [chain],
   transports: {
-    [sepolia.id]: http(),
+    [chain.id]: http(),
   },
 })
 
@@ -40,8 +40,8 @@ export default function Web3Providers({
       appId={privyAppId}
       config={{
         loginMethods: ['google', 'email'],
-        defaultChain: sepolia,
-        supportedChains: [sepolia],
+        defaultChain: chain,
+        supportedChains: [chain],
         embeddedWallets: {
           ethereum: { createOnLogin: 'users-without-wallets' },
         },

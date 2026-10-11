@@ -4,7 +4,7 @@ import { requireEmployeeCompany, requireSessionUser } from "@/lib/auth-guard";
 import { delegations, manualTransactions } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { createPublicClient, http } from "viem";
-import { sepolia } from "viem/chains";
+import { chain } from "@/lib/chain";
 
 export async function POST(req: NextRequest) {
   try {

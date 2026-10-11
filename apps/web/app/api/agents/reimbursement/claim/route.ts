@@ -7,7 +7,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { checkPolicy, verifyReceipt } from "@/lib/venice";
 import { createWalletClient, http, parseEther, type Hex, createPublicClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { sepolia } from "viem/chains";
+import { chain } from "@/lib/chain";
 import {
   getSmartAccountsEnvironment,
   ScopeType,
@@ -201,8 +201,8 @@ export async function POST(req: NextRequest) {
 
     try {
       const account = privateKeyToAccount(pkey.startsWith('0x') ? pkey as Hex : `0x${pkey}`);
-      const publicClient = createPublicClient({ chain: sepolia, transport: http() });
-      const walletClient = createWalletClient({ account, chain: sepolia, transport: http() });
+      const publicClient = createPublicClient({ chain, transport: http() });
+      const walletClient = createWalletClient({ account, chain, transport: http() });
       
       const bundlerUrl = process.env.NEXT_PUBLIC_BUNDLER_RPC_URL;
       const paymasterUrl = process.env.NEXT_PUBLIC_PAYMASTER_RPC_URL;
@@ -227,7 +227,7 @@ export async function POST(req: NextRequest) {
       });
       const bundlerClient = createBundlerClient({
         client: publicClient,
-        chain: sepolia,
+        chain,
         paymaster: paymasterClient,
         paymasterContext: sponsorId ? { policyId: sponsorId } : undefined,
         transport: http(bundlerUrl),
@@ -239,7 +239,7 @@ export async function POST(req: NextRequest) {
       });
 
       // 5c. Send UserOp
-      const env = getSmartAccountsEnvironment(sepolia.id);
+      const env = getSmartAccountsEnvironment(chain.id);
       const userOpHash = await bundlerClient.sendUserOperation({
         account: sa as any,
         calls: [{

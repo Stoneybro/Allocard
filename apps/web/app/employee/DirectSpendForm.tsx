@@ -9,6 +9,7 @@ import { parseUserOpError } from "@/lib/error-parser";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle, CheckCircle2, Loader2, UploadCloud, ArrowRight } from "lucide-react";
 import { parseEther } from "viem";
+import { getTxExplorerUrl, TOKEN_SYMBOL } from "@/lib/chain";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -177,7 +178,7 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="ds-amount">Amount (ETH)</Label>
+              <Label htmlFor="ds-amount">Amount ({TOKEN_SYMBOL})</Label>
               <Input
                 id="ds-amount"
                 type="number"
@@ -287,7 +288,7 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
               <CheckCircle2 className="h-4 w-4 text-foreground" />
               <AlertTitle>Transaction Successful</AlertTitle>
               <AlertDescription className="text-muted-foreground font-mono text-xs break-all mt-1">
-                Tx Hash: <a href={`https://sepolia.etherscan.io/tx/${txHash}`} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">{txHash}</a>
+                Tx Hash: <a href={getTxExplorerUrl(txHash)} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">{txHash}</a>
               </AlertDescription>
             </Alert>
 

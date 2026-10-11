@@ -3,7 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { createBundlerClient, createPaymasterClient } from "viem/account-abstraction";
 import { http } from "viem";
-import { sepolia } from "viem/chains";
+import { chain } from "@/lib/chain";
 import { LoaderCircleIcon, RocketIcon } from "lucide-react";
 import { useWalletClient, useSwitchChain, useChainId } from "wagmi";
 import { activateSmartAccount } from "@/app/actions/identity";
@@ -62,9 +62,9 @@ export function SmartAccountActivationButton({
 
     startTransition(async () => {
       try {
-        if (chainId !== sepolia.id) {
+        if (chainId !== chain.id) {
           try {
-            await switchChainAsync({ chainId: sepolia.id });
+            await switchChainAsync({ chainId: chain.id });
           } catch (switchError) {
             console.warn("Could not switch chain via wagmi", switchError);
             // Ignore switch error, we might be able to recreate the wallet client
@@ -94,7 +94,7 @@ export function SmartAccountActivationButton({
           });
           const bundlerClient = createBundlerClient({
             client: publicClient,
-            chain: sepolia,
+            chain,
             paymaster: paymasterClient,
             paymasterContext: sponsorId ? { policyId: sponsorId } : undefined,
             transport: http(bundlerUrl),

@@ -42,6 +42,6 @@ This is the Next.js frontend for Allocard, a trustless corporate expense card sy
 
 ## Target Chain
 
-Allocard currently targets **ETH Sepolia**.
+Allocard targets **Monad Testnet (Chain ID: 10143)**.
 
 Employers add employees by verified email. Employees accept pending memberships in the workspace picker. A signed-in user can switch between their company and role memberships from the dashboard sidebar.

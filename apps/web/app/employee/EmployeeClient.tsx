@@ -24,6 +24,7 @@ import {
   setWorkspaceContext,
   type EmployeeDashboardState,
   type WorkspaceOption,
+  type WalletProfile,
 } from "@/app/actions/identity";
 import {
   ConnectRequiredCard,
@@ -67,7 +68,7 @@ import { publicClient, getPimlicoGasPrice } from "@/lib/client";
 import { cn } from "@/lib/utils";
 import { formatWalletAddress, generateEmployeeReferenceId } from "@/lib/wallet";
 import { useWalletClient, useSwitchChain, useBalance } from "wagmi";
-import { sepolia } from "viem/chains";
+import { chain, CHAIN_ID, TOKEN_SYMBOL } from "@/lib/chain";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -237,7 +238,7 @@ function validateCaveatForm(form: CaveatForm, availableMaxEth: string): FormErro
   const availableMax = parseFloat(availableMaxEth);
 
   if (!ETH_AMOUNT_RE.test(form.maxAmountEth.trim())) {
-    errors.maxAmountEth = "Enter a valid ETH amount (e.g. 0.005).";
+    errors.maxAmountEth = `Enter a valid ${TOKEN_SYMBOL} amount (e.g. 0.005).`;
   } else {
     const max = parseFloat(form.maxAmountEth);
     if (max <= 0) {
@@ -247,11 +248,11 @@ function validateCaveatForm(form: CaveatForm, availableMaxEth: string): FormErro
         const maxWei = parseEther(form.maxAmountEth);
         const availableWei = parseEther(availableMaxEth);
         if (maxWei > availableWei) {
-          errors.maxAmountEth = `Cannot exceed your remaining delegated balance of ${availableMaxEth} ETH.`;
+          errors.maxAmountEth = `Cannot exceed your remaining delegated balance of ${availableMaxEth} ${TOKEN_SYMBOL}.`;
         }
       } catch {
         if (!isNaN(availableMax) && max > availableMax) {
-          errors.maxAmountEth = `Cannot exceed your remaining delegated balance of ${availableMaxEth} ETH.`;
+          errors.maxAmountEth = `Cannot exceed your remaining delegated balance of ${availableMaxEth} ${TOKEN_SYMBOL}.`;
         }
       }
     }
@@ -262,14 +263,14 @@ function validateCaveatForm(form: CaveatForm, availableMaxEth: string): FormErro
     if (!raw) {
       errors.periodAmountEth = "Enter a period allowance when a recurring period is selected.";
     } else if (!ETH_AMOUNT_RE.test(raw)) {
-      errors.periodAmountEth = "Enter a valid ETH amount (e.g. 0.01).";
+      errors.periodAmountEth = `Enter a valid ${TOKEN_SYMBOL} amount (e.g. 0.01).`;
     } else {
       const period = parseFloat(raw);
       const max = parseFloat(form.maxAmountEth);
       if (period <= 0) {
         errors.periodAmountEth = "Period allowance must be greater than 0.";
       } else if (!errors.maxAmountEth && period > max) {
-        errors.periodAmountEth = `Period allowance cannot exceed the lifetime limit (${form.maxAmountEth} ETH).`;
+        errors.periodAmountEth = `Period allowance cannot exceed the lifetime limit (${form.maxAmountEth} ${TOKEN_SYMBOL}).`;
       }
     }
   }
@@ -277,7 +278,7 @@ function validateCaveatForm(form: CaveatForm, availableMaxEth: string): FormErro
   const perTxRaw = form.perTransactionCapEth.trim();
   if (perTxRaw) {
     if (!ETH_AMOUNT_RE.test(perTxRaw)) {
-      errors.perTransactionCapEth = "Enter a valid ETH amount (e.g. 0.005).";
+      errors.perTransactionCapEth = `Enter a valid ${TOKEN_SYMBOL} amount (e.g. 0.005).`;
     } else {
       const perTx = parseFloat(perTxRaw);
       if (perTx <= 0) {
@@ -288,7 +289,7 @@ function validateCaveatForm(form: CaveatForm, availableMaxEth: string): FormErro
             ? parseFloat(form.periodAmountEth)
             : parseFloat(form.maxAmountEth);
         if (!isNaN(ceiling) && perTx > ceiling) {
-          errors.perTransactionCapEth = `Per-transaction cap cannot exceed ${form.period !== "none" ? `the period allowance (${form.periodAmountEth} ETH)` : `the lifetime limit (${form.maxAmountEth} ETH)`}.`;
+          errors.perTransactionCapEth = `Per-transaction cap cannot exceed ${form.period !== "none" ? `the period allowance (${form.periodAmountEth} ${TOKEN_SYMBOL})` : `the lifetime limit (${form.maxAmountEth} ${TOKEN_SYMBOL})`}.`;
         }
       }
     }
@@ -325,13 +326,26 @@ function toSignedDelegationJson(delegation: Delegation) {
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export function EmployeeClient() {
+export function EmployeeClient({
+  initialProfile,
+  initialDashboardState,
+}: {
+  initialProfile?: WalletProfile | null;
+  initialDashboardState?: EmployeeDashboardState | null;
+} = {}) {
   const router = useRouter();
   const auth = useAuth();
-  const didLoadDashboard = useRef(false);
-  const [dashboardState, setDashboardState] = useState<EmployeeDashboardState | null>(null);
-  const [workspaceOptions, setWorkspaceOptions] = useState<WorkspaceOption[]>([]);
-  const [activeCompanyId, setActiveCompanyId] = useState("");
+  const currentAuthAddress = auth.status === "authenticated" ? (auth.address as `0x${string}`) : undefined;
+  const didLoadDashboard = useRef(Boolean(initialProfile && initialDashboardState));
+  const [dashboardState, setDashboardState] = useState<EmployeeDashboardState | null>(
+    initialDashboardState ?? null,
+  );
+  const [workspaceOptions, setWorkspaceOptions] = useState<WorkspaceOption[]>(
+    (initialProfile && "workspaces" in initialProfile && initialProfile.workspaces) || [],
+  );
+  const [activeCompanyId, setActiveCompanyId] = useState<string>(
+    (initialProfile && "user" in initialProfile && initialProfile.user ? initialProfile.user.companyId : "") || "",
+  );
   const [isPending, startTransition] = useTransition();
   const { data: walletClient } = useWalletClient();
   const { switchChainAsync } = useSwitchChain();
@@ -376,7 +390,11 @@ export function EmployeeClient() {
   }, [dashboardState?.employee?.smartAccountAddress]);
 
   useEffect(() => {
-    if (auth.status !== "authenticated" || didLoadDashboard.current) return;
+    if (auth.status !== "authenticated") return;
+    if (didLoadDashboard.current) {
+      void auth.establishSession().catch(() => {});
+      return;
+    }
     didLoadDashboard.current = true;
     const addr = auth.address;
 
@@ -693,15 +711,15 @@ export function EmployeeClient() {
           throw new Error("Wallet signer is still loading. Please try again.");
         }
 
-        // Ensure the wallet is on ETH Sepolia before signing
+        // Ensure the wallet is on Monad Testnet before signing
         try {
-          await switchChainAsync({ chainId: sepolia.id });
+          await switchChainAsync({ chainId: chain.id });
         } catch (switchError) {
           console.warn("Could not switch chain via wagmi", switchError);
         }
 
         const smartAccount = await createHybridSmartAccount(walletClient, walletAddress);
-        const environment = getSmartAccountsEnvironment(sepolia.id);
+        const environment = getSmartAccountsEnvironment(chain.id);
         const sdkCaveats = buildSdkCaveats(caveatForm);
 
         // The parent signedDelegation is already stored in inboundDelegation
@@ -724,7 +742,7 @@ export function EmployeeClient() {
 
         const signature = await smartAccount.signDelegation({
           delegation,
-          chainId: sepolia.id,
+          chainId: chain.id,
         });
 
         const signedDelegation = { ...delegation, signature };
@@ -756,9 +774,9 @@ export function EmployeeClient() {
       throw new Error("Wallet signer is still loading. Please try again.");
     }
 
-    // Ensure the wallet is on ETH Sepolia before sending
+    // Ensure the wallet is on Monad Testnet before sending
     try {
-      await switchChainAsync({ chainId: sepolia.id });
+      await switchChainAsync({ chainId: chain.id });
     } catch (switchError) {
       console.warn("Could not switch chain via wagmi", switchError);
     }
@@ -779,10 +797,10 @@ export function EmployeeClient() {
       transport: http(paymasterUrl),
     });
 
-    const publicClient = createPublicClient({ chain: sepolia, transport: http() });
+    const publicClient = createPublicClient({ chain, transport: http() });
     const bundlerClient = createBundlerClient({
       client: publicClient,
-      chain: sepolia,
+      chain,
       transport: http(bundlerUrl),
       paymaster: paymasterClient,
       paymasterContext: sponsorId ? { policyId: sponsorId } : undefined,
@@ -794,7 +812,7 @@ export function EmployeeClient() {
     });
 
     const { getSmartAccountsEnvironment } = await import("@metamask/smart-accounts-kit");
-    const env = getSmartAccountsEnvironment(sepolia.id);
+    const env = getSmartAccountsEnvironment(chain.id);
 
     const permissionContext = dashboardState?.inboundDelegation?.signedDelegation 
       ? [dashboardState.inboundDelegation.signedDelegation] 
@@ -866,7 +884,7 @@ export function EmployeeClient() {
     }
 
     try {
-      await switchChainAsync({ chainId: sepolia.id });
+      await switchChainAsync({ chainId: chain.id });
     } catch (switchError) {
       console.warn("Could not switch chain via wagmi", switchError);
     }
@@ -886,10 +904,10 @@ export function EmployeeClient() {
       transport: http(paymasterUrl),
     });
 
-    const publicClient = createPublicClient({ chain: sepolia, transport: http() });
+    const publicClient = createPublicClient({ chain, transport: http() });
     const bundlerClient = createBundlerClient({
       client: publicClient,
-      chain: sepolia,
+      chain,
       transport: http(bundlerUrl),
       paymaster: paymasterClient,
       userOperation: {
@@ -914,11 +932,11 @@ export function EmployeeClient() {
 
   // ── Render guards ──────────────────────────────────────────────────────────
 
-  if (auth.status === "unauthenticated") {
+  if (auth.status === "unauthenticated" && !dashboardState) {
     return <ConnectRequiredCard />;
   }
 
-  if (auth.status === "connecting") {
+  if (auth.status === "connecting" && !dashboardState) {
     return (
       <div className="flex h-full min-h-screen items-center justify-center p-6 bg-white">
         <div className="flex flex-col items-center gap-6 text-center">
@@ -989,12 +1007,16 @@ export function EmployeeClient() {
   return (
     <DashboardShell
       companyName={company.name}
-      companyId={activeCompanyId}
+      companyId={activeCompanyId || undefined}
       workspaceOptions={workspaceOptions}
       onWorkspaceChange={(companyId, role) => {
         startTransition(async () => {
           try {
-            await setWorkspaceContext({ walletAddress: auth.address, companyId, role });
+            await setWorkspaceContext({
+              walletAddress: (currentAuthAddress || employee.walletAddress) as string,
+              companyId,
+              role,
+            });
             setDashboardState(null);
             window.location.assign(role === "employer" ? "/employer" : "/employee");
           } catch (caught) {
@@ -1026,7 +1048,7 @@ export function EmployeeClient() {
               </p>
             </div>
             <SmartAccountActivationButton
-              walletAddress={auth.address}
+              walletAddress={(currentAuthAddress || employee.walletAddress) as `0x${string}`}
               existingSmartAccountAddress={employee.smartAccountAddress}
               onActivated={(result) => handleSmartAccountActivated(result.smartAccountAddress)}
             />
@@ -1132,7 +1154,7 @@ export function EmployeeClient() {
                   {formatDelegationStatus(selectedDelegation.status)}
                 </Badge>
                 <p className="text-xs text-muted-foreground">
-                  Remaining available: <span className="font-semibold text-foreground">{availableMaxEth} ETH</span>
+                  Remaining available: <span className="font-semibold text-foreground">{availableMaxEth} {TOKEN_SYMBOL}</span>
                 </p>
               </div>
             )}
@@ -1149,7 +1171,7 @@ export function EmployeeClient() {
               <h4 className="text-sm font-semibold text-foreground">1. Spending Limits</h4>
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="emp-max-amount">Lifetime Spending Limit (ETH)</Label>
+                <Label htmlFor="emp-max-amount">Lifetime Spending Limit ({TOKEN_SYMBOL})</Label>
                 <Input
                   id="emp-max-amount"
                   value={caveatForm.maxAmountEth}
@@ -1163,7 +1185,7 @@ export function EmployeeClient() {
                   <p className="text-[0.8rem] text-destructive">{formErrors.maxAmountEth}</p>
                 ) : (
                   <p className="text-[0.8rem] text-muted-foreground">
-                    Max: {availableMaxEth} ETH (your remaining available balance).
+                    Max: {availableMaxEth} {TOKEN_SYMBOL} (your remaining available balance).
                   </p>
                 )}
               </div>
@@ -1197,7 +1219,7 @@ export function EmployeeClient() {
 
               {caveatForm.period !== "none" && (
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="emp-period-amount">Allowance per Period (ETH)</Label>
+                  <Label htmlFor="emp-period-amount">Allowance per Period ({TOKEN_SYMBOL})</Label>
                   <Input
                     id="emp-period-amount"
                     value={caveatForm.periodAmountEth}
@@ -1225,7 +1247,7 @@ export function EmployeeClient() {
               <h4 className="text-sm font-semibold text-foreground">2. Transaction Restrictions</h4>
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="emp-value-lte">Maximum Per-Transaction (ETH)</Label>
+                <Label htmlFor="emp-value-lte">Maximum Per-Transaction ({TOKEN_SYMBOL})</Label>
                 <Input
                   id="emp-value-lte"
                   value={caveatForm.perTransactionCapEth}

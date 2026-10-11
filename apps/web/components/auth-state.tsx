@@ -46,7 +46,7 @@ function Spinner() {
 
 export function ConnectRequiredCard({
   title = "Sign in to Allocard",
-  description = "Continue with Google or email to open your Allocard workspace.",
+  description = "Sign in to open your Allocard workspace.",
 }: {
   title?: string;
   description?: string;
@@ -79,7 +79,7 @@ export function ConnectRequiredCard({
             className="h-12 w-full rounded-md bg-[#111] text-white text-base font-semibold hover:bg-[#333] transition-colors disabled:opacity-40 cursor-pointer flex items-center justify-center gap-3"
           >
             {auth.connecting && <Spinner />}
-            {auth.connecting ? "Connecting..." : "Continue with Google or email"}
+            {auth.connecting ? "Connecting..." : "Sign in"}
           </button>
           <Link href="/" className="h-12 w-full rounded-md border border-[#eaeaea] bg-white text-[#111] text-base font-semibold hover:bg-[#f5f5f5] transition-colors flex items-center justify-center">
             Return to Home Page

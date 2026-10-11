@@ -16,6 +16,7 @@ import { LoaderCircleIcon, ShieldCheckIcon, BotIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { parseEther, formatEther, type Hex } from "viem";
+import { CHAIN_ID, TOKEN_SYMBOL } from "@/lib/chain";
 import {
   updateCompanyPolicy,
   activateDelegation,
@@ -259,7 +260,7 @@ function validateCaveatForm(
 
   // --- Lifetime Spending Limit ---
   if (!ETH_AMOUNT_RE.test(form.maxAmountEth.trim())) {
-    errors.maxAmountEth = "Enter a valid ETH amount (e.g. 0.05).";
+    errors.maxAmountEth = `Enter a valid ${TOKEN_SYMBOL} amount (e.g. 0.05).`;
   } else {
     const max = parseFloat(form.maxAmountEth);
     if (max <= 0) {
@@ -269,12 +270,12 @@ function validateCaveatForm(
         const maxWei = parseEther(form.maxAmountEth);
         const availableWei = parseEther(availableBalanceEth.toString());
         if (maxWei > availableWei) {
-          errors.maxAmountEth = `Exceeds available balance. Max you can delegate: ${availableBalanceEth} ETH.`;
+          errors.maxAmountEth = `Exceeds available balance. Max you can delegate: ${availableBalanceEth} ${TOKEN_SYMBOL}.`;
         }
       } catch {
         // Fallback if parsing fails for some reason
         if (max > availableBalanceEth) {
-          errors.maxAmountEth = `Exceeds available balance. Max you can delegate: ${availableBalanceEth} ETH.`;
+          errors.maxAmountEth = `Exceeds available balance. Max you can delegate: ${availableBalanceEth} ${TOKEN_SYMBOL}.`;
         }
       }
     }
@@ -286,14 +287,14 @@ function validateCaveatForm(
     if (!raw) {
       errors.periodAmountEth = "Enter a period allowance when a recurring period is selected.";
     } else if (!ETH_AMOUNT_RE.test(raw)) {
-      errors.periodAmountEth = "Enter a valid ETH amount (e.g. 0.01).";
+      errors.periodAmountEth = `Enter a valid ${TOKEN_SYMBOL} amount (e.g. 0.01).`;
     } else {
       const period = parseFloat(raw);
       const max = parseFloat(form.maxAmountEth);
       if (period <= 0) {
         errors.periodAmountEth = "Period allowance must be greater than 0.";
       } else if (!errors.maxAmountEth && period > max) {
-        errors.periodAmountEth = `Period allowance (${raw} ETH) cannot exceed the lifetime limit (${form.maxAmountEth} ETH).`;
+        errors.periodAmountEth = `Period allowance (${raw} ${TOKEN_SYMBOL}) cannot exceed the lifetime limit (${form.maxAmountEth} ${TOKEN_SYMBOL}).`;
       }
     }
   }
@@ -302,7 +303,7 @@ function validateCaveatForm(
   const perTxRaw = form.perTransactionCapEth.trim();
   if (perTxRaw) {
     if (!ETH_AMOUNT_RE.test(perTxRaw)) {
-      errors.perTransactionCapEth = "Enter a valid ETH amount (e.g. 0.005).";
+      errors.perTransactionCapEth = `Enter a valid ${TOKEN_SYMBOL} amount (e.g. 0.005).`;
     } else {
       const perTx = parseFloat(perTxRaw);
       if (perTx <= 0) {
@@ -313,7 +314,7 @@ function validateCaveatForm(
             ? parseFloat(form.periodAmountEth)
             : parseFloat(form.maxAmountEth);
         if (!isNaN(ceiling) && perTx > ceiling) {
-          const label = form.period !== "none" ? `the period allowance (${form.periodAmountEth} ETH)` : `the lifetime limit (${form.maxAmountEth} ETH)`;
+          const label = form.period !== "none" ? `the period allowance (${form.periodAmountEth} ${TOKEN_SYMBOL})` : `the lifetime limit (${form.maxAmountEth} ${TOKEN_SYMBOL})`;
           errors.perTransactionCapEth = `Per-transaction cap cannot exceed ${label}.`;
         }
       }
@@ -354,14 +355,20 @@ function toSignedDelegationJson(delegation: Delegation) {
   };
 }
 
-export function EmployerClient() {
+export function EmployerClient({
+  initialProfile,
+  initialDashboardState,
+}: {
+  initialProfile?: WalletProfile | null;
+  initialDashboardState?: CompanyDashboardState | null;
+} = {}) {
   const router = useRouter();
   const auth = useAuth();
   const currentAuthAddress = auth.status === "authenticated" ? (auth.address as `0x${string}`) : undefined;
-  const didLoadDashboard = useRef(false);
-  const [profile, setProfile] = useState<WalletProfile | null>(null);
+  const didLoadDashboard = useRef(Boolean(initialProfile && initialDashboardState));
+  const [profile, setProfile] = useState<WalletProfile | null>(initialProfile ?? null);
   const [dashboardState, setDashboardState] =
-    useState<CompanyDashboardState | null>(null);
+    useState<CompanyDashboardState | null>(initialDashboardState ?? null);
   const [selectedDelegationId, setSelectedDelegationId] = useState<string | null>(
     null,
   );
@@ -370,14 +377,19 @@ export function EmployerClient() {
   const [isPending, startTransition] = useTransition();
   const [isRefreshing, startRefreshTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [policyDraft, setPolicyDraft] = useState<string>("");
+  const [policyDraft, setPolicyDraft] = useState<string>(
+    initialDashboardState?.companyPolicy ?? DEFAULT_COMPANY_POLICY,
+  );
   const [policyHasChanges, setPolicyHasChanges] = useState(false);
-  const [employeeEmail, setEmployeeEmail] = useState("");
   const [isAddingEmployee, setIsAddingEmployee] = useState(false);
   const { data: walletClient } = useWalletClient();
 
   useEffect(() => {
-    if (auth.status !== "authenticated" || didLoadDashboard.current) return;
+    if (auth.status !== "authenticated") return;
+    if (didLoadDashboard.current) {
+      void auth.establishSession().catch(() => {});
+      return;
+    }
     didLoadDashboard.current = true;
     const addr = auth.address;
 
@@ -604,12 +616,167 @@ export function EmployerClient() {
     [runDashboardMutation, currentAuthAddress],
   );
 
-  if (auth.status === "unauthenticated") {
+  const handleSmartAccountActivated = (smartAccountAddress: string | null) => {
+    if (!smartAccountAddress) return;
+
+    setProfile((currentProfile) => {
+      if (!currentProfile || currentProfile.status !== "employer") {
+        return currentProfile;
+      }
+
+      return {
+        ...currentProfile,
+        company: currentProfile.company
+          ? { ...currentProfile.company, smartAccountAddress }
+          : currentProfile.company,
+      };
+    });
+    setDashboardState((currentState) =>
+      currentState
+        ? {
+            ...currentState,
+            company: { ...currentState.company, smartAccountAddress },
+          }
+        : currentState,
+    );
+  };
+
+  const resolveDelegateAddress = (delegation: DelegationRow) => {
+    if (delegation.delegateeType === "user" && delegation.delegateeId) {
+      const employee = dashboardState?.employees.find(
+        (item) => item.id === delegation.delegateeId,
+      );
+
+      if (!employee?.smartAccountAddress) {
+        throw new Error("The employee smart account must be activated first");
+      }
+
+      return employee.smartAccountAddress as `0x${string}`;
+    }
+
+    if (delegation.delegateeType === "agent" && delegation.delegateeId) {
+      const agent = dashboardState?.agents.find(
+        (item) => item.id === delegation.delegateeId,
+      );
+
+      if (!agent?.smartAccountAddress) {
+        throw new Error("The agent smart account is not configured yet");
+      }
+
+      return agent.smartAccountAddress as `0x${string}`;
+    }
+
+    throw new Error("Delegation target is incomplete");
+  };
+
+  const handleActivateDelegation = () => {
+    if (!selectedDelegation) return;
+
+    const errors = validateCaveatForm(caveatForm, availableBalanceEth);
+    setFormErrors(errors);
+    const hasErrors = Object.keys(errors).some(
+      (k) => k !== "allowedTargetsWarning" && errors[k as keyof FormErrors],
+    );
+    if (hasErrors) return;
+
+    startTransition(async () => {
+      try {
+        const savedState = await saveDelegationCaveats({
+          walletAddress: currentAuthAddress as string,
+          delegationId: selectedDelegation.id,
+          caveats: buildServerCaveats(caveatForm),
+          policyPrompt: caveatForm.policyPrompt,
+        });
+        updateDashboard(savedState);
+
+        if (!company?.smartAccountAddress) {
+          throw new Error("Activate the company smart account first");
+        }
+
+        if (!walletClient) {
+          throw new Error("Wallet signer is still loading. Please try again.");
+        }
+
+        const smartAccount = await createHybridSmartAccount(walletClient, currentAuthAddress);
+        const environment = getSmartAccountsEnvironment(CHAIN_ID);
+        const sdkCaveats = buildSdkCaveats(caveatForm);
+        const delegation = createDelegation({
+          environment,
+          from: company.smartAccountAddress as Hex,
+          to: resolveDelegateAddress(selectedDelegation),
+          scope: {
+            type: ScopeType.NativeTokenTransferAmount,
+            maxAmount: parseEther(caveatForm.maxAmountEth),
+          },
+          caveats: sdkCaveats,
+        });
+        const signature = await smartAccount.signDelegation({
+          delegation,
+          chainId: CHAIN_ID,
+        });
+        const signedDelegation = { ...delegation, signature };
+        const delegationHash = hashDelegation(toCoreDelegation(signedDelegation));
+
+        updateDashboard(
+          await activateDelegation({
+            walletAddress: currentAuthAddress as string,
+            delegationId: selectedDelegation.id,
+            delegationHash,
+            signedDelegation: toSignedDelegationJson(signedDelegation),
+          }),
+        );
+      } catch (caughtError) {
+        toast.error(
+          caughtError instanceof Error
+            ? caughtError.message
+            : "Could not activate delegation",
+        );
+      }
+    });
+  };
+
+  const handleAddEmployeeByEmail = useCallback(async (email: string) => {
+    setIsAddingEmployee(true);
+    try {
+      const addr = (currentAuthAddress || (profile && "user" in profile && profile.user ? profile.user.walletAddress : undefined)) as string;
+      const result = await addEmployeeByEmail({ walletAddress: addr, email });
+      if (result.status === "self_added") {
+        toast.success("Employee access added");
+        router.replace("/employee");
+      } else {
+        toast.success(
+          result.status === "already_pending"
+            ? "That email is already pending"
+            : result.status === "already_active"
+              ? "That employee already has access"
+              : "Access will appear after they sign in",
+        );
+        updateDashboard(await getCompanyDashboardState(addr));
+      }
+    } catch (caught) {
+      toast.error(caught instanceof Error ? caught.message : "Could not add employee");
+      throw caught;
+    } finally {
+      setIsAddingEmployee(false);
+    }
+  }, [currentAuthAddress, profile, router, updateDashboard]);
+
+  const handleAddSelfAsEmployee = useCallback(async () => {
+    try {
+      const addr = (currentAuthAddress || (profile && "user" in profile && profile.user ? profile.user.walletAddress : undefined)) as string;
+      await addSelfAsEmployee(addr);
+      router.replace("/employee");
+    } catch (caught) {
+      toast.error(caught instanceof Error ? caught.message : "Could not add employee access");
+      throw caught;
+    }
+  }, [currentAuthAddress, profile, router]);
+
+  if (auth.status === "unauthenticated" && !dashboardState) {
     return <ConnectRequiredCard />;
   }
 
-
-  if (auth.status === "connecting") {
+  if (auth.status === "connecting" && !dashboardState) {
     return (
       <div className="flex h-full min-h-screen items-center justify-center p-6 bg-white">
         <div className="flex flex-col items-center gap-6 text-center">
@@ -648,7 +815,7 @@ export function EmployerClient() {
     );
   }
 
-  if (!profile || profile.status !== "employer" || !company || !dashboardState) {
+  if (!dashboardState || !company) {
     return (
       <div className="flex h-full min-h-screen flex-col items-center justify-center gap-8 bg-white">
         <div className="flex flex-col items-center gap-6">
@@ -669,125 +836,6 @@ export function EmployerClient() {
     );
   }
 
-  const handleSmartAccountActivated = (smartAccountAddress: string | null) => {
-    if (!smartAccountAddress) return;
-
-    setProfile((currentProfile) => {
-      if (!currentProfile || currentProfile.status !== "employer") {
-        return currentProfile;
-      }
-
-      return {
-        ...currentProfile,
-        company: currentProfile.company
-          ? { ...currentProfile.company, smartAccountAddress }
-          : currentProfile.company,
-      };
-    });
-    setDashboardState((currentState) =>
-      currentState
-        ? {
-            ...currentState,
-            company: { ...currentState.company, smartAccountAddress },
-          }
-        : currentState,
-    );
-  };
-
-  const resolveDelegateAddress = (delegation: DelegationRow) => {
-    if (delegation.delegateeType === "user" && delegation.delegateeId) {
-      const employee = dashboardState.employees.find(
-        (item) => item.id === delegation.delegateeId,
-      );
-
-      if (!employee?.smartAccountAddress) {
-        throw new Error("The employee smart account must be activated first");
-      }
-
-      return employee.smartAccountAddress as `0x${string}`;
-    }
-
-    if (delegation.delegateeType === "agent" && delegation.delegateeId) {
-      const agent = dashboardState.agents.find(
-        (item) => item.id === delegation.delegateeId,
-      );
-
-      if (!agent?.smartAccountAddress) {
-        throw new Error("The agent smart account is not configured yet");
-      }
-
-      return agent.smartAccountAddress as `0x${string}`;
-    }
-
-    throw new Error("Delegation target is incomplete");
-  };
-
-  const handleActivateDelegation = () => {
-    if (!selectedDelegation) return;
-
-    const errors = validateCaveatForm(caveatForm, availableBalanceEth);
-    setFormErrors(errors);
-    const hasErrors = Object.keys(errors).some(
-      (k) => k !== "allowedTargetsWarning" && errors[k as keyof FormErrors],
-    );
-    if (hasErrors) return;
-
-    startTransition(async () => {
-      try {
-        const savedState = await saveDelegationCaveats({
-          walletAddress: currentAuthAddress as string,
-          delegationId: selectedDelegation.id,
-          caveats: buildServerCaveats(caveatForm),
-          policyPrompt: caveatForm.policyPrompt,
-        });
-        updateDashboard(savedState);
-
-        if (!company.smartAccountAddress) {
-          throw new Error("Activate the company smart account first");
-        }
-
-        if (!walletClient) {
-          throw new Error("Wallet signer is still loading. Please try again.");
-        }
-
-        const smartAccount = await createHybridSmartAccount(walletClient, currentAuthAddress);
-        const environment = getSmartAccountsEnvironment(11155111);
-        const sdkCaveats = buildSdkCaveats(caveatForm);
-        const delegation = createDelegation({
-          environment,
-          from: company.smartAccountAddress as Hex,
-          to: resolveDelegateAddress(selectedDelegation),
-          scope: {
-            type: ScopeType.NativeTokenTransferAmount,
-            maxAmount: parseEther(caveatForm.maxAmountEth),
-          },
-          caveats: sdkCaveats,
-        });
-        const signature = await smartAccount.signDelegation({
-          delegation,
-          chainId: 11155111,
-        });
-        const signedDelegation = { ...delegation, signature };
-        const delegationHash = hashDelegation(toCoreDelegation(signedDelegation));
-
-        updateDashboard(
-          await activateDelegation({
-            walletAddress: currentAuthAddress as string,
-            delegationId: selectedDelegation.id,
-            delegationHash,
-            signedDelegation: toSignedDelegationJson(signedDelegation),
-          }),
-        );
-      } catch (caughtError) {
-        toast.error(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Could not activate delegation",
-        );
-      }
-    });
-  };
-
   return (
     <DashboardShell
       companyName={companyName}
@@ -798,6 +846,9 @@ export function EmployerClient() {
           ? formatWalletAddress(employee.smartAccountAddress)
           : "Smart account pending",
       }))}
+      pendingEmployees={dashboardState.pendingEmployees}
+      onInviteEmployeeByEmail={handleAddEmployeeByEmail}
+      onAddSelfAsEmployee={handleAddSelfAsEmployee}
       agents={dashboardState.agents
         .filter((agent) => agent.name === "Reimbursement Agent")
         .map((agent) => ({
@@ -820,8 +871,8 @@ export function EmployerClient() {
           updateDashboard(await getCompanyDashboardState(currentAuthAddress as string));
         });
       }}
-      companyId={profile?.user.companyId ?? ""}
-      workspaceOptions={profile?.workspaces ?? []}
+      companyId={(profile && "user" in profile && profile.user && profile.user.companyId) || undefined}
+      workspaceOptions={(profile && "workspaces" in profile && profile.workspaces) || []}
       onWorkspaceChange={(companyId, role) => {
         startTransition(async () => {
           try {
@@ -841,70 +892,6 @@ export function EmployerClient() {
       title="Company dashboard"
     >
       <div className="flex min-h-full flex-col gap-4">
-        <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-end">
-          <div className="flex-1 space-y-1.5">
-            <Label htmlFor="employee-email">Add an employee</Label>
-            <Input
-              id="employee-email"
-              type="email"
-              autoComplete="email"
-              placeholder="name@company.com"
-              value={employeeEmail}
-              onChange={(event) => setEmployeeEmail(event.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">They’ll see this company after signing in with that verified email.</p>
-          </div>
-          <Button
-            type="button"
-            disabled={isAddingEmployee || !employeeEmail.trim()}
-            onClick={async () => {
-              setIsAddingEmployee(true);
-              try {
-                const result = await addEmployeeByEmail({ walletAddress: currentAuthAddress as string, email: employeeEmail });
-                if (result.status === "self_added") {
-                  toast.success("Employee access added");
-                  setDashboardState(null);
-                  router.replace("/employee");
-                } else {
-                  toast.success(result.status === "already_pending" ? "That email is already pending" : result.status === "already_active" ? "That employee already has access" : "Access will appear after they sign in");
-                  setEmployeeEmail("");
-                  updateDashboard(await getCompanyDashboardState(currentAuthAddress as string));
-                }
-              } catch (caught) {
-                toast.error(caught instanceof Error ? caught.message : "Could not add employee");
-              } finally {
-                setIsAddingEmployee(false);
-              }
-            }}
-          >
-            {isAddingEmployee ? "Adding…" : "Add by email"}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={async () => {
-              try {
-                await addSelfAsEmployee(currentAuthAddress as string);
-                setDashboardState(null);
-                router.replace("/employee");
-              } catch (caught) {
-                toast.error(caught instanceof Error ? caught.message : "Could not add employee access");
-              }
-            }}
-          >
-            Add myself
-          </Button>
-          {dashboardState.pendingEmployees.length > 0 && (
-            <div className="w-full border-t border-border pt-3 text-xs sm:basis-full">
-              <p className="mb-2 font-medium">Awaiting acceptance</p>
-              <ul className="space-y-1 text-muted-foreground">
-                {dashboardState.pendingEmployees.map((pendingEmployee) => (
-                  <li key={pendingEmployee.id}>{pendingEmployee.email} · Pending</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
         {/* Smart account activation banner */}
         {!company.smartAccountAddress && (
           <div className="flex items-center justify-between rounded-lg border border-border bg-muted/50 px-4 py-3">
@@ -1042,7 +1029,7 @@ export function EmployerClient() {
               <h4 className="text-sm font-semibold text-foreground">1. Overall Spending Limits</h4>
               
               <div className="flex flex-col gap-2">
-                <Label htmlFor="max-amount">Lifetime Spending Limit (ETH)</Label>
+                <Label htmlFor="max-amount">Lifetime Spending Limit ({TOKEN_SYMBOL})</Label>
                 <Input
                   id="max-amount"
                   value={caveatForm.maxAmountEth}
@@ -1059,10 +1046,10 @@ export function EmployerClient() {
                   <p className="text-[0.8rem] text-destructive">{formErrors.maxAmountEth}</p>
                 ) : (
                   <div className="text-[0.8rem] text-muted-foreground space-y-1">
-                    <p>The absolute maximum amount of ETH this delegatee can spend in total over the lifetime of this delegation.</p>
+                    <p>The absolute maximum amount of {TOKEN_SYMBOL} this delegatee can spend in total over the lifetime of this delegation.</p>
                     {availableBalanceEth !== null && selectedDelegation?.status !== "active" && (
                       <p>
-                        Remaining available to delegate: <span className="font-semibold text-foreground">{Number(availableBalanceEth.toFixed(4))} ETH</span>
+                        Remaining available to delegate: <span className="font-semibold text-foreground">{Number(availableBalanceEth.toFixed(4))} {TOKEN_SYMBOL}</span>
                       </p>
                     )}
                   </div>
@@ -1099,7 +1086,7 @@ export function EmployerClient() {
 
               {caveatForm.period !== "none" && (
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="period-amount">Allowance per Period (ETH)</Label>
+                  <Label htmlFor="period-amount">Allowance per Period ({TOKEN_SYMBOL})</Label>
                   <Input
                     id="period-amount"
                     value={caveatForm.periodAmountEth}
@@ -1128,7 +1115,7 @@ export function EmployerClient() {
               <h4 className="text-sm font-semibold text-foreground">2. Transaction Restrictions</h4>
               
               <div className="flex flex-col gap-2">
-                <Label htmlFor="value-lte">Maximum Per-Transaction (ETH)</Label>
+                <Label htmlFor="value-lte">Maximum Per-Transaction ({TOKEN_SYMBOL})</Label>
                 <Input
                   id="value-lte"
                   value={caveatForm.perTransactionCapEth}

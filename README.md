@@ -6,7 +6,7 @@
 
   [![Live Demo](https://img.shields.io/badge/Live%20Demo-allocard.vercel.app-6366f1?style=for-the-badge&logo=vercel)](https://allocard.vercel.app/)
   [![Video Demo](https://img.shields.io/badge/YouTube-Video_Demo-FF0000?style=for-the-badge&logo=youtube)](https://youtu.be/8Cbk6FIz9hg)
-  [![Network](https://img.shields.io/badge/Network-ETH%20Sepolia-0052ff?style=for-the-badge&logo=ethereum)](https://sepolia.etherscan.io/)
+  [![Network](https://img.shields.io/badge/Network-Monad%20Testnet-836EF9?style=for-the-badge)](https://testnet.monadexplorer.com/)
   [![MetaMask](https://img.shields.io/badge/Built%20With-MetaMask%20Smart%20Accounts%20Kit-f6851b?style=for-the-badge)](https://metamask.io/)
   [![GitHub](https://img.shields.io/badge/GitHub-Stoneybro%2FAllocard-181717?style=for-the-badge&logo=github)](https://github.com/Stoneybro/Allocard)
 </div>
@@ -164,7 +164,7 @@ Revoking a parent delegation revokes every delegation in its subtree. An employe
 
 Allocard's agents are not chat assistants. Each agent holds a smart account, receives a scoped delegation, and executes on-chain transactions. Together, they cover the core workflows of a corporate expense card.
 
-### Agent Smart Accounts (ETH Sepolia)
+### Agent Smart Accounts (Monad Testnet)
 
 - **Reimbursement Agent:** `0xD61C510c51a1DD4a73C4Dfeca6893aeEE6A731c1`
 - **Travel Agent:** `0x916BE00E5cCd1A3a7930f20dFDC55D21947B8903`
@@ -281,7 +281,7 @@ People sign in with Google or email. An employer adds an employee by their verif
 
 1. Open [allocard.vercel.app](https://allocard.vercel.app) and continue with Google or email.
 2. Create a company. Enter a company name and submit.
-3. Activate the company smart account. This deploys an ERC-4337 contract on ETH Sepolia.
+3. Activate the company smart account. This deploys an ERC-4337 contract on Monad Testnet.
 4. Add an employee using their email address. They must sign in with that same verified email.
 
 At this point, no employees appear on the canvas yet. The employer cannot issue a delegation until an employee exists in the system.
@@ -351,11 +351,11 @@ The employer can now see the agent node branching from the employee node on thei
 
 ## Hackathon Track Eligibility
 
-| Track | Status | Evidence |
+| Track / Bounty | Status | Evidence |
 |---|---|---|
-| **Best A2A Coordination** | Eligible | Allocard implements three delegation patterns using ERC-7710. Pattern 1: Company delegates to an Employee, who redelegates a subset to an AI Agent (Travel or Procurement). Pattern 2: Company delegates directly to the Reimbursement Agent, and the agent pays out to the Employee. Pattern 3: Direct employee spend from the company delegation. All entities hold ERC-4337 smart accounts. |
-| **Best Agent** | Eligible | Allocard's agent system automates the core workflows of a corporate expense card: planned business spending,  Agent spending via the Travel and Procurement Agents, and out-of-pocket expenses via the Reimbursement Agent. Each agent holds a smart account, receives a scoped delegation, evaluates the request with Venice AI, and executes the on-chain transaction autonomously. No human approves individual transactions. |
-| **Best Use of Venice AI** | Eligible | Venice AI acts as the decision layer across every agent and spend flow. It reads on-chain caveats and natural language policy together, then makes a pass or reject decision. It also performs receipt OCR. One model handles both text reasoning and vision: `openai-gpt-4o-2024-11-20`. All decisions are stateless and private. |
+| **Monad Metropolis: Consumer Products & Payments** | Eligible | Allocard is built to make corporate crypto spending feel completely native and familiar: zero seed phrases, zero manual gas handling, and intuitive employee onboarding. The company master smart account retains treasury custody while issuing ERC-7710 scoped delegations with programmable caveats (spending limits, allowed merchants, recurring allowances). |
+| **Privy Sponsor Bounty** | Eligible | Allocard uses Privy embedded wallets and verified social/email authentication (`google` and `email`). Employees onboard seamlessly using their corporate email identity with session-managed security and zero onboarding friction. |
+| **MetaMask Smart Accounts Bounty** | Eligible | Deployed directly on Monad Testnet (`chainId: 10143`), Allocard integrates MetaMask Smart Accounts Kit with ERC-7710 delegation and sub-delegation to autonomous AI agents for travel, procurement, and policy-driven reimbursements. |
 
 ---
 
@@ -380,11 +380,11 @@ For a single-person demo, use **Add myself** and switch to the employee workspac
 |---|---|
 | Framework | Next.js 15, React 19 |
 | UI | shadcn/ui, React Flow, Tailwind CSS |
-| Blockchain | MetaMask Smart Accounts Kit (ERC-7710, ERC-4337), Viem |
+| Blockchain | Monad Testnet (10143), MetaMask Smart Accounts Kit (ERC-7710, ERC-4337), Viem |
 | AI | Venice AI: `openai-gpt-4o-2024-11-20` (text + vision) |
 | Auth | Privy (Google and email) with server-verified sessions |
 | Database | Neon (Postgres), Drizzle ORM |
-| Deployment | Vercel, ETH Sepolia testnet |
+| Deployment | Vercel, Monad Testnet (10143) |
 | Package Manager | pnpm (monorepo) |
 
 ---
@@ -399,8 +399,8 @@ Create `apps/web/.env.local`:
 NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id
 PRIVY_APP_ID=your_privy_app_id
 PRIVY_APP_SECRET=your_privy_app_secret
-NEXT_PUBLIC_BUNDLER_RPC_URL=https://api.pimlico.io/v2/sepolia/rpc?apikey=YOUR_PIMLICO_API_KEY
-NEXT_PUBLIC_PAYMASTER_RPC_URL=https://api.pimlico.io/v2/sepolia/rpc?apikey=YOUR_PIMLICO_API_KEY
+NEXT_PUBLIC_BUNDLER_RPC_URL=https://api.pimlico.io/v2/10143/rpc?apikey=YOUR_PIMLICO_API_KEY
+NEXT_PUBLIC_PAYMASTER_RPC_URL=https://api.pimlico.io/v2/10143/rpc?apikey=YOUR_PIMLICO_API_KEY
 NEXT_PUBLIC_PIMLICO_SPONSOR_ID=your_pimlico_sponsor_id
 DATABASE_URL=your_neon_postgres_connection_string
 VENICE_API_KEY=your_venice_api_key
@@ -427,7 +427,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ```
 Browser
-  MetaMask Embedded Wallets (auth)
+  Privy Auth (Google & Email embedded wallets)
   MetaMask Smart Accounts Kit (signing)
   React Flow (delegation canvas)
         |
@@ -444,15 +444,12 @@ Next.js App Router
  │   Audit trail             │    └─────────────────────────────────┘
  └──────────────────────────┘
         |
-Delegation Manager Contract (ETH Sepolia)
+Delegation Manager Contract (Monad Testnet)
   ERC-7710 delegation validation
   Caveat enforcer execution
-  On-chain ETH transfer
+  On-chain MON transfer
 ```
 
 ---
 
-
----
-
-*Built for the MetaMask Smart Accounts Kit x 1Shot API Hackathon. Network: ETH Sepolia. Standards: ERC-7710, ERC-4337.*
+*Built for the Monad Metropolis Hackathon. Track: Consumer Products & Payments. Network: Monad Testnet (10143). Standards: ERC-7710, ERC-4337.*

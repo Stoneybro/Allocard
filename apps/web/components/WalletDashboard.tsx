@@ -7,7 +7,7 @@ import {
   createPaymasterClient,
 } from 'viem/account-abstraction'
 import { http } from 'viem'
-import { sepolia } from 'viem/chains'
+import { chain, CHAIN_NAME } from '@/lib/chain'
 
 import { publicClient, getPimlicoGasPrice } from '@/lib/client'
 import { createHybridSmartAccount } from '@/lib/smartAccount'
@@ -83,7 +83,7 @@ export default function WalletDashboard() {
       })
       const bundlerClient = createBundlerClient({
         client: publicClient,
-        chain: sepolia,
+        chain,
         paymaster: paymasterClient,
         paymasterContext: sponsorId ? { policyId: sponsorId } : undefined,
         transport: http(bundlerUrl),
@@ -158,7 +158,7 @@ export default function WalletDashboard() {
             disabled={auth.status === 'connecting' || (auth.status === 'unauthenticated' && auth.connecting)}
             className="w-fit rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {auth.status === 'unauthenticated' && auth.connecting ? 'Signing in...' : 'Continue with Google or email'}
+            {auth.status === 'unauthenticated' && auth.connecting ? 'Signing in...' : 'Sign in'}
           </button>
         </div>
       </div>
@@ -211,7 +211,7 @@ export default function WalletDashboard() {
               Deploy the smart account
             </p>
             <p className="text-sm text-slate-500">
-              Sends a user operation on ETH Sepolia through your bundler.
+              Sends a user operation on {CHAIN_NAME} through your bundler.
             </p>
           </div>
           <button
@@ -226,7 +226,7 @@ export default function WalletDashboard() {
 
         <div className="grid gap-2 text-sm text-slate-600">
           <p>
-            Network: <span className="font-medium text-slate-900">ETH Sepolia</span>
+            Network: <span className="font-medium text-slate-900">{CHAIN_NAME}</span>
           </p>
           <p>
             Address:{' '}

@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { LoaderCircleIcon, CheckCircleIcon, XCircleIcon, PlaneIcon } from "lucide-react";
 import { toast } from "sonner";
 import { parseUserOpError } from "@/lib/error-parser";
+import { getTxExplorerUrl } from "@/lib/chain";
 
 export function TravelAgentDrawer({
   isOpen,
@@ -230,7 +231,7 @@ export function TravelAgentDrawer({
                 <div className="mt-4 w-full p-3 bg-card rounded-md border border-border text-xs text-left break-all shadow-sm">
                   <span className="font-semibold text-foreground block mb-1">Transaction Hash:</span>
                   <a
-                    href={`https://sepolia.etherscan.io/tx/${txHash}`}
+                    href={getTxExplorerUrl(txHash)}
                     target="_blank"
                     rel="noreferrer"
                     className="text-primary hover:underline font-mono"

@@ -11,11 +11,21 @@ import {
   MoreVerticalIcon,
   RefreshCwIcon,
   SparklesIcon,
+  UserPlusIcon,
   UserRoundIcon,
   WalletIcon,
 } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 import {
   DropdownMenu,
@@ -30,6 +40,15 @@ import {
   HoverCardContent,
 } from "@/components/ui/hover-card";
 
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -144,13 +163,142 @@ function SmartAccountAddress({ label, fullAddress, role }: { label: string; full
 }
 
 // ---------------------------------------------------------------------------
+// Add employee dialog — shadcn modal for email invitation & self-add
+// ---------------------------------------------------------------------------
+
+function AddEmployeeDialog({
+  onInviteEmployeeByEmail,
+  onAddSelfAsEmployee,
+  pendingEmployees,
+}: {
+  onInviteEmployeeByEmail?: (email: string) => Promise<void>;
+  onAddSelfAsEmployee?: () => Promise<void>;
+  pendingEmployees?: { id: string; email: string; createdAt: string }[];
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [email, setEmail] = React.useState("");
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isAddingSelf, setIsAddingSelf] = React.useState(false);
+
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!email.trim() || !onInviteEmployeeByEmail) return;
+    setIsSubmitting(true);
+    try {
+      await onInviteEmployeeByEmail(email.trim());
+      setEmail("");
+      setOpen(false);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAddSelf = async () => {
+    if (!onAddSelfAsEmployee) return;
+    setIsAddingSelf(true);
+    try {
+      await onAddSelfAsEmployee();
+      setOpen(false);
+    } finally {
+      setIsAddingSelf(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-7 w-full text-xs font-medium gap-1.5 border-dashed hover:border-solid justify-center px-2"
+        >
+          <UserPlusIcon className="size-3.5" />
+          <span>Add employee</span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add an Employee</DialogTitle>
+          <DialogDescription>
+            Invite a team member by their verified email address, or add yourself to test delegations.
+          </DialogDescription>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 py-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="invite-employee-email">Employee email address</Label>
+            <Input
+              id="invite-employee-email"
+              type="email"
+              placeholder="name@company.com"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={isSubmitting}
+            />
+            <p className="text-xs text-muted-foreground">
+              They&apos;ll gain access to this company workspace after signing in with this email.
+            </p>
+          </div>
+
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
+            {onAddSelfAsEmployee && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleAddSelf}
+                disabled={isAddingSelf || isSubmitting}
+              >
+                {isAddingSelf ? "Adding..." : "Add myself"}
+              </Button>
+            )}
+            <Button
+              type="submit"
+              disabled={isSubmitting || !email.trim() || !onInviteEmployeeByEmail}
+            >
+              {isSubmitting ? "Adding..." : "Add by email"}
+            </Button>
+          </div>
+
+          {pendingEmployees && pendingEmployees.length > 0 && (
+            <div className="border-t border-border pt-3 mt-1">
+              <p className="text-xs font-medium text-foreground mb-1.5">
+                Awaiting sign in ({pendingEmployees.length})
+              </p>
+              <div className="max-h-28 overflow-y-auto space-y-1 pr-1">
+                {pendingEmployees.map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center justify-between text-xs px-2.5 py-1.5 rounded-md bg-muted/60 text-muted-foreground"
+                  >
+                    <span className="truncate max-w-[240px] font-mono text-[11px] text-foreground">
+                      {p.email}
+                    </span>
+                    <Badge variant="outline" className="text-[9px] h-4 text-amber-600 border-amber-300">
+                      Pending
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Canvas section — employees + AI agents, each capped & scrollable
 // ---------------------------------------------------------------------------
 
 function CanvasSection({
   agents,
   employees,
+  pendingEmployees,
   onAddEmployee,
+  onInviteEmployeeByEmail,
+  onAddSelfAsEmployee,
   onRefreshEmployees,
   employeesRefreshing,
   onSelectAgent,
@@ -158,7 +306,10 @@ function CanvasSection({
 }: {
   agents: SidebarAgent[];
   employees: SidebarEmployee[];
+  pendingEmployees?: { id: string; email: string; createdAt: string }[];
   onAddEmployee?: (employeeId: string) => void;
+  onInviteEmployeeByEmail?: (email: string) => Promise<void>;
+  onAddSelfAsEmployee?: () => Promise<void>;
   onRefreshEmployees?: () => void;
   employeesRefreshing?: boolean;
   onSelectAgent?: (agentId: string) => void;
@@ -181,7 +332,7 @@ function CanvasSection({
 
         {/* ── Employees — employer only ──────────────────────────────── */}
         {role !== "employee" && (
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1.5">
             {/* Sub-label row */}
             <div className="flex items-center justify-between gap-2 px-1">
               <span className="flex items-center gap-1.5 text-[11px] font-medium text-foreground/70">
@@ -192,6 +343,11 @@ function CanvasSection({
                 {employees.length > 0 && (
                   <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
                     {employees.length}
+                  </Badge>
+                )}
+                {pendingEmployees && pendingEmployees.length > 0 && (
+                  <Badge variant="outline" className="h-4 px-1.5 text-[10px] text-amber-600 border-amber-300">
+                    {pendingEmployees.length} pending
                   </Badge>
                 )}
                 <Button
@@ -211,11 +367,20 @@ function CanvasSection({
               </div>
             </div>
 
+            {/* Add Employee action in the sidebar */}
+            {(onInviteEmployeeByEmail || onAddSelfAsEmployee) && (
+              <AddEmployeeDialog
+                onInviteEmployeeByEmail={onInviteEmployeeByEmail}
+                onAddSelfAsEmployee={onAddSelfAsEmployee}
+                pendingEmployees={pendingEmployees}
+              />
+            )}
+
             {/* Scrollable list — shows ~3 rows before scrolling */}
             {employees.length === 0 ? (
               <div className="flex items-center justify-center rounded-md border border-dashed border-border px-3 py-4">
-                <p className="text-[11px] text-muted-foreground">
-                  No employees yet — add someone by verified email.
+                <p className="text-[11px] text-muted-foreground text-center">
+                  No active employees yet. Click &ldquo;Add employee&rdquo; above.
                 </p>
               </div>
             ) : (
@@ -501,10 +666,13 @@ export function AppSidebar({
   agents,
   companyName,
   employees,
+  pendingEmployees,
   companyId,
   workspaceOptions,
   onWorkspaceChange,
   onAddEmployee,
+  onInviteEmployeeByEmail,
+  onAddSelfAsEmployee,
   onRefreshEmployees,
   employeesRefreshing,
   onSelectAgent,
@@ -519,10 +687,13 @@ export function AppSidebar({
   agents: SidebarAgent[];
   companyName: string;
   employees: SidebarEmployee[];
+  pendingEmployees?: { id: string; email: string; createdAt: string }[];
   companyId: string;
   workspaceOptions: WorkspaceOption[];
   onWorkspaceChange?: (companyId: string, role: "employer" | "employee") => void;
   onAddEmployee?: (employeeId: string) => void;
+  onInviteEmployeeByEmail?: (email: string) => Promise<void>;
+  onAddSelfAsEmployee?: () => Promise<void>;
   onRefreshEmployees?: () => void;
   employeesRefreshing?: boolean;
   onSelectAgent?: (agentId: string) => void;
@@ -557,48 +728,51 @@ export function AppSidebar({
           <h2 className="mt-0.5 truncate text-base font-semibold text-foreground pr-6">
             {companyName}
           </h2>
-          {workspaceOptions.length > 0 && (
-            <select
-              aria-label="Switch workspace"
-              className="mt-2 h-8 w-full rounded-md border border-border bg-background px-2 text-xs"
-              value={`${companyId}:${role ?? "employer"}`}
-              onChange={(event) => {
-                const [nextCompanyId, nextRole] = event.target.value.split(":");
-                if (nextCompanyId && (nextRole === "employer" || nextRole === "employee")) {
-                  onWorkspaceChange?.(nextCompanyId, nextRole);
-                }
-              }}
-            >
-              {workspaceOptions.flatMap((workspace) => [
-                ...(workspace.canEmployer ? [{ value: `${workspace.companyId}:employer`, label: `${workspace.companyName} · Employer` }] : []),
-                ...(workspace.canEmployee ? [{ value: `${workspace.companyId}:employee`, label: `${workspace.companyName} · Employee` }] : []),
-              ]).map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
+          {workspaceOptions.length > 0 && onWorkspaceChange && (
+            <div className="mt-2.5">
+              <Select
+                value={`${companyId}:${role ?? "employer"}`}
+                onValueChange={(val) => {
+                  const [nextCompanyId, nextRole] = val.split(":");
+                  if (nextCompanyId && (nextRole === "employer" || nextRole === "employee")) {
+                    onWorkspaceChange(nextCompanyId, nextRole);
+                  }
+                }}
+              >
+                <SelectTrigger className="h-8 w-full text-xs bg-background">
+                  <SelectValue placeholder="Switch workspace" />
+                </SelectTrigger>
+                <SelectContent>
+                  {workspaceOptions.flatMap((workspace) => [
+                    ...(workspace.canEmployer
+                      ? [
+                          <SelectItem
+                            key={`${workspace.companyId}:employer`}
+                            value={`${workspace.companyId}:employer`}
+                          >
+                            {workspace.companyName} · Employer
+                          </SelectItem>,
+                        ]
+                      : []),
+                    ...(workspace.canEmployee
+                      ? [
+                          <SelectItem
+                            key={`${workspace.companyId}:employee`}
+                            value={`${workspace.companyId}:employee`}
+                          >
+                            {workspace.companyName} · Employee
+                          </SelectItem>,
+                        ]
+                      : []),
+                  ])}
+                </SelectContent>
+              </Select>
+            </div>
           )}
           {role === "employee" && employeeReferenceId && (
-            <p className="mt-1 text-[11px] text-muted-foreground font-mono bg-muted/50 inline-flex px-1.5 py-0.5 rounded border border-border/50">
+            <p className="mt-2 text-[11px] text-muted-foreground font-mono bg-muted/50 inline-flex px-1.5 py-0.5 rounded border border-border/50">
               {employeeReferenceId}
             </p>
-          )}
-          {workspaceOptions.length > 0 && onWorkspaceChange && (
-            <select
-              aria-label="Switch company or role"
-              className="mt-3 h-8 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground"
-              value={`${companyId}:${role ?? "employee"}`}
-              onChange={(event) => {
-                const [nextCompanyId, nextRole] = event.target.value.split(":");
-                if (nextCompanyId && (nextRole === "employer" || nextRole === "employee")) {
-                  onWorkspaceChange(nextCompanyId, nextRole);
-                }
-              }}
-            >
-              {workspaceOptions.flatMap((workspace) => [
-                ...(workspace.canEmployer ? [<option key={`${workspace.companyId}:employer`} value={`${workspace.companyId}:employer`}>{workspace.companyName} · Employer</option>] : []),
-                ...(workspace.canEmployee ? [<option key={`${workspace.companyId}:employee`} value={`${workspace.companyId}:employee`}>{workspace.companyName} · Employee</option>] : []),
-              ])}
-            </select>
           )}
         </div>
 
@@ -616,7 +790,10 @@ export function AppSidebar({
         <CanvasSection
           agents={agents}
           employees={employees}
+          pendingEmployees={pendingEmployees}
           onAddEmployee={onAddEmployee}
+          onInviteEmployeeByEmail={onInviteEmployeeByEmail}
+          onAddSelfAsEmployee={onAddSelfAsEmployee}
           onRefreshEmployees={onRefreshEmployees}
           employeesRefreshing={employeesRefreshing}
           onSelectAgent={onSelectAgent}
