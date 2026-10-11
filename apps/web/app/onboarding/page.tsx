@@ -1,190 +1,177 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { ArrowRight, Building2, Loader2, RefreshCw } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
-import { createEmployerAccount } from "@/app/actions/identity";
 import { ConnectRequiredCard } from "@/components/auth-state";
+import { acceptEmployeeMembership, createEmployerAccount, getWorkspaceOptions, setWorkspaceContext, type WorkspaceOption } from "@/app/actions/identity";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 
-function routeForStatus(status: "new" | "picker" | "employer" | "employee") {
-  if (status === "picker") return "/workspaces";
-  if (status === "employer") return "/employer";
-  if (status === "employee") return "/employee";
-  return null;
-}
-
-// ── Inline loading / error states ─────────────────────────────────────────────
-
-function Spinner() {
-  return (
-    <svg
-      className="animate-spin text-[#999]"
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-    >
-      <path strokeLinecap="round" d="M12 2a10 10 0 0 1 10 10" className="opacity-100" />
-      <path strokeLinecap="round" d="M12 2a10 10 0 0 0-10 10" className="opacity-20" />
-    </svg>
-  );
-}
-
-// ── Page ──────────────────────────────────────────────────────────────────────
+type PendingMembership = { id: string; companyId: string; companyName: string; createdAt: string };
 
 export default function OnboardingPage() {
-  const router = useRouter();
   const auth = useAuth();
+  const router = useRouter();
+  const [memberships, setMemberships] = useState<WorkspaceOption[]>([]);
+  const [pending, setPending] = useState<PendingMembership[]>([]);
   const [companyName, setCompanyName] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [activeAction, setActiveAction] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const actionInFlight = useRef(false);
+  const [loadedRequest, setLoadedRequest] = useState<string | null>(null);
+  const [refresh, setRefresh] = useState(0);
+  const address = auth.status === "authenticated" ? auth.address : null;
+  const establishSession = auth.status === "authenticated" ? auth.establishSession : null;
 
-  // ── Auth guards ───────────────────────────────────────────────────────────
+  const requestKey = address ? address + ":" + refresh : null;
+  const loading = !requestKey || loadedRequest !== requestKey;
 
-  if (auth.status === "unauthenticated") {
-    return <ConnectRequiredCard />;
-  }
+  useEffect(() => {
+    if (!address || !establishSession) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        await establishSession();
+        const result = await getWorkspaceOptions(address);
+        if (!cancelled) {
+          setLoadError(null);
+          setMemberships(result.memberships);
+          setPending(result.pending);
+        }
+      } catch (error) {
+        if (!cancelled) setLoadError(error instanceof Error ? error.message : "Could not load your workspaces.");
+      } finally {
+        if (!cancelled) setLoadedRequest(requestKey);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [address, establishSession, requestKey]);
 
-  if (auth.status === "connecting") {
-    return (
-      <div className="flex h-full min-h-screen items-center justify-center p-6 bg-white">
-        <div className="flex flex-col items-center gap-6 text-center">
-          <img src="/AllocardLogoBlack.svg" alt="Allocard Logo" className="w-16 h-16 object-contain mb-4" />
-          <div className="w-10 h-10 border-4 border-[#eaeaea] border-t-[#111] rounded-full animate-spin"></div>
-          <p className="text-xl font-bold text-[#111] tracking-[-0.02em]">Checking your sign-in...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Create company handler ─────────────────────────────────────────────────
-
-  const handleCreateCompany = () => {
-    if (companyName.trim().length < 2) return;
-    setError(null);
-
+  const performAction = (key: string, action: () => Promise<void>) => {
+    if (actionInFlight.current) return;
+    actionInFlight.current = true;
+    setActiveAction(key);
+    setActionError(null);
     startTransition(async () => {
       try {
-        await auth.establishSession();
-        const profile = await createEmployerAccount({
-          walletAddress: auth.address,
-          companyName: companyName.trim(),
-        });
-        const route = routeForStatus(profile.status);
-        router.replace(route ?? "/onboarding");
-      } catch (caughtError) {
-        const message =
-          caughtError instanceof Error ? caughtError.message : "Company setup failed";
-        setError(message);
+        await action();
+      } catch (error) {
+        setActionError(error instanceof Error ? error.message : "Something went wrong. Please try again.");
+      } finally {
+        actionInFlight.current = false;
+        setActiveAction(null);
       }
     });
   };
 
-  // ── Main page ──────────────────────────────────────────────────────────────
+  if (auth.status === "unauthenticated") {
+    return <ConnectRequiredCard title="Sign in to Allocard" description="Create or join your company." />;
+  }
+
+  const busy = loading || isPending || auth.status === "connecting";
+  const hasEmployerWorkspace = memberships.some((membership) => membership.canEmployer);
 
   return (
-    <div className="flex h-full min-h-screen items-center justify-center bg-white p-6 relative">
-      {/* Top right badges */}
-      <div className="absolute top-6 right-6 flex items-center gap-3">
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 border border-[#eaeaea] bg-white text-[#111]">
-          <span className="text-sm font-medium">Monad Testnet</span>
+    <main className="min-h-dvh bg-background text-foreground">
+      <header className="border-b border-border">
+        <div className="mx-auto flex h-16 max-w-5xl items-center justify-between gap-4 px-6">
+          <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight" aria-label="Allocard home">
+            <Image src="/AllocardLogoBlack.svg" alt="" width={28} height={28} />
+            Allocard
+          </Link>
+
         </div>
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 border border-[#eaeaea] bg-white text-[#111]">
-          <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4" />
-          </svg>
-          <span className="text-sm font-medium">Signed in</span>
-        </div>
-      </div>
+      </header>
+      <div className="mx-auto flex max-w-lg flex-col gap-6 px-6 py-12 sm:py-16">
 
-      <div className="w-full max-w-3xl flex flex-col gap-12">
+        {actionError && <Alert variant="destructive"><AlertTitle>Could not complete that action</AlertTitle><AlertDescription>{actionError}</AlertDescription></Alert>}
 
-        {/* Header */}
-        <div className="flex flex-col items-center text-center gap-4">
-          <img src="/AllocardLogoBlack.svg" alt="Allocard Logo" className="w-16 h-16 object-contain mb-2" />
-          <h1 className="text-4xl font-bold tracking-[-0.03em] text-[#111]">
-            Set up your workspace
-          </h1>
-          <p className="text-base text-[#666] max-w-md mx-auto leading-relaxed">
-            Create a company account, or join a company after your employer adds your verified email.
-          </p>
-        </div>
+        <div className="flex flex-col gap-6">
+          {(loading || !!loadError || memberships.length > 0 || pending.length > 0) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Your companies</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-5" aria-busy={loading || auth.status === "connecting"}>
+              {loading || auth.status === "connecting" ? (
+                <div className="flex flex-col gap-3" role="status">
+                  <span className="sr-only">Loading your workspaces</span>
+                  <Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" />
+                </div>
+              ) : loadError ? (
+                <Alert variant="destructive"><AlertTitle>Workspaces could not load</AlertTitle><AlertDescription>{loadError}</AlertDescription></Alert>
+              ) : (
+                <>
+                  {memberships.map((membership) => (
+                    <div key={membership.companyId} className="flex flex-col gap-3 rounded-lg border border-border p-4">
+                      <div className="flex items-center gap-3"><Building2 className="size-4 shrink-0 text-muted-foreground" /><h2 className="min-w-0 break-words text-sm font-semibold">{membership.companyName}</h2></div>
+                      <div className="flex flex-wrap gap-2">
+                        {(["employer", "employee"] as const).filter((role) => role === "employer" ? membership.canEmployer : membership.canEmployee).map((role) => {
+                          const key = membership.companyId + role;
+                          return <Button key={role} variant={role === "employer" ? "default" : "outline"} disabled={busy} onClick={() => performAction(key, async () => {
+                            await setWorkspaceContext({ walletAddress: address!, companyId: membership.companyId, role });
+                            router.push(role === "employer" ? "/employer" : "/employee");
+                          })}>{activeAction === key ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <ArrowRight data-icon="inline-start" />}{role === "employer" ? "Employer" : "Employee"}</Button>;
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                  {pending.length > 0 && <section className="flex flex-col gap-3" aria-label="Pending invitations">
+                    <p className="text-xs font-medium text-muted-foreground">Waiting for you</p>
+                    {pending.map((membership) => <div key={membership.id} className="flex flex-col gap-3 rounded-lg border border-border p-4">
+                      <div className="flex items-start justify-between gap-3"><h2 className="min-w-0 break-words text-sm font-semibold">{membership.companyName}</h2><Badge variant="secondary">Invitation</Badge></div>
+                      <Button variant="outline" disabled={busy} onClick={() => performAction(membership.id, async () => {
+                        await acceptEmployeeMembership({ walletAddress: address!, companyId: membership.companyId });
+                        await setWorkspaceContext({ walletAddress: address!, companyId: membership.companyId, role: "employee" });
+                        router.push("/employee");
+                      })}>{activeAction === membership.id ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <ArrowRight data-icon="inline-start" />}Accept invitation</Button>
+                    </div>)}
+                  </section>}
 
-        {/* Cards */}
-        <div className="grid gap-6 sm:grid-cols-2">
-
-          {/* Employer card */}
-          <div className="rounded-xl border border-[#eaeaea] bg-white p-8 flex flex-col gap-6">
-            <div className="flex flex-col gap-2">
-              <div className="w-10 h-10 rounded-lg border border-[#eaeaea] flex items-center justify-center text-[#555] mb-2">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21" />
-                </svg>
-              </div>
-              <p className="text-lg font-semibold text-[#111]">Create a company</p>
-              <p className="text-sm text-[#666] leading-relaxed">
-                You are the company owner. You deploy the master expense card (smart account) and issue delegations.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-4 mt-auto">
-              <div className="flex flex-col gap-2">
-                <label htmlFor="company-name" className="text-sm font-medium text-[#555]">
-                  Company name
-                </label>
-                <input
-                  id="company-name"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleCreateCompany()}
-                  placeholder="Acme Labs"
-                  maxLength={80}
-                  className="h-12 w-full rounded-md border border-[#eaeaea] bg-white px-4 text-base text-[#111] placeholder:text-[#bbb] outline-none focus:border-[#999] transition-colors"
-                />
-              </div>
-
-              {error && (
-                <p className="text-sm text-red-600">{error}</p>
+                </>
               )}
+            </CardContent>
+            <CardFooter>
+              <Button variant="ghost" disabled={busy} onClick={() => setRefresh((value) => value + 1)}><RefreshCw data-icon="inline-start" />{loadError ? "Try again" : "Refresh access"}</Button>
+            </CardFooter>
+          </Card>
+          )}
 
-              <button
-                onClick={handleCreateCompany}
-                disabled={isPending || companyName.trim().length < 2}
-                className="h-12 w-full rounded-md bg-[#111] text-white text-base font-semibold hover:bg-[#333] transition-colors disabled:opacity-40 cursor-pointer flex items-center justify-center gap-2"
-              >
-                {isPending && <Spinner />}
-                {isPending ? "Creating..." : "Create company"}
-              </button>
-            </div>
-          </div>
-
-          {/* Employee card */}
-          <div className="rounded-xl border border-[#eaeaea] bg-white p-8 flex flex-col gap-6">
-            <div className="flex flex-col gap-2">
-              <div className="w-10 h-10 rounded-lg border border-[#eaeaea] flex items-center justify-center text-[#555] mb-2">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-                </svg>
-              </div>
-              <p className="text-lg font-semibold text-[#111]">Join as an employee</p>
-              <p className="text-sm text-[#666] leading-relaxed">
-                When an employer adds your verified email, the company will appear in your workspace.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-4 mt-auto">
-              <p className="rounded-lg border border-[#eaeaea] bg-[#fafafa] p-4 text-sm leading-relaxed text-[#666]">
-                You are signed in as {auth.status === "authenticated" ? auth.email ?? "your verified account" : "your verified account"}. Ask your employer to add this email; company access will appear here after you accept it.
-              </p>
-            </div>
-          </div>
+          {!loading && !loadError && !hasEmployerWorkspace && <Card>
+            <CardHeader>
+              <CardTitle>Create a company</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <form className="flex flex-col gap-5" onSubmit={(event) => {
+                  event.preventDefault();
+                  if (busy || !address || companyName.trim().length < 2) return;
+                  performAction("create", async () => {
+                    await createEmployerAccount({ walletAddress: address, companyName: companyName.trim() });
+                    router.push("/employer");
+                  });
+                }}>
+                  <fieldset disabled={busy} className="flex min-w-0 flex-col gap-3">
+                    <Label htmlFor="company-name">Company name</Label>
+                    <Input id="company-name" name="companyName" placeholder="Acme Labs" autoComplete="organization" required minLength={2} maxLength={80} value={companyName} onChange={(event) => setCompanyName(event.target.value)} />
+                  </fieldset>
+                  <Button size="lg" type="submit" disabled={busy || !!loadError || companyName.trim().length < 2}>{activeAction === "create" ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <Building2 data-icon="inline-start" />}{activeAction === "create" ? "Creating company…" : "Create company"}</Button>
+                </form>
+            </CardContent>
+          </Card>}
         </div>
-
-
+        {!loading && !loadError && memberships.length === 0 && pending.length === 0 && <p className="text-center text-sm leading-relaxed text-muted-foreground">Joining as an employee? Ask your employer to add {auth.status === "authenticated" && auth.email ? <span className="break-words font-medium text-foreground">{auth.email}</span> : "your email"} to their company.</p>}
       </div>
-    </div>
+    </main>
   );
 }

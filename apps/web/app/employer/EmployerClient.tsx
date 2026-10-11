@@ -23,7 +23,6 @@ import {
   createAgentDelegation,
   createEmployeeDelegation,
   addEmployeeByEmail,
-  addSelfAsEmployee,
   getCompanyDashboardState,
   getWalletProfile,
   setWorkspaceContext,
@@ -404,7 +403,7 @@ export function EmployerClient({
         }
 
         if (nextProfile.status === "picker") {
-          router.replace("/workspaces");
+          router.replace("/onboarding");
           return;
         }
 
@@ -740,37 +739,21 @@ export function EmployerClient({
     try {
       const addr = (currentAuthAddress || (profile && "user" in profile && profile.user ? profile.user.walletAddress : undefined)) as string;
       const result = await addEmployeeByEmail({ walletAddress: addr, email });
-      if (result.status === "self_added") {
-        toast.success("Employee access added");
-        router.replace("/employee");
+      if (result.status === "already_pending") {
+        toast.info("That email has already been invited");
+      } else if (result.status === "already_active") {
+        toast.info("That employee already has workspace access");
       } else {
-        toast.success(
-          result.status === "already_pending"
-            ? "That email is already pending"
-            : result.status === "already_active"
-              ? "That employee already has access"
-              : "Access will appear after they sign in",
-        );
-        updateDashboard(await getCompanyDashboardState(addr));
+        toast.success("Employee invited. They can sign in to access their corporate card.");
       }
+      updateDashboard(await getCompanyDashboardState(addr));
     } catch (caught) {
       toast.error(caught instanceof Error ? caught.message : "Could not add employee");
       throw caught;
     } finally {
       setIsAddingEmployee(false);
     }
-  }, [currentAuthAddress, profile, router, updateDashboard]);
-
-  const handleAddSelfAsEmployee = useCallback(async () => {
-    try {
-      const addr = (currentAuthAddress || (profile && "user" in profile && profile.user ? profile.user.walletAddress : undefined)) as string;
-      await addSelfAsEmployee(addr);
-      router.replace("/employee");
-    } catch (caught) {
-      toast.error(caught instanceof Error ? caught.message : "Could not add employee access");
-      throw caught;
-    }
-  }, [currentAuthAddress, profile, router]);
+  }, [currentAuthAddress, profile, updateDashboard]);
 
   if (auth.status === "unauthenticated" && !dashboardState) {
     return <ConnectRequiredCard />;
@@ -848,7 +831,6 @@ export function EmployerClient({
       }))}
       pendingEmployees={dashboardState.pendingEmployees}
       onInviteEmployeeByEmail={handleAddEmployeeByEmail}
-      onAddSelfAsEmployee={handleAddSelfAsEmployee}
       agents={dashboardState.agents
         .filter((agent) => agent.name === "Reimbursement Agent")
         .map((agent) => ({

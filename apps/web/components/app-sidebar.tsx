@@ -162,23 +162,19 @@ function SmartAccountAddress({ label, fullAddress, role }: { label: string; full
   );
 }
 
-// ---------------------------------------------------------------------------
-// Add employee dialog — shadcn modal for email invitation & self-add
+// Add employee dialog — shadcn modal for email invitation
 // ---------------------------------------------------------------------------
 
 function AddEmployeeDialog({
   onInviteEmployeeByEmail,
-  onAddSelfAsEmployee,
   pendingEmployees,
 }: {
   onInviteEmployeeByEmail?: (email: string) => Promise<void>;
-  onAddSelfAsEmployee?: () => Promise<void>;
   pendingEmployees?: { id: string; email: string; createdAt: string }[];
 }) {
   const [open, setOpen] = React.useState(false);
   const [email, setEmail] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [isAddingSelf, setIsAddingSelf] = React.useState(false);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -190,17 +186,6 @@ function AddEmployeeDialog({
       setOpen(false);
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleAddSelf = async () => {
-    if (!onAddSelfAsEmployee) return;
-    setIsAddingSelf(true);
-    try {
-      await onAddSelfAsEmployee();
-      setOpen(false);
-    } finally {
-      setIsAddingSelf(false);
     }
   };
 
@@ -221,7 +206,7 @@ function AddEmployeeDialog({
         <DialogHeader>
           <DialogTitle>Add an Employee</DialogTitle>
           <DialogDescription>
-            Invite a team member by their verified email address, or add yourself to test delegations.
+            Add a team member by their work email address. They will gain access to their corporate card workspace upon signing in.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 py-2">
@@ -237,21 +222,11 @@ function AddEmployeeDialog({
               disabled={isSubmitting}
             />
             <p className="text-xs text-muted-foreground">
-              They&apos;ll gain access to this company workspace after signing in with this email.
+              Tip for testing: Invite a second email (e.g. personal email) and open an incognito window to view their employee card.
             </p>
           </div>
 
-          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
-            {onAddSelfAsEmployee && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleAddSelf}
-                disabled={isAddingSelf || isSubmitting}
-              >
-                {isAddingSelf ? "Adding..." : "Add myself"}
-              </Button>
-            )}
+          <div className="flex justify-end gap-2 pt-2">
             <Button
               type="submit"
               disabled={isSubmitting || !email.trim() || !onInviteEmployeeByEmail}
@@ -298,7 +273,6 @@ function CanvasSection({
   pendingEmployees,
   onAddEmployee,
   onInviteEmployeeByEmail,
-  onAddSelfAsEmployee,
   onRefreshEmployees,
   employeesRefreshing,
   onSelectAgent,
@@ -309,7 +283,6 @@ function CanvasSection({
   pendingEmployees?: { id: string; email: string; createdAt: string }[];
   onAddEmployee?: (employeeId: string) => void;
   onInviteEmployeeByEmail?: (email: string) => Promise<void>;
-  onAddSelfAsEmployee?: () => Promise<void>;
   onRefreshEmployees?: () => void;
   employeesRefreshing?: boolean;
   onSelectAgent?: (agentId: string) => void;
@@ -368,10 +341,9 @@ function CanvasSection({
             </div>
 
             {/* Add Employee action in the sidebar */}
-            {(onInviteEmployeeByEmail || onAddSelfAsEmployee) && (
+            {onInviteEmployeeByEmail && (
               <AddEmployeeDialog
                 onInviteEmployeeByEmail={onInviteEmployeeByEmail}
-                onAddSelfAsEmployee={onAddSelfAsEmployee}
                 pendingEmployees={pendingEmployees}
               />
             )}
@@ -672,7 +644,6 @@ export function AppSidebar({
   onWorkspaceChange,
   onAddEmployee,
   onInviteEmployeeByEmail,
-  onAddSelfAsEmployee,
   onRefreshEmployees,
   employeesRefreshing,
   onSelectAgent,
@@ -693,7 +664,6 @@ export function AppSidebar({
   onWorkspaceChange?: (companyId: string, role: "employer" | "employee") => void;
   onAddEmployee?: (employeeId: string) => void;
   onInviteEmployeeByEmail?: (email: string) => Promise<void>;
-  onAddSelfAsEmployee?: () => Promise<void>;
   onRefreshEmployees?: () => void;
   employeesRefreshing?: boolean;
   onSelectAgent?: (agentId: string) => void;
@@ -793,7 +763,6 @@ export function AppSidebar({
           pendingEmployees={pendingEmployees}
           onAddEmployee={onAddEmployee}
           onInviteEmployeeByEmail={onInviteEmployeeByEmail}
-          onAddSelfAsEmployee={onAddSelfAsEmployee}
           onRefreshEmployees={onRefreshEmployees}
           employeesRefreshing={employeesRefreshing}
           onSelectAgent={onSelectAgent}

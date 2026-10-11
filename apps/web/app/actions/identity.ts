@@ -733,36 +733,6 @@ export async function getPendingCompanyMemberships() {
   return rows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() }));
 }
 
-export async function addSelfAsEmployee(walletAddress: string) {
-  const normalizedAddress = normalizeWalletAddress(walletAddress);
-  await validateSessionWallet(normalizedAddress);
-  const profile = await getWalletProfile(normalizedAddress);
-  if (profile.status !== "employer" || !profile.user.companyId) {
-    throw new Error("Switch to the employer workspace before adding yourself");
-  }
-  const companyId = profile.user.companyId;
-  const [membership] = await db.select().from(companyMemberships).where(and(
-    eq(companyMemberships.userId, profile.user.id),
-    eq(companyMemberships.companyId, companyId),
-    eq(companyMemberships.status, "active"),
-  )).limit(1);
-  if (!membership?.canEmployer) throw new Error("Employer access is required");
-
-  await db.insert(companyMemberships).values({
-    userId: profile.user.id,
-    companyId,
-    canEmployee: true,
-  }).onConflictDoUpdate({
-    target: [companyMemberships.companyId, companyMemberships.userId],
-    set: { canEmployee: true, status: "active", removedAt: null },
-  });
-  await db.insert(employeeProfiles).values({ companyId, userId: profile.user.id })
-    .onConflictDoNothing({ target: [employeeProfiles.companyId, employeeProfiles.userId] });
-  await db.insert(workspacePreferences).values({ userId: profile.user.id, companyId, role: "employee" })
-    .onConflictDoUpdate({ target: workspacePreferences.userId, set: { companyId, role: "employee", updatedAt: new Date() } });
-  return getWalletProfile(normalizedAddress);
-}
-
 export async function addEmployeeByEmail(input: { walletAddress: string; email: string }) {
   const normalizedAddress = normalizeWalletAddress(input.walletAddress);
   await validateSessionWallet(normalizedAddress);
@@ -771,7 +741,7 @@ export async function addEmployeeByEmail(input: { walletAddress: string; email: 
   const email = normalizeVerifiedEmail(input.email);
   const identity = await getSessionIdentity();
   if (identity && email === normalizeVerifiedEmail(identity.email)) {
-    return { status: "self_added" as const, profile: await addSelfAsEmployee(normalizedAddress) };
+    throw new Error("You cannot add your own employer account as an employee. To test delegation and card access, enter a colleague or secondary email address.");
   }
 
   const [existing] = await db.select().from(pendingEmployees).where(and(

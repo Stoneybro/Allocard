@@ -21,7 +21,6 @@ export function DashboardShell({
   agents,
   onAddEmployee,
   onInviteEmployeeByEmail,
-  onAddSelfAsEmployee,
   onSelectAgent,
   onRefreshEmployees,
   employeesRefreshing,
@@ -42,7 +41,6 @@ export function DashboardShell({
   agents?: SidebarAgent[];
   onAddEmployee?: (employeeId: string) => void;
   onInviteEmployeeByEmail?: (email: string) => Promise<void>;
-  onAddSelfAsEmployee?: () => Promise<void>;
   onSelectAgent?: (agentId: string) => void;
   onRefreshEmployees?: () => void;
   employeesRefreshing?: boolean;
@@ -73,7 +71,6 @@ export function DashboardShell({
         agents={agents ?? []}
         onAddEmployee={onAddEmployee}
         onInviteEmployeeByEmail={onInviteEmployeeByEmail}
-        onAddSelfAsEmployee={onAddSelfAsEmployee}
         onSelectAgent={onSelectAgent}
         onRefreshEmployees={onRefreshEmployees}
         employeesRefreshing={employeesRefreshing}

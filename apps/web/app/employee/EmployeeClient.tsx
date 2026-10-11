@@ -410,7 +410,7 @@ export function EmployeeClient({
         }
 
         if (profile.status === "picker") {
-          router.replace("/workspaces");
+          router.replace("/onboarding");
           return;
         }
 
