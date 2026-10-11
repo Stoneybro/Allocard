@@ -12,8 +12,16 @@ import {
   type Caveats,
   type Delegation,
 } from "@metamask/smart-accounts-kit";
-import { LoaderCircleIcon, ShieldCheckIcon, BotIcon } from "lucide-react";
+import {
+  LoaderCircleIcon,
+  ShieldCheckIcon,
+  BotIcon,
+  ExternalLink,
+  BanIcon,
+  ShieldAlertIcon,
+} from "lucide-react";
 import { formatEther, parseEther, type Hex } from "viem";
+import { toast } from "sonner";
 import {
   createAgentRedelegation,
   activateEmployeeDelegation,
@@ -42,6 +50,17 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
   Drawer,
   DrawerContent,
   DrawerDescription,
@@ -68,7 +87,7 @@ import { publicClient, getPimlicoGasPrice } from "@/lib/client";
 import { cn } from "@/lib/utils";
 import { formatWalletAddress, generateEmployeeReferenceId } from "@/lib/wallet";
 import { useWalletClient, useSwitchChain, useBalance } from "wagmi";
-import { chain, CHAIN_ID, TOKEN_SYMBOL } from "@/lib/chain";
+import { chain, CHAIN_ID, TOKEN_SYMBOL, getAddressExplorerUrl } from "@/lib/chain";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -543,7 +562,9 @@ export function EmployeeClient({
         try {
           setDashboardState(await mutation());
         } catch (caughtError) {
-          setError(caughtError instanceof Error ? caughtError.message : "Action failed");
+          const message = caughtError instanceof Error ? caughtError.message : "Action failed";
+          setError(message);
+          toast.error("Operation Failed", { description: message });
         }
       });
     },
@@ -552,6 +573,14 @@ export function EmployeeClient({
 
   const handleSmartAccountActivated = (smartAccountAddress: string | null) => {
     if (!smartAccountAddress) return;
+
+    toast.success("Safe Smart Account Deployed", {
+      description: `Employee Safe is active on Monad Testnet (${smartAccountAddress.slice(0, 6)}...${smartAccountAddress.slice(-4)})`,
+      action: {
+        label: "View Explorer",
+        onClick: () => window.open(getAddressExplorerUrl(smartAccountAddress), "_blank"),
+      },
+    });
     setDashboardState((current) => {
       if (!current) return current;
       return { ...current, employee: { ...current.employee, smartAccountAddress } };
@@ -581,6 +610,9 @@ export function EmployeeClient({
         try {
           const state = await createAgentRedelegation({ walletAddress, agentId, canvasPositionX, canvasPositionY });
           setDashboardState(state);
+          toast.info("Agent Added to Canvas", {
+            description: "Configure spending rules and caveats to activate sub-delegation.",
+          });
 
           const pending = state.outboundDelegations.find(
             (d) => d.delegateeId === agentId && d.status !== "revoked",
@@ -661,11 +693,28 @@ export function EmployeeClient({
     (delegationId: string) => {
       if (auth.status !== "authenticated" || !auth.address) return;
       const walletAddress = auth.address;
-      runEmployeeMutation(() =>
-        revokeEmployeeDelegation({ walletAddress, delegationId }),
-      );
+      const targetDelegation = dashboardState?.outboundDelegations.find(d => d.id === delegationId);
+      const agent = dashboardState?.agents.find(a => a.id === targetDelegation?.delegateeId);
+      const agentName = agent?.name ?? "AI Agent";
+      const agentAddress = agent?.smartAccountAddress || agent?.signerAddress || "";
+
+      runEmployeeMutation(async () => {
+        const nextState = await revokeEmployeeDelegation({ walletAddress, delegationId });
+        
+        toast.success("Agent Delegation Revoked", {
+          description: `Spending authority for ${agentName} has been revoked on Monad Testnet.`,
+          action: agentAddress ? {
+            label: "View Explorer",
+            onClick: () => window.open(getAddressExplorerUrl(agentAddress), "_blank"),
+          } : undefined,
+        });
+
+        return nextState;
+      });
+
+      setSelectedDelegationId((current) => (current === delegationId ? null : current));
     },
-    [auth, runEmployeeMutation],
+    [auth, dashboardState, runEmployeeMutation],
   );
 
   // Task 6: save caveats then sign and activate the delegation
@@ -747,7 +796,6 @@ export function EmployeeClient({
 
         const signedDelegation = { ...delegation, signature };
         const delegationHash = hashDelegation(toCoreDelegation(signedDelegation));
-
         // 5. Persist the signed delegation
         const activatedState = await activateEmployeeDelegation({
           walletAddress,
@@ -757,6 +805,17 @@ export function EmployeeClient({
         });
         setDashboardState(activatedState);
         setSelectedDelegationId(null);
+
+        const agent = dashboardState?.agents.find(a => a.id === selectedDelegation.delegateeId);
+        const agentName = agent?.name ?? "AI Agent";
+
+        toast.success("Agent Sub-Delegation Activated", {
+          description: `Assigned ${caveatForm.maxAmountEth} ${TOKEN_SYMBOL} budget to ${agentName} on Monad Testnet`,
+          action: {
+            label: "View Explorer",
+            onClick: () => window.open(getAddressExplorerUrl(agentSmartAccountAddress), "_blank"),
+          },
+        });
       } catch (caughtError) {
         setError(caughtError instanceof Error ? caughtError.message : "Could not activate delegation");
       }
@@ -1363,16 +1422,48 @@ export function EmployeeClient({
             <div className="pb-4" />
           </div>
 
-          {selectedDelegation?.status !== "active" && (
+          {Boolean(selectedDelegation) && (
             <DrawerFooter className="border-t pt-4">
-              <Button onClick={handleActivateDelegation} disabled={isPending}>
-                {isPending ? (
-                  <LoaderCircleIcon data-icon="inline-start" className="animate-spin" />
-                ) : (
-                  <ShieldCheckIcon data-icon="inline-start" />
-                )}
-                Sign & Activate Delegation
-              </Button>
+              {selectedDelegation?.status === "active" ? (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" disabled={isPending}>
+                      <BanIcon data-icon="inline-start" />
+                      Revoke delegation
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently revoke this agent's active sub-delegation on Monad Testnet.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={() => {
+                          const id = selectedDelegation.id;
+                          setSelectedDelegationId(null);
+                          handleRevokeDelegation(id);
+                        }}
+                        className="bg-red-600 text-white hover:bg-red-700"
+                      >
+                        Yes, revoke delegation
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              ) : selectedDelegation?.status === "pending_config" ? (
+                <Button onClick={handleActivateDelegation} disabled={isPending}>
+                  {isPending ? (
+                    <LoaderCircleIcon data-icon="inline-start" className="animate-spin" />
+                  ) : (
+                    <ShieldCheckIcon data-icon="inline-start" />
+                  )}
+                  Sign & Activate Delegation
+                </Button>
+              ) : null}
             </DrawerFooter>
           )}
         </DrawerContent>

@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { LoaderCircleIcon, CheckCircleIcon, XCircleIcon, ShoppingCartIcon } from "lucide-react";
 import { toast } from "sonner";
 import { parseUserOpError } from "@/lib/error-parser";
-import { getTxExplorerUrl } from "@/lib/chain";
+import { getTxExplorerUrl, TOKEN_SYMBOL } from "@/lib/chain";
 
 export function ProcurementAgentDrawer({
   isOpen,
@@ -114,17 +114,28 @@ export function ProcurementAgentDrawer({
       const data = await res.json();
 
       if (!res.ok) {
+        const errorMsg = parseUserOpError(data.error) || "An error occurred during booking";
         setStatus("error");
-        setResultMessage(parseUserOpError(data.error) || "An error occurred during booking");
+        setResultMessage(errorMsg);
+        toast.error("Procurement Failed", { description: errorMsg });
         return;
       }
 
       setStatus("success");
       setTxHash(data.txHash);
-      toast.success("Subscription procured successfully!");
+      onOpenChange(false);
+      toast.success("Subscription Procured Successfully", {
+        description: `${vendorChoice?.toolName || 'Subscription'} (${vendorChoice?.recommendedVendor || ''}) • ${vendorChoice?.estimatedCostEth || ''} ${TOKEN_SYMBOL} on Monad Testnet`,
+        action: {
+          label: "View Explorer",
+          onClick: () => window.open(getTxExplorerUrl(data.txHash), "_blank"),
+        },
+      });
     } catch (err: any) {
+      const errorMsg = parseUserOpError(err);
       setStatus("error");
-      setResultMessage(parseUserOpError(err));
+      setResultMessage(errorMsg);
+      toast.error("Procurement Failed", { description: errorMsg });
     }
   };
 

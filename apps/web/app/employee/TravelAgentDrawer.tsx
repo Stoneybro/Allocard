@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { LoaderCircleIcon, CheckCircleIcon, XCircleIcon, PlaneIcon } from "lucide-react";
 import { toast } from "sonner";
 import { parseUserOpError } from "@/lib/error-parser";
-import { getTxExplorerUrl } from "@/lib/chain";
+import { getTxExplorerUrl, TOKEN_SYMBOL } from "@/lib/chain";
 
 export function TravelAgentDrawer({
   isOpen,
@@ -117,17 +117,28 @@ export function TravelAgentDrawer({
       const data = await res.json();
 
       if (!res.ok) {
+        const errorMsg = parseUserOpError(data.error) || "An error occurred during booking";
         setStatus("error");
-        setResultMessage(parseUserOpError(data.error) || "An error occurred during booking");
+        setResultMessage(errorMsg);
+        toast.error("Travel Booking Failed", { description: errorMsg });
         return;
       }
 
       setStatus("success");
       setTxHash(data.txHash);
-      toast.success("Travel booked successfully!");
+      onOpenChange(false);
+      toast.success("Travel Booked Successfully", {
+        description: `${destination} (${departureDate} → ${returnDate}) • ${travelPlan?.estimatedCostEth || ""} ${TOKEN_SYMBOL} confirmed on Monad Testnet`,
+        action: {
+          label: "View Explorer",
+          onClick: () => window.open(getTxExplorerUrl(data.txHash), "_blank"),
+        },
+      });
     } catch (err: any) {
+      const errorMsg = parseUserOpError(err);
       setStatus("error");
-      setResultMessage(parseUserOpError(err));
+      setResultMessage(errorMsg);
+      toast.error("Travel Booking Failed", { description: errorMsg });
     }
   };
 

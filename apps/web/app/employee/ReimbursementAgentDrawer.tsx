@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { parseUserOpError } from "@/lib/error-parser";
-import { getTxExplorerUrl } from "@/lib/chain";
+import { getTxExplorerUrl, TOKEN_SYMBOL } from "@/lib/chain";
 
 type ExtractionResult = {
   merchant: string;
@@ -149,23 +149,33 @@ export function ReimbursementAgentDrawer({
       });
       const data = await res.json();
       if (!res.ok) {
-        setErrorMessage(parseUserOpError(data.error) || "An error occurred");
+        const errorMsg = parseUserOpError(data.error) || "An error occurred";
+        setErrorMessage(errorMsg);
         setStep("error");
+        toast.error("Reimbursement Failed", { description: errorMsg });
         return;
       }
       if (data.veniceApproved) {
         setTxHash(data.txHash || null);
         setResultMessage(data.veniceReasoning || "Claim approved by AI.");
         setStep("success");
-        toast.success("Claim approved and reimbursed!");
+        toast.success("Reimbursement Disbursed Successfully", {
+          description: `${reviewAmountEth} ${TOKEN_SYMBOL} paid out to your account on Monad Testnet.`,
+          action: data.txHash ? {
+            label: "View Explorer",
+            onClick: () => window.open(getTxExplorerUrl(data.txHash), "_blank"),
+          } : undefined,
+        });
       } else {
         setErrorMessage(`Rejected: ${data.veniceReasoning}`);
         setStep("error");
-        toast.error("Claim was rejected by the agent");
+        toast.error("Claim Rejected by Policy", { description: data.veniceReasoning });
       }
     } catch (err: any) {
-      setErrorMessage(parseUserOpError(err));
+      const errorMsg = parseUserOpError(err);
+      setErrorMessage(errorMsg);
       setStep("error");
+      toast.error("Reimbursement Failed", { description: errorMsg });
     }
   };
 

@@ -1,16 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
+import { useLogin } from "@privy-io/react-auth";
 import { getWalletProfile } from "@/app/actions/identity";
 import Image from "next/image";
 
 function routeForStatus(status: "new" | "picker" | "employer" | "employee") {
-  if (status === "picker") return "/workspaces";
   if (status === "employer") return "/employer";
   if (status === "employee") return "/employee";
-  return "/workspaces";
+  return "/onboarding";
 }
 
 export function LandingPageClient({
@@ -26,66 +26,82 @@ export function LandingPageClient({
   const [userInitiatedLogin, setUserInitiatedLogin] = useState(false);
   const pendingClickRef = useRef(false);
 
-  // If the user *manually* clicked "Sign in" and completed login,
-  // route them into the app now that auth is ready.
-  useEffect(() => {
-    if (!userInitiatedLogin) return;
-    if (auth.status === "authenticated") {
-      setUserInitiatedLogin(false);
-      startRouting(async () => {
-        try {
-          await auth.establishSession();
-          const profile = await getWalletProfile(auth.address);
-          router.push(routeForStatus(profile.status));
-        } catch {
-          // stay on landing page
-        }
-      });
-    } else if (auth.status === "unauthenticated" && pendingClickRef.current) {
-      pendingClickRef.current = false;
-      auth.connect();
-    }
-  }, [userInitiatedLogin, auth, router]);
-
   const isAuthenticated = Boolean(
     initialWalletAddress || auth.status === "authenticated"
   );
+
+  const navigateToDashboard = useCallback(() => {
+    startRouting(async () => {
+      try {
+        const address = auth.status === "authenticated" ? auth.address : initialWalletAddress;
+        if (auth.status === "authenticated") {
+          await auth.establishSession();
+        }
+        if (address) {
+          const profile = await getWalletProfile(address);
+          router.push(routeForStatus(profile.status));
+          return;
+        }
+      } catch {
+        // fallback
+      }
+      if (initialProfileStatus) {
+        router.push(routeForStatus(initialProfileStatus));
+        return;
+      }
+      router.push("/onboarding");
+    });
+  }, [auth, initialWalletAddress, initialProfileStatus, router]);
+
+  const { login } = useLogin({
+    onComplete: () => {
+      sessionStorage.setItem("allocard_user_logging_in", "true");
+      setUserInitiatedLogin(true);
+      navigateToDashboard();
+    },
+    onError: () => {
+      sessionStorage.removeItem("allocard_user_logging_in");
+      setUserInitiatedLogin(false);
+    },
+  });
+
+  // When a user explicitly signs in, automatically route to the dashboard.
+  // When a user simply opens or reloads the page with saved credentials, do NOT auto-route.
+  useEffect(() => {
+    const isLoggingIn =
+      userInitiatedLogin ||
+      (typeof window !== "undefined" &&
+        sessionStorage.getItem("allocard_user_logging_in") === "true");
+
+    if (!isLoggingIn) return;
+
+    if (auth.status === "authenticated") {
+      sessionStorage.removeItem("allocard_user_logging_in");
+      setUserInitiatedLogin(false);
+      navigateToDashboard();
+    } else if (auth.status === "unauthenticated" && pendingClickRef.current) {
+      pendingClickRef.current = false;
+      login();
+    }
+  }, [userInitiatedLogin, auth.status, navigateToDashboard, login]);
 
   const handleConnect = () => {
     if (isRouting) return;
 
     if (isAuthenticated) {
-      startRouting(async () => {
-        try {
-          const address = auth.status === "authenticated" ? auth.address : initialWalletAddress;
-          if (auth.status === "authenticated") {
-            await auth.establishSession();
-          }
-          if (address) {
-            const profile = await getWalletProfile(address);
-            router.push(routeForStatus(profile.status));
-            return;
-          }
-        } catch {
-          // fallback to initial status or onboarding
-        }
-        if (initialProfileStatus) {
-          router.push(routeForStatus(initialProfileStatus));
-          return;
-        }
-        router.push("/onboarding");
-      });
+      navigateToDashboard();
       return;
     }
 
+    sessionStorage.setItem("allocard_user_logging_in", "true");
+    setUserInitiatedLogin(true);
+
     if (auth.status === "unauthenticated") {
-      setUserInitiatedLogin(true);
-      auth.connect();
+      login();
       return;
     }
 
     if (auth.status === "connecting") {
-      setUserInitiatedLogin(true);
       pendingClickRef.current = true;
     }
   };

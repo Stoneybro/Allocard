@@ -7,9 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { parseUserOpError } from "@/lib/error-parser";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle, CheckCircle2, Loader2, UploadCloud, ArrowRight } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, UploadCloud, ArrowRight, ExternalLink } from "lucide-react";
 import { parseEther } from "viem";
 import { getTxExplorerUrl, TOKEN_SYMBOL } from "@/lib/chain";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -113,9 +115,20 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
       const hash = await onExecute({ toAddress, amountEth, purpose, isFlagged });
       setTxHash(hash);
       setStep("receipt");
+      toast.success("Expense Executed Successfully", {
+        description: `${amountEth} ${TOKEN_SYMBOL} sent to ${toAddress.slice(0, 6)}...${toAddress.slice(-4)} • Monad Testnet`,
+        action: {
+          label: "View Explorer",
+          onClick: () => window.open(getTxExplorerUrl(hash), "_blank"),
+        },
+      });
     } catch (err: any) {
       console.error(err);
-      setError(parseUserOpError(err));
+      const parsed = parseUserOpError(err);
+      setError(parsed);
+      toast.error("Expense Execution Failed", {
+        description: parsed,
+      });
     } finally {
       setIsExecuting(false);
     }
@@ -227,7 +240,7 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Amount:</span>
-                <span className="font-semibold">{amountEth} ETH</span>
+                <span className="font-semibold">{amountEth} {TOKEN_SYMBOL}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Purpose:</span>
@@ -259,7 +272,7 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
                   <AlertDialogHeader>
                     <AlertDialogTitle>Confirm Direct Spend</AlertDialogTitle>
                     <AlertDialogDescription>
-                      You are about to send <strong className="text-foreground">{amountEth} ETH</strong> to <strong className="break-all font-mono text-xs text-foreground">{toAddress}</strong>.
+                      You are about to send <strong className="text-foreground">{amountEth} {TOKEN_SYMBOL}</strong> to <strong className="break-all font-mono text-xs text-foreground">{toAddress}</strong>.
                       This is an irreversible on-chain transaction.
                     </AlertDialogDescription>
                   </AlertDialogHeader>

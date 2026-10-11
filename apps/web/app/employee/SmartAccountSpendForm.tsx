@@ -6,8 +6,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle, CheckCircle2, Loader2, Send } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Send, ExternalLink } from "lucide-react";
 import { parseEther } from "viem";
+import { getTxExplorerUrl, TOKEN_SYMBOL } from "@/lib/chain";
+import { toast } from "sonner";
 
 type Props = {
   availableBalanceEth: string;
@@ -39,7 +41,7 @@ export function SmartAccountSpendForm({ availableBalanceEth, onExecute }: Props)
     try {
       parsedAmount = parseEther(amountEth);
     } catch {
-      setError("Invalid ETH amount");
+      setError(`Invalid ${TOKEN_SYMBOL} amount`);
       return;
     }
 
@@ -59,9 +61,20 @@ export function SmartAccountSpendForm({ availableBalanceEth, onExecute }: Props)
       const hash = await onExecute({ toAddress, amountEth });
       setTxHash(hash);
       setStep("done");
+      toast.success("Transaction Sent Successfully", {
+        description: `${amountEth} ${TOKEN_SYMBOL} sent to ${toAddress.slice(0, 6)}...${toAddress.slice(-4)} • Monad Testnet`,
+        action: {
+          label: "View Explorer",
+          onClick: () => window.open(getTxExplorerUrl(hash), "_blank"),
+        },
+      });
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "Execution failed");
+      const msg = err.message || "Execution failed";
+      setError(msg);
+      toast.error("Transaction Failed", {
+        description: msg,
+      });
     } finally {
       setIsExecuting(false);
     }
@@ -97,7 +110,7 @@ export function SmartAccountSpendForm({ availableBalanceEth, onExecute }: Props)
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="sa-amount">Amount (ETH)</Label>
+              <Label htmlFor="sa-amount">Amount ({TOKEN_SYMBOL})</Label>
               <Input
                 id="sa-amount"
                 type="number"

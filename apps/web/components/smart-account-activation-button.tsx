@@ -10,6 +10,7 @@ import { activateSmartAccount } from "@/app/actions/identity";
 import { Button } from "@/components/ui/button";
 import { publicClient, getPimlicoGasPrice } from "@/lib/client";
 import { createHybridSmartAccount } from "@/lib/smartAccount";
+import { toast } from "sonner";
 
 type ActivationResult = Awaited<ReturnType<typeof activateSmartAccount>>;
 
@@ -136,6 +137,9 @@ export function SmartAccountActivationButton({
             ? caughtError.message
             : "Could not activate smart account";
         setError(message);
+        toast.error("Smart Account Activation Failed", {
+          description: message,
+        });
       }
     });
   };

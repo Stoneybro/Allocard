@@ -8,6 +8,7 @@ import { ArrowRight, Building2, Loader2, RefreshCw } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { ConnectRequiredCard } from "@/components/auth-state";
 import { acceptEmployeeMembership, createEmployerAccount, getWorkspaceOptions, setWorkspaceContext, type WorkspaceOption } from "@/app/actions/identity";
+import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -134,6 +135,9 @@ export default function OnboardingPage() {
                       <Button variant="outline" disabled={busy} onClick={() => performAction(membership.id, async () => {
                         await acceptEmployeeMembership({ walletAddress: address!, companyId: membership.companyId });
                         await setWorkspaceContext({ walletAddress: address!, companyId: membership.companyId, role: "employee" });
+                        toast.success("Invitation Accepted", {
+                          description: `You have joined ${membership.companyName}.`,
+                        });
                         router.push("/employee");
                       })}>{activeAction === membership.id ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <ArrowRight data-icon="inline-start" />}Accept invitation</Button>
                     </div>)}
@@ -158,6 +162,9 @@ export default function OnboardingPage() {
                   if (busy || !address || companyName.trim().length < 2) return;
                   performAction("create", async () => {
                     await createEmployerAccount({ walletAddress: address, companyName: companyName.trim() });
+                    toast.success("Company Created", {
+                      description: `${companyName.trim()} workspace is ready.`,
+                    });
                     router.push("/employer");
                   });
                 }}>
