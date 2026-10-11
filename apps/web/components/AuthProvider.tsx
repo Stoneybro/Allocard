@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { usePrivy, useWallets } from "@privy-io/react-auth";
+import { usePrivy, useWallets, useCreateWallet } from "@privy-io/react-auth";
 import { useSetActiveWallet } from "@privy-io/wagmi";
 import { clearSession, createSession, type SessionIdentity } from "@/lib/session-client";
 
@@ -16,11 +16,13 @@ const SESSION_REFRESH_AFTER_MS = 23 * 60 * 60 * 1000;
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { ready, authenticated, user, login, logout, getAccessToken } = usePrivy();
   const { wallets, ready: walletsReady } = useWallets();
+  const { createWallet } = useCreateWallet();
   const { setActiveWallet } = useSetActiveWallet();
   // The embedded Privy wallet is Allocard's signing identity. External wallets
   // may be linked to Privy, but they must never silently become the app identity.
   const wallet = wallets.find((candidate) => candidate.walletClientType === "privy");
   const [sessionIdentity, setSessionIdentity] = useState<SessionIdentity | null>(null);
+  const [walletMissing, setWalletMissing] = useState(false);
   const sessionIdentityRef = useRef<SessionIdentity | null>(null);
   const sessionCreatedAtRef = useRef(0);
   const sessionRequest = useRef<Promise<SessionIdentity> | null>(null);
@@ -32,7 +34,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   getAccessTokenRef.current = getAccessToken;
   sessionIdentityRef.current = sessionIdentity;
 
-  const connect = useCallback(() => { void login(); }, [login]);
+  // If authenticated but after a few seconds there's still no embedded wallet
+  // (e.g. user closed modal, or creation stalled), recover cleanly so the user is never stuck!
+  useEffect(() => {
+    if (authenticated && walletsReady && !wallet) {
+      const timer = setTimeout(() => {
+        setWalletMissing(true);
+      }, 3000);
+      return () => clearTimeout(timer);
+    } else {
+      setWalletMissing(false);
+    }
+  }, [authenticated, walletsReady, wallet]);
+
+  const connect = useCallback(async () => {
+    // If the user was left in a half-authenticated state without an embedded wallet:
+    if (authenticated && !wallet) {
+      try {
+        await createWallet();
+      } catch {
+        // If modal was dismissed or errored, clear the stuck session so login can restart cleanly!
+        await logout();
+        void login();
+      }
+    } else {
+      void login();
+    }
+  }, [authenticated, wallet, createWallet, logout, login]);
+
   const establishSession = useCallback(async () => {
     const cachedIdentity = sessionIdentityRef.current;
     if (
@@ -62,6 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (sessionRequest.current === request) sessionRequest.current = null;
     }
   }, [user?.id]);
+
   const disconnect = useCallback(async () => {
     // Let a login request finish before clearing its cookie so a late response
     // cannot recreate the session after logout.
@@ -88,10 +118,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [ready, authenticated, walletsReady, wallet?.address, establishSession]);
 
   const state: AuthState = useMemo(() => {
-    if (!ready || (authenticated && (!walletsReady || !wallet || sessionIdentity?.providerUserId !== user?.id))) {
+    if (!ready || (authenticated && (!walletsReady || (!wallet && !walletMissing) || (wallet && sessionIdentity?.providerUserId !== user?.id)))) {
       return { status: "connecting" };
     }
-    if (authenticated && sessionIdentity) {
+    if (authenticated && wallet && sessionIdentity) {
       return {
         status: "authenticated",
         address: sessionIdentity.walletAddress,
@@ -101,7 +131,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       };
     }
     return { status: "unauthenticated", connect, connecting: false };
-  }, [ready, authenticated, walletsReady, wallet?.address, user?.id, sessionIdentity, disconnect, establishSession, connect]);
+  }, [ready, authenticated, walletsReady, wallet, walletMissing, sessionIdentity, user?.id, disconnect, establishSession, connect]);
 
   return <AuthContext.Provider value={state}>{children}</AuthContext.Provider>;
 }

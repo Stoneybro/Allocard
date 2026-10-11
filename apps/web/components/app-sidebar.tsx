@@ -695,46 +695,36 @@ export function AppSidebar({
           <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
             Workspace
           </p>
-          <h2 className="mt-0.5 truncate text-base font-semibold text-foreground pr-6">
-            {companyName}
-          </h2>
-          {workspaceOptions.length > 0 && onWorkspaceChange && (
+          <div className="flex items-center justify-between gap-2 mt-0.5">
+            <h2 className="truncate text-base font-semibold text-foreground pr-2">
+              {companyName}
+            </h2>
+            <Badge variant="outline" className="text-[10px] font-medium uppercase tracking-wider shrink-0">
+              {role ?? "employer"}
+            </Badge>
+          </div>
+          {workspaceOptions.length > 1 && onWorkspaceChange && (
             <div className="mt-2.5">
               <Select
-                value={`${companyId}:${role ?? "employer"}`}
-                onValueChange={(val) => {
-                  const [nextCompanyId, nextRole] = val.split(":");
-                  if (nextCompanyId && (nextRole === "employer" || nextRole === "employee")) {
-                    onWorkspaceChange(nextCompanyId, nextRole);
+                value={companyId}
+                onValueChange={(nextCompanyId) => {
+                  if (nextCompanyId) {
+                    onWorkspaceChange(nextCompanyId, role ?? "employer");
                   }
                 }}
               >
                 <SelectTrigger className="h-8 w-full text-xs bg-background">
-                  <SelectValue placeholder="Switch workspace" />
+                  <SelectValue placeholder="Switch company" />
                 </SelectTrigger>
                 <SelectContent>
-                  {workspaceOptions.flatMap((workspace) => [
-                    ...(workspace.canEmployer
-                      ? [
-                          <SelectItem
-                            key={`${workspace.companyId}:employer`}
-                            value={`${workspace.companyId}:employer`}
-                          >
-                            {workspace.companyName} · Employer
-                          </SelectItem>,
-                        ]
-                      : []),
-                    ...(workspace.canEmployee
-                      ? [
-                          <SelectItem
-                            key={`${workspace.companyId}:employee`}
-                            value={`${workspace.companyId}:employee`}
-                          >
-                            {workspace.companyName} · Employee
-                          </SelectItem>,
-                        ]
-                      : []),
-                  ])}
+                  {workspaceOptions.map((workspace) => (
+                    <SelectItem
+                      key={workspace.companyId}
+                      value={workspace.companyId}
+                    >
+                      {workspace.companyName}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

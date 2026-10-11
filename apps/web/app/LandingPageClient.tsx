@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { getWalletProfile } from "@/app/actions/identity";
@@ -13,30 +13,25 @@ function routeForStatus(status: "new" | "picker" | "employer" | "employee") {
   return "/workspaces";
 }
 
-export function LandingPageClient() {
+export function LandingPageClient({
+  initialWalletAddress,
+  initialProfileStatus,
+}: {
+  initialWalletAddress?: string | null;
+  initialProfileStatus?: "employer" | "employee" | "picker" | "new" | null;
+} = {}) {
   const router = useRouter();
   const auth = useAuth();
   const [isRouting, startRouting] = useTransition();
-  const didAutoRoute = useRef(false);
+  const [userInitiatedLogin, setUserInitiatedLogin] = useState(false);
+  const pendingClickRef = useRef(false);
 
-  // ── Auto-redirect if already authenticated on client ───────────────────────
+  // If the user *manually* clicked "Sign in" and completed login,
+  // route them into the app now that auth is ready.
   useEffect(() => {
-    if (auth.status !== "authenticated" || didAutoRoute.current) return;
-    didAutoRoute.current = true;
-
-    startRouting(async () => {
-      try {
-        await auth.establishSession();
-        const profile = await getWalletProfile(auth.address);
-        router.replace(routeForStatus(profile.status));
-      } catch {
-        didAutoRoute.current = false;
-      }
-    });
-  }, [auth, router]);
-
-  const handleConnect = () => {
+    if (!userInitiatedLogin) return;
     if (auth.status === "authenticated") {
+      setUserInitiatedLogin(false);
       startRouting(async () => {
         try {
           await auth.establishSession();
@@ -46,21 +41,62 @@ export function LandingPageClient() {
           // stay on landing page
         }
       });
+    } else if (auth.status === "unauthenticated" && pendingClickRef.current) {
+      pendingClickRef.current = false;
+      auth.connect();
+    }
+  }, [userInitiatedLogin, auth, router]);
+
+  const isAuthenticated = Boolean(
+    initialWalletAddress || auth.status === "authenticated"
+  );
+
+  const handleConnect = () => {
+    if (isRouting) return;
+
+    if (isAuthenticated) {
+      startRouting(async () => {
+        try {
+          const address = auth.status === "authenticated" ? auth.address : initialWalletAddress;
+          if (auth.status === "authenticated") {
+            await auth.establishSession();
+          }
+          if (address) {
+            const profile = await getWalletProfile(address);
+            router.push(routeForStatus(profile.status));
+            return;
+          }
+        } catch {
+          // fallback to initial status or onboarding
+        }
+        if (initialProfileStatus) {
+          router.push(routeForStatus(initialProfileStatus));
+          return;
+        }
+        router.push("/onboarding");
+      });
       return;
     }
+
     if (auth.status === "unauthenticated") {
+      setUserInitiatedLogin(true);
       auth.connect();
+      return;
+    }
+
+    if (auth.status === "connecting") {
+      setUserInitiatedLogin(true);
+      pendingClickRef.current = true;
     }
   };
 
   const buttonLabel = (() => {
-    if (isRouting) return "Signing in...";
-    if (auth.status === "unauthenticated" && auth.connecting) return "Connecting...";
+    if (isRouting) return "Opening dashboard...";
+    if (isAuthenticated) return "Go to Dashboard";
     return "Sign in";
   })();
 
-  const isBusy =
-    (auth.status === "unauthenticated" && auth.connecting) || isRouting || auth.status === "connecting";
+  const isBusy = isRouting;
 
   return (
     <div className="min-h-screen bg-white text-[#111] font-sans antialiased overflow-y-auto">
