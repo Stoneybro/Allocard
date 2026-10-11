@@ -817,15 +817,23 @@ export function EmployerClient({
       const addr = (currentAuthAddress || (profile && "user" in profile && profile.user ? profile.user.walletAddress : undefined)) as string;
       const result = await addEmployeeByEmail({ walletAddress: addr, email });
       if (result.status === "already_pending") {
-        toast.info("That email has already been invited");
+        toast.warning("Invitation Already Sent", {
+          description: "An invitation has already been sent to this email.",
+        });
       } else if (result.status === "already_active") {
-        toast.info("That employee already has workspace access");
+        toast.info("Employee Already Active", {
+          description: "This employee already has access to the workspace.",
+        });
       } else {
-        toast.success("Employee invited. They can sign in to access their corporate card.");
+        toast.success("Employee Invited", {
+          description: "They can now sign in to access their corporate expense card.",
+        });
       }
       updateDashboard(await getCompanyDashboardState(addr));
     } catch (caught) {
-      toast.error(caught instanceof Error ? caught.message : "Could not add employee");
+      toast.error("Invitation Failed", {
+        description: caught instanceof Error ? caught.message : "Could not add employee.",
+      });
       throw caught;
     } finally {
       setIsAddingEmployee(false);

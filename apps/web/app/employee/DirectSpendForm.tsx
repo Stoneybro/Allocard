@@ -153,9 +153,21 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
       const result = await onVerifyReceipt(txHash, receiptImage);
       setVerificationResult(result);
       setStep("done");
+      if (result?.isCompliant) {
+        toast.success("Receipt Verified", {
+          description: "Venice AI verified the receipt against company policy.",
+        });
+      } else {
+        toast.warning("Receipt Flagged", {
+          description: result?.reasoning || "The receipt does not match company policy.",
+        });
+      }
     } catch (err) {
       console.error(err);
       setError("Failed to verify receipt");
+      toast.error("Verification Failed", {
+        description: "Failed to verify receipt with AI.",
+      });
     } finally {
       setIsSubmittingReceipt(false);
     }
