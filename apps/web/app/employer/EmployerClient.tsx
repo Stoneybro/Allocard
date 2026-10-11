@@ -724,6 +724,8 @@ export function EmployerClient({
             signedDelegation: toSignedDelegationJson(signedDelegation),
           }),
         );
+        setSelectedDelegationId(null);
+        toast.success("Delegation successfully activated");
       } catch (caughtError) {
         toast.error(
           caughtError instanceof Error
@@ -1218,7 +1220,7 @@ export function EmployerClient({
             
             <div className="pb-4"></div>
           </div>
-          {selectedDelegation?.status !== "active" && (
+          {Boolean(selectedDelegation && selectedDelegation.status !== "active") && (
             <DrawerFooter className="border-t pt-4">
               <Button onClick={handleActivateDelegation} disabled={isPending}>
                 {isPending ? (

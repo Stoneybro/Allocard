@@ -43,6 +43,7 @@ export default function Web3Providers({
         defaultChain: chain,
         supportedChains: [chain],
         embeddedWallets: {
+          showWalletUIs: false,
           ethereum: { createOnLogin: 'all-users' },
         },
       }}
