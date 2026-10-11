@@ -4,13 +4,13 @@ import { useEffect, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { getWalletProfile } from "@/app/actions/identity";
-import { createSession } from "@/lib/session";
 import Image from "next/image";
 
-function routeForStatus(status: "new" | "employer" | "employee") {
+function routeForStatus(status: "new" | "picker" | "employer" | "employee") {
+  if (status === "picker") return "/workspaces";
   if (status === "employer") return "/employer";
   if (status === "employee") return "/employee";
-  return "/onboarding";
+  return "/workspaces";
 }
 
 export default function LandingPage() {
@@ -26,10 +26,8 @@ export default function LandingPage() {
 
     startRouting(async () => {
       try {
+        await auth.establishSession();
         const profile = await getWalletProfile(auth.address);
-        if (profile.status !== "new") {
-          await createSession(auth.address);
-        }
         router.replace(routeForStatus(profile.status));
       } catch {
         didAutoRoute.current = false;
@@ -41,10 +39,8 @@ export default function LandingPage() {
     if (auth.status === "authenticated") {
       startRouting(async () => {
         try {
+          await auth.establishSession();
           const profile = await getWalletProfile(auth.address);
-          if (profile.status !== "new") {
-            await createSession(auth.address);
-          }
           router.push(routeForStatus(profile.status));
         } catch {
           // stay on landing page
@@ -60,7 +56,7 @@ export default function LandingPage() {
   const buttonLabel = (() => {
     if (isRouting) return "Loading...";
     if (auth.status === "unauthenticated" && auth.connecting) return "Connecting...";
-    return "Try the Demo";
+    return "Continue with Google or email";
   })();
 
   const isBusy =

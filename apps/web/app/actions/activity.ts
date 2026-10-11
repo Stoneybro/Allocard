@@ -1,8 +1,9 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { manualTransactions, agentBookings, claimRedemptions, users, agents } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { manualTransactions, agentBookings, claimRedemptions, users, agents, companyMemberships, employeeProfiles } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
+import { getSessionIdentity } from "@/lib/session";
 
 export type ActivityLogItem = {
   id: string;
@@ -16,15 +17,31 @@ export type ActivityLogItem = {
 };
 
 export async function getActivityLog(companyId: string): Promise<ActivityLogItem[]> {
-  const [manual, bookings, claims, allUsers, allAgents] = await Promise.all([
+  const identity = await getSessionIdentity();
+  if (!identity) throw new Error("Sign in again to continue");
+  const [user] = await db.select().from(users).where(eq(users.privyUserId, identity.providerUserId)).limit(1);
+  if (!user) throw new Error("Create an Allocard profile before viewing activity");
+  const [employerMembership] = await db.select().from(companyMemberships).where(and(
+    eq(companyMemberships.userId, user.id),
+    eq(companyMemberships.companyId, companyId),
+    eq(companyMemberships.canEmployer, true),
+    eq(companyMemberships.status, "active"),
+  )).limit(1);
+  if (!employerMembership) throw new Error("Employer access is required to view this company's activity");
+
+  const [manual, bookings, claims, allEmployees, allAgents] = await Promise.all([
     db.select().from(manualTransactions).where(eq(manualTransactions.companyId, companyId)),
     db.select().from(agentBookings).where(eq(agentBookings.companyId, companyId)),
     db.select().from(claimRedemptions).where(eq(claimRedemptions.companyId, companyId)),
-    db.select().from(users).where(eq(users.companyId, companyId)),
+    db.select({ id: users.id, embeddedWalletAddress: users.embeddedWalletAddress })
+      .from(companyMemberships)
+      .innerJoin(users, eq(companyMemberships.userId, users.id))
+      .innerJoin(employeeProfiles, and(eq(employeeProfiles.userId, users.id), eq(employeeProfiles.companyId, companyId)))
+      .where(and(eq(companyMemberships.companyId, companyId), eq(companyMemberships.canEmployee, true), eq(companyMemberships.status, "active"))),
     db.select().from(agents),
   ]);
 
-  const userMap = new Map(allUsers.map((u) => [u.id, `Employee (${u.embeddedWalletAddress.slice(0, 6)}...${u.embeddedWalletAddress.slice(-4)})`]));
+  const userMap = new Map(allEmployees.map((u) => [u.id, `Employee (${u.embeddedWalletAddress.slice(0, 6)}...${u.embeddedWalletAddress.slice(-4)})`]));
   const agentMap = new Map(allAgents.map((a) => [a.id, `Agent (${a.name})`]));
 
   const log: ActivityLogItem[] = [];

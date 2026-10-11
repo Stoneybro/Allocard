@@ -44,11 +44,11 @@ export function HelpModal() {
               Demo Tip: Testing Both Roles
             </h3>
             <p className="text-muted-foreground text-sm mb-3 leading-relaxed">
-              MetaMask stores sessions in browser local storage. To run employer and employee accounts simultaneously without sharing a wallet, use separate contexts:
+              Sign in with Google or email. You can switch between every company and role you belong to from the workspace selector.
             </p>
             <ul className="list-disc pl-5 space-y-1 text-muted-foreground text-sm mb-1">
-              <li><strong>Easiest:</strong> Normal window for employer, Incognito window for employee.</li>
-              <li><strong>Alternative:</strong> Two different Chrome profiles or browsers.</li>
+              <li>To test two different people at once, use separate browser profiles.</li>
+              <li>To test your own employer and employee access, add yourself, then switch roles in the sidebar.</li>
             </ul>
           </div>
 
@@ -58,8 +58,8 @@ export function HelpModal() {
               <AccordionContent className="text-muted-foreground pt-2 pb-4">
                 <ol className="list-decimal pl-5 space-y-2.5">
                   <li><strong>Employer:</strong> Create a company and activate the master smart account.</li>
-                  <li><strong>Employer:</strong> Generate an invite link from the sidebar and copy it.</li>
-                  <li><strong>Employee:</strong> Open the invite link in an Incognito window and connect a different wallet.</li>
+    <li><strong>Employer:</strong> Add the employee's verified email from the company team list.</li>
+    <li><strong>Employee:</strong> Sign in with that email and accept the pending company membership inside Allocard.</li>
                   <li><strong>Employee:</strong> Activate the employee smart account from the dashboard banner.</li>
                 </ol>
               </AccordionContent>

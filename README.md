@@ -275,34 +275,32 @@ The employee cannot see the employer's full company tree. They only see their ow
 
 ## App Walkthrough
 
-The employer and employee flows are not independent. The employer generates an invite link first. The employee must accept it and activate their smart account before the employer can issue a delegation to them. The walkthrough below follows the correct order.
+People sign in with Google or email. An employer adds an employee by their verified email; the employee accepts the pending company membership in Allocard. A person can hold several company memberships and switch company and role from the workspace selector.
 
 ### Step 1: Employer Setup
 
-1. Open [allocard.vercel.app](https://allocard.vercel.app) in a normal browser window.
-2. Connect a wallet via MetaMask Embedded Wallets.
-3. Create a company. Enter a company name and submit.
-4. Activate the company smart account. This deploys an ERC-4337 contract on ETH Sepolia.
-5. In the sidebar, generate an invite link. Copy it.
+1. Open [allocard.vercel.app](https://allocard.vercel.app) and continue with Google or email.
+2. Create a company. Enter a company name and submit.
+3. Activate the company smart account. This deploys an ERC-4337 contract on ETH Sepolia.
+4. Add an employee using their email address. They must sign in with that same verified email.
 
 At this point, no employees appear on the canvas yet. The employer cannot issue a delegation until an employee exists in the system.
 
 ### Step 2: Employee Onboarding
 
-Open a separate browser context to avoid sharing the wallet session. Either use an ingognito tab, a different browser profile or a different browser.
+The employee can sign in in any browser context. Use a separate profile only when demoing two different people at the same time.
 
-1. Paste the invite link into the second browser context and open it.
-2. Authenticate with a different wallet via MetaMask Embedded Wallets.
-3. The app links the wallet to the company and creates an employee record.
-4. Activate the employee smart account from the dashboard banner. This deploys a second ERC-4337 contract.
+1. Sign in with Google or email matching the address the employer added.
+2. Open the workspace selector and accept the pending company membership.
+3. Activate the employee smart account from the dashboard banner. This deploys a second ERC-4337 contract.
 
 The employee now appears in the employer's sidebar.
 
 ### Step 3: Employer Issues a Delegation
 
-Switch back to the employer window adn refresh the employee list.
+Switch to the employer workspace and refresh the employee list.
 
-1. The employee now appears in the sidebar under Recipients.
+1. The employee now appears in the sidebar under Employees.
 2. Drag the employee node from the sidebar onto the canvas.
 3. Click **Configure** on the new pending node.
 4. Set the spending rules: lifetime limit, optional recurring allowance, per-transaction cap, and allowed addresses.
@@ -365,15 +363,14 @@ The employer can now see the agent node branching from the employee node on thei
 
 ### Testing Both Roles at the Same Time
 
-MetaMask Embedded Wallets stores the session in browser `localStorage`. Two tabs in the same browser window share the same wallet. To run employer and employee accounts simultaneously, use separate browser contexts:
+Privy keeps one signed-in identity across workspaces. Use the sidebar selector to switch between companies and employer/employee roles. To demo two different people simultaneously, use separate browser contexts:
 
 | Setup | How |
 |---|---|
-| Normal window + Incognito window (easiest) | Employer in the normal window, employee in an Incognito or Private window. Each has its own isolated `localStorage`. |
-| Two browser profiles | Chrome Profile 1 for employer, Chrome Profile 2 for employee. |
-| Two different browsers | Employer in Chrome, employee in Firefox. |
+| Normal window + private window | One person in each context, with separate signed-in identities. |
+| Two browser profiles | Use a separate profile for each person. |
 
-Recommended for judges: open the employer dashboard in a normal browser window, then open the employee invite link in an Incognito window and authenticate with a different account. Both sessions run with no interference.
+For a single-person demo, use **Add myself** and switch to the employee workspace. For two people, add the employee’s verified email and accept the membership in their browser context.
 
 ---
 
@@ -385,7 +382,7 @@ Recommended for judges: open the employer dashboard in a normal browser window, 
 | UI | shadcn/ui, React Flow, Tailwind CSS |
 | Blockchain | MetaMask Smart Accounts Kit (ERC-7710, ERC-4337), Viem |
 | AI | Venice AI: `openai-gpt-4o-2024-11-20` (text + vision) |
-| Auth | MetaMask Embedded Wallets |
+| Auth | Privy (Google and email) with server-verified sessions |
 | Database | Neon (Postgres), Drizzle ORM |
 | Deployment | Vercel, ETH Sepolia testnet |
 | Package Manager | pnpm (monorepo) |
@@ -394,12 +391,14 @@ Recommended for judges: open the employer dashboard in a normal browser window, 
 
 ## Local Setup
 
-**Prerequisites:** Node.js 20+, pnpm 9+, MetaMask browser extension.
+**Prerequisites:** Node.js 20+, pnpm 9+, Privy app credentials, and a Neon Postgres database.
 
 Create `apps/web/.env.local`:
 
 ```env
-NEXT_PUBLIC_WEB3AUTH_CLIENT_ID=your_web3auth_client_id
+NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id
+PRIVY_APP_ID=your_privy_app_id
+PRIVY_APP_SECRET=your_privy_app_secret
 NEXT_PUBLIC_BUNDLER_RPC_URL=https://api.pimlico.io/v2/sepolia/rpc?apikey=YOUR_PIMLICO_API_KEY
 NEXT_PUBLIC_PAYMASTER_RPC_URL=https://api.pimlico.io/v2/sepolia/rpc?apikey=YOUR_PIMLICO_API_KEY
 NEXT_PUBLIC_PIMLICO_SPONSOR_ID=your_pimlico_sponsor_id
@@ -409,7 +408,7 @@ AGENTS_PRIVATE_KEY=your_agents_private_key
 AGENT_REIMBURSEMENT_SMART_ACCOUNT=0xD61C510c51a1DD4a73C4Dfeca6893aeEE6A731c1
 AGENT_TRAVEL_SMART_ACCOUNT=0x916BE00E5cCd1A3a7930f20dFDC55D21947B8903
 AGENT_PROCUREMENT_SMART_ACCOUNT=0x1Cf7F91e72727AEfFb31603CBD3a7d5Ae03aa922
-SESSION_SECRET=your_session_secret
+SESSION_SECRET=generate_a_random_secret_at_least_32_characters_long
 ```
 
 Install and run:

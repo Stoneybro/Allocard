@@ -1,8 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useAccount, useConnect, useDisconnect } from 'wagmi'
-import { injected } from 'wagmi/connectors'
+import { useWalletClient } from 'wagmi'
 import {
   createBundlerClient,
   createPaymasterClient,
@@ -11,8 +10,8 @@ import { http } from 'viem'
 import { sepolia } from 'viem/chains'
 
 import { publicClient, getPimlicoGasPrice } from '@/lib/client'
-import { createInjectedWalletClient } from '@/lib/signer'
 import { createHybridSmartAccount } from '@/lib/smartAccount'
+import { useAuth } from '@/components/AuthProvider'
 
 type DeploymentState = {
   hash: `0x${string}` | null
@@ -36,9 +35,10 @@ function formatAddress(address: string | undefined) {
 }
 
 export default function WalletDashboard() {
-  const { connect, isPending: loading } = useConnect()
-  const { disconnect } = useDisconnect()
-  const { address, isConnected } = useAccount()
+  const auth = useAuth()
+  const address = auth.status === 'authenticated' ? auth.address : undefined
+  const isConnected = auth.status === 'authenticated'
+  const { data: walletClient } = useWalletClient()
   const [deployment, setDeployment] = useState<DeploymentState>(
     initialDeploymentState,
   )
@@ -49,7 +49,7 @@ export default function WalletDashboard() {
 
   const handleDisconnect = async () => {
     setDeployment(initialDeploymentState)
-    disconnect()
+    if (auth.status === 'authenticated') auth.disconnect()
   }
 
   const handleDeploy = async () => {
@@ -76,8 +76,8 @@ export default function WalletDashboard() {
         )
       }
 
-      const walletClient = createInjectedWalletClient(address)
-      const smartAccount = await createHybridSmartAccount(walletClient)
+      if (!walletClient) throw new Error('Your embedded signer is still loading. Try again shortly.')
+      const smartAccount = await createHybridSmartAccount(walletClient, address)
       const paymasterClient = createPaymasterClient({
         transport: http(paymasterUrl),
       })
@@ -149,16 +149,16 @@ export default function WalletDashboard() {
               Step 1
             </p>
             <h2 className="mt-2 text-2xl font-semibold text-slate-950">
-              Authenticate with MetaMask Embedded Wallets
+              Sign in to Allocard
             </h2>
           </div>
           <button
             id="connect-wallet-btn"
-            onClick={() => connect({ connector: injected() })}
-            disabled={loading}
+            onClick={() => auth.status === 'unauthenticated' && auth.connect()}
+            disabled={auth.status === 'connecting' || (auth.status === 'unauthenticated' && auth.connecting)}
             className="w-fit rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? 'Connecting...' : 'Connect Wallet'}
+            {auth.status === 'unauthenticated' && auth.connecting ? 'Signing in...' : 'Continue with Google or email'}
           </button>
         </div>
       </div>

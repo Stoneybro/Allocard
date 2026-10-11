@@ -14,12 +14,8 @@ import {
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 
 export const userRoleEnum = pgEnum("user_role", ["employer", "employee"]);
-
-export const inviteStatusEnum = pgEnum("invite_status", [
-  "pending",
-  "accepted",
-  "expired",
-]);
+export const membershipStatusEnum = pgEnum("membership_status", ["active", "removed"]);
+export const pendingEmployeeStatusEnum = pgEnum("pending_employee_status", ["pending", "accepted", "revoked"]);
 
 export const delegationStatusEnum = pgEnum("delegation_status", [
   "pending_config",
@@ -59,6 +55,8 @@ export const users = pgTable(
   "users",
   {
     id: uuid("id").primaryKey().defaultRandom(),
+    privyUserId: text("privy_user_id"),
+    verifiedEmail: text("verified_email"),
     embeddedWalletAddress: text("embedded_wallet_address").notNull(),
     smartAccountAddress: text("smart_account_address"),
     role: userRoleEnum("role").notNull(),
@@ -73,6 +71,7 @@ export const users = pgTable(
     uniqueIndex("users_embedded_wallet_address_unique").on(
       table.embeddedWalletAddress,
     ),
+    uniqueIndex("users_privy_user_id_unique").on(table.privyUserId),
     index("users_company_id_idx").on(table.companyId),
     index("users_role_idx").on(table.role),
   ],
@@ -87,7 +86,6 @@ export const companies = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
     smartAccountAddress: text("smart_account_address"),
-    inviteCode: text("invite_code").notNull(),
     /** Company-wide expense policy document — the single source of truth
      *  for all Venice AI policy checks. Seeded with sensible defaults. */
     companyPolicy: text("company_policy"),
@@ -97,8 +95,69 @@ export const companies = pgTable(
   },
   (table) => [
     uniqueIndex("companies_owner_id_unique").on(table.ownerId),
-    uniqueIndex("companies_invite_code_unique").on(table.inviteCode),
   ],
+);
+
+export const companyMemberships = pgTable(
+  "company_memberships",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    companyId: uuid("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+    canEmployer: boolean("can_employer").notNull().default(false),
+    canEmployee: boolean("can_employee").notNull().default(false),
+    status: membershipStatusEnum("status").notNull().default("active"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    removedAt: timestamp("removed_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("company_memberships_company_user_unique").on(table.companyId, table.userId),
+    index("company_memberships_user_id_idx").on(table.userId),
+    index("company_memberships_company_id_idx").on(table.companyId),
+  ],
+);
+
+export const employeeProfiles = pgTable(
+  "employee_profiles",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    smartAccountAddress: text("smart_account_address"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("employee_profiles_company_user_unique").on(table.companyId, table.userId),
+    index("employee_profiles_user_id_idx").on(table.userId),
+  ],
+);
+
+export const pendingEmployees = pgTable(
+  "pending_employees",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    companyId: uuid("company_id").notNull().references(() => companies.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    normalizedEmail: text("normalized_email").notNull(),
+    status: pendingEmployeeStatusEnum("status").notNull().default("pending"),
+    acceptedByUserId: uuid("accepted_by_user_id").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("pending_employees_company_email_unique").on(table.companyId, table.normalizedEmail),
+    index("pending_employees_email_status_idx").on(table.normalizedEmail, table.status),
+  ],
+);
+
+export const workspacePreferences = pgTable(
+  "workspace_preferences",
+  {
+    userId: uuid("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+    companyId: uuid("company_id").references(() => companies.id, { onDelete: "set null" }),
+    role: userRoleEnum("role"),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
 );
 
 /**
@@ -129,31 +188,6 @@ export const agents = pgTable(
   ],
 );
 
-export const invites = pgTable(
-  "invites",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    companyId: uuid("company_id")
-      .notNull()
-      .references(() => companies.id, { onDelete: "cascade" }),
-    inviteCode: text("invite_code").notNull(),
-    acceptedByUserId: uuid("accepted_by_user_id").references(() => users.id, {
-      onDelete: "set null",
-    }),
-    status: inviteStatusEnum("status").notNull().default("pending"),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
-  },
-  (table) => [
-    uniqueIndex("invites_invite_code_unique").on(table.inviteCode),
-    index("invites_company_id_idx").on(table.companyId),
-    index("invites_accepted_by_user_id_idx").on(table.acceptedByUserId),
-    index("invites_status_idx").on(table.status),
-  ],
-);
-
 export const delegations = pgTable(
   "delegations",
   {
@@ -166,8 +200,6 @@ export const delegations = pgTable(
     delegatorId: uuid("delegator_id").notNull(),
     delegateeType: delegateeTypeEnum("delegatee_type").notNull(),
     delegateeId: uuid("delegatee_id"),
-    delegateeAddress: text("delegatee_address"),
-    delegateeLabel: text("delegatee_label"),
     delegationHash: text("delegation_hash"),
     signedDelegation: jsonb("signed_delegation"),
     policyPrompt: text("policy_prompt"),

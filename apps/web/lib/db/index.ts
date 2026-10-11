@@ -10,10 +10,21 @@ const databaseUrl =
   process.env.POSTGRES_URL ||
   process.env.POSTGRES_URL_NON_POOLING;
 
-if (!databaseUrl) {
-  throw new Error("DATABASE_URL or equivalent environment variable is required to initialize the database client");
+function getDb() {
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL or equivalent environment variable is required to initialize the database client");
+  }
+  const sql = neon(databaseUrl);
+  return drizzle(sql, { schema });
 }
 
-const sql = neon(databaseUrl);
+let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
-export const db = drizzle(sql, { schema });
+export const db = new Proxy({} as ReturnType<typeof drizzle<typeof schema>>, {
+  get(_target, prop) {
+    if (!_db) {
+      _db = getDb();
+    }
+    return (_db as any)[prop];
+  },
+});

@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getPimlicoGasPrice } from "@/lib/client";
-import { requireSession } from "@/lib/auth-guard";
-import { delegations, claimRedemptions, delegationCaveats, users, companies } from "@/lib/db/schema";
+import { requireEmployeeCompany, requireSessionUser } from "@/lib/auth-guard";
+import { agents, delegations, claimRedemptions, delegationCaveats, users, companies } from "@/lib/db/schema";
 import { eq, and, sql } from "drizzle-orm";
 import { checkPolicy, verifyReceipt } from "@/lib/venice";
 import { createWalletClient, http, parseEther, type Hex, createPublicClient } from "viem";
@@ -15,20 +15,24 @@ import {
 
 export async function POST(req: NextRequest) {
   try {
-    await requireSession();
+    const sessionUser = await requireSessionUser();
     const body = await req.json();
     const { claimDescription, amountEth, receiptBase64, companyId, employeeId, agentId } = body;
 
     if (!companyId || !employeeId || !agentId || !receiptBase64) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
+    if (employeeId !== sessionUser.id) {
+      return NextResponse.json({ error: "You can only submit claims for your own employee account" }, { status: 403 });
+    }
+    await requireEmployeeCompany(sessionUser.id, companyId);
     if (!claimDescription || !amountEth) {
       return NextResponse.json({ error: "Claim description and amount are required" }, { status: 400 });
     }
 
     // 1. Get the Employee
     const employee = await db.query.users.findFirst({
-      where: eq(users.id, employeeId),
+      where: eq(users.id, sessionUser.id),
     });
 
     if (!employee || !employee.smartAccountAddress) {
@@ -39,14 +43,22 @@ export async function POST(req: NextRequest) {
     const delegation = await db.query.delegations.findFirst({
       where: and(
         eq(delegations.delegatorId, companyId),
+        eq(delegations.delegatorType, "company"),
         eq(delegations.delegateeId, agentId),
+        eq(delegations.delegateeType, "agent"),
         eq(delegations.status, "active")
       ),
     });
 
-    if (!delegation) {
+    if (!delegation?.signedDelegation) {
       return NextResponse.json({ error: "No active delegation found for this agent" }, { status: 400 });
     }
+
+    const [agent] = await db.select({ id: agents.id }).from(agents).where(and(
+      eq(agents.id, agentId),
+      eq(agents.isActive, true),
+    )).limit(1);
+    if (!agent) return NextResponse.json({ error: "Agent is not active" }, { status: 403 });
 
     // Load caveats for policy check
     const caveats = await db.query.delegationCaveats.findMany({
@@ -276,6 +288,9 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (error: any) {
+    if (error instanceof Error && (error.message.startsWith("Unauthorized:") || error.message.startsWith("Forbidden:"))) {
+      return NextResponse.json({ error: error.message }, { status: error.message.startsWith("Unauthorized:") ? 401 : 403 });
+    }
     console.error("Reimbursement claim error:", error);
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
   }

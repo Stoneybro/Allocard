@@ -21,7 +21,9 @@ import {
   saveEmployeeRedelegationCaveats,
   getEmployeeDashboardState,
   getAgentSmartAccountAddress,
+  setWorkspaceContext,
   type EmployeeDashboardState,
+  type WorkspaceOption,
 } from "@/app/actions/identity";
 import {
   ConnectRequiredCard,
@@ -66,7 +68,6 @@ import { cn } from "@/lib/utils";
 import { formatWalletAddress, generateEmployeeReferenceId } from "@/lib/wallet";
 import { useWalletClient, useSwitchChain, useBalance } from "wagmi";
 import { sepolia } from "viem/chains";
-import { createSession } from "@/lib/session";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -329,6 +330,8 @@ export function EmployeeClient() {
   const auth = useAuth();
   const didLoadDashboard = useRef(false);
   const [dashboardState, setDashboardState] = useState<EmployeeDashboardState | null>(null);
+  const [workspaceOptions, setWorkspaceOptions] = useState<WorkspaceOption[]>([]);
+  const [activeCompanyId, setActiveCompanyId] = useState("");
   const [isPending, startTransition] = useTransition();
   const { data: walletClient } = useWalletClient();
   const { switchChainAsync } = useSwitchChain();
@@ -379,6 +382,7 @@ export function EmployeeClient() {
 
     startTransition(async () => {
       try {
+        await auth.establishSession();
         const { getWalletProfile } = await import("@/app/actions/identity");
         const profile = await getWalletProfile(addr);
 
@@ -387,14 +391,18 @@ export function EmployeeClient() {
           return;
         }
 
+        if (profile.status === "picker") {
+          router.replace("/workspaces");
+          return;
+        }
+
         if (profile.status === "employer") {
           router.replace("/employer");
           return;
         }
 
-        // Ensure the session cookie is set for returning users who reconnect
-        // directly to /employee, bypassing the landing page and onboarding page.
-        await createSession(addr);
+        setWorkspaceOptions(profile.workspaces ?? []);
+        setActiveCompanyId(profile.user.companyId ?? "");
 
         const state = await getEmployeeDashboardState(addr);
         setDashboardState(state);
@@ -652,16 +660,13 @@ export function EmployeeClient() {
     const hasErrors = Object.keys(errors).some(
       (k) => k !== "allowedTargetsWarning" && errors[k as keyof FormErrors],
     );
-    const handleCreateSmartAccount = async () => {
-    if (auth.status !== "authenticated") return;
-    
-    setDeploymentError(null);
-    setDeploymentPending(true);
+    if (hasErrors) return;
 
-    try {
-      const walletClient = createInjectedWalletClient(auth.address);
-      const sa = await createHybridSmartAccount(walletClient);
-      const isDeployed = await sa.isDeployed();eRedelegationCaveats({
+    setError(null);
+    startTransition(async () => {
+      try {
+        // 1. Persist caveats (also validates against parent server-side)
+        const savedState = await saveEmployeeRedelegationCaveats({
           walletAddress,
           delegationId: selectedDelegation.id,
           caveats: buildServerCaveats(caveatForm),
@@ -907,31 +912,19 @@ export function EmployeeClient() {
     return receipt.receipt.transactionHash;
   };
 
-  // ── Render guards ──────────────────────  if (auth.status === "connecting") {
+  // ── Render guards ──────────────────────────────────────────────────────────
+
+  if (auth.status === "unauthenticated") {
+    return <ConnectRequiredCard />;
+  }
+
+  if (auth.status === "connecting") {
     return (
       <div className="flex h-full min-h-screen items-center justify-center p-6 bg-white">
         <div className="flex flex-col items-center gap-6 text-center">
           <img src="/AllocardLogoBlack.svg" alt="Allocard Logo" className="w-16 h-16 object-contain mb-4" />
           <div className="w-10 h-10 border-4 border-[#eaeaea] border-t-[#111] rounded-full animate-spin"></div>
           <p className="text-xl font-bold text-[#111] tracking-[-0.02em]">Connecting wallet...</p>
-        </div>
-      </div>
-    );
-  }14 rounded-full border border-[#eaeaea] flex items-center justify-center">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[#999]">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-            </svg>
-          </div>
-          <div className="flex flex-col gap-2">
-            <p className="text-xl font-semibold text-[#111]">Wallet connection failed</p>
-            <p className="text-sm text-[#666] leading-relaxed">{auth.message}</p>
-          </div>
-          <button
-            onClick={auth.retry}
-            className="h-10 px-6 rounded-md bg-[#111] text-white text-sm font-medium hover:bg-[#333] transition-colors cursor-pointer"
-          >
-            Retry
-          </button>
         </div>
       </div>
     );
@@ -996,6 +989,19 @@ export function EmployeeClient() {
   return (
     <DashboardShell
       companyName={company.name}
+      companyId={activeCompanyId}
+      workspaceOptions={workspaceOptions}
+      onWorkspaceChange={(companyId, role) => {
+        startTransition(async () => {
+          try {
+            await setWorkspaceContext({ walletAddress: auth.address, companyId, role });
+            setDashboardState(null);
+            window.location.assign(role === "employer" ? "/employer" : "/employee");
+          } catch (caught) {
+            setError(caught instanceof Error ? caught.message : "Could not switch workspace");
+          }
+        });
+      }}
       smartAccountLabel={smartAccountLabel}
       smartAccountAddress={employee.smartAccountAddress}
       title="Employee dashboard"

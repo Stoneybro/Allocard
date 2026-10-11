@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireSession } from "@/lib/auth-guard";
+import { requireEmployeeCompany, requireSessionUser } from "@/lib/auth-guard";
 import { delegations, agentBookings, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { createPublicClient, createWalletClient, http, parseEther, type Hex } from "viem";
@@ -10,7 +10,7 @@ import { getPimlicoGasPrice } from "@/lib/client";
 
 export async function POST(req: Request) {
   try {
-    await requireSession();
+    const sessionUser = await requireSessionUser();
     const { travelPlan, delegationId, agentId, employeeId, companyId } = await req.json();
 
     if (!delegationId || !travelPlan || !agentId) {
@@ -25,6 +25,20 @@ export async function POST(req: Request) {
 
     if (!delegation || !delegation.signedDelegation) {
       return NextResponse.json({ error: "Active delegation not found" }, { status: 404 });
+    }
+
+    if (employeeId !== sessionUser.id || !companyId) {
+      return NextResponse.json({ error: "You can only book travel for your own employee account" }, { status: 403 });
+    }
+    await requireEmployeeCompany(sessionUser.id, companyId);
+    if (
+      delegation.status !== "active" ||
+      delegation.delegatorType !== "user" ||
+      delegation.delegatorId !== sessionUser.id ||
+      delegation.delegateeType !== "agent" ||
+      delegation.delegateeId !== agentId
+    ) {
+      return NextResponse.json({ error: "The travel delegation does not belong to this employee and agent" }, { status: 403 });
     }
 
     // Fetch the parent delegation (company → employee) to build the full chain
@@ -42,10 +56,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Parent delegation (company → employee) not found" }, { status: 404 });
     }
 
+    if (
+      parentDelegation.status !== "active" ||
+      parentDelegation.delegatorType !== "company" ||
+      parentDelegation.delegatorId !== companyId ||
+      parentDelegation.delegateeType !== "user" ||
+      parentDelegation.delegateeId !== sessionUser.id
+    ) {
+      return NextResponse.json({ error: "The parent delegation does not authorize this company and employee" }, { status: 403 });
+    }
+
     const [employee] = await db
       .select()
       .from(users)
-      .where(eq(users.id, employeeId))
+      .where(eq(users.id, sessionUser.id))
       .limit(1);
 
     if (!employee || !employee.smartAccountAddress) {
@@ -151,6 +175,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, txHash });
   } catch (err: any) {
+    if (err instanceof Error && (err.message.startsWith("Unauthorized:") || err.message.startsWith("Forbidden:"))) {
+      return NextResponse.json({ error: err.message }, { status: err.message.startsWith("Unauthorized:") ? 401 : 403 });
+    }
     console.error("Travel booking error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

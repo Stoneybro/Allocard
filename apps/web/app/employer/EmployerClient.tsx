@@ -20,10 +20,12 @@ import {
   updateCompanyPolicy,
   activateDelegation,
   createAgentDelegation,
-  createCompanyInvite,
   createEmployeeDelegation,
+  addEmployeeByEmail,
+  addSelfAsEmployee,
   getCompanyDashboardState,
   getWalletProfile,
+  setWorkspaceContext,
   removePendingDelegation,
   revokeDelegation,
   saveDelegationCaveats,
@@ -34,7 +36,6 @@ import {
 import {
   ConnectRequiredCard,
 } from "@/components/auth-state";
-import { createSession } from "@/lib/session";
 import { useAuth } from "@/components/AuthProvider";
 import { DashboardFlowCanvas } from "@/components/dashboard-flow-canvas";
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -361,8 +362,6 @@ export function EmployerClient() {
   const [profile, setProfile] = useState<WalletProfile | null>(null);
   const [dashboardState, setDashboardState] =
     useState<CompanyDashboardState | null>(null);
-  const [inviteLink, setInviteLink] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [selectedDelegationId, setSelectedDelegationId] = useState<string | null>(
     null,
   );
@@ -373,6 +372,8 @@ export function EmployerClient() {
   const [error, setError] = useState<string | null>(null);
   const [policyDraft, setPolicyDraft] = useState<string>("");
   const [policyHasChanges, setPolicyHasChanges] = useState(false);
+  const [employeeEmail, setEmployeeEmail] = useState("");
+  const [isAddingEmployee, setIsAddingEmployee] = useState(false);
   const { data: walletClient } = useWalletClient();
 
   useEffect(() => {
@@ -382,6 +383,7 @@ export function EmployerClient() {
 
     startTransition(async () => {
       try {
+        await auth.establishSession();
         const nextProfile = await getWalletProfile(addr);
 
         if (nextProfile.status === "new") {
@@ -389,16 +391,15 @@ export function EmployerClient() {
           return;
         }
 
+        if (nextProfile.status === "picker") {
+          router.replace("/workspaces");
+          return;
+        }
+
         if (nextProfile.status === "employee") {
           router.replace("/employee");
           return;
         }
-
-        // Ensure the session cookie is set for this wallet before calling
-        // any server actions that require a valid session (e.g. getCompanyDashboardState).
-        // Returning users who reconnect directly to /employer bypass the landing page
-        // and onboarding page, so the cookie must be refreshed here.
-        await createSession(addr);
 
         setProfile(nextProfile);
         const dashState = await getCompanyDashboardState(addr);
@@ -607,11 +608,7 @@ export function EmployerClient() {
     return <ConnectRequiredCard />;
   }
 
-  if (auth.status === "initializing") {
-    return (
-      <div className="flex h-full min-h-screen flex-col items-center justify-center gap-8 bg-white">
-        <div className="flex flex-col items-center gap-6">
-          <svg className="animate-spin text-[#ccc]" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+
   if (auth.status === "connecting") {
     return (
       <div className="flex h-full min-h-screen items-center justify-center p-6 bg-white">
@@ -671,35 +668,6 @@ export function EmployerClient() {
       </div>
     );
   }
-
-  const handleCreateInvite = () => {
-    setCopied(false);
-
-    startTransition(async () => {
-      try {
-        const invite = await createCompanyInvite(currentAuthAddress as string);
-        setInviteLink(`${window.location.origin}/invite/${invite.inviteCode}`);
-      } catch (caughtError) {
-        toast.error(
-          caughtError instanceof Error
-            ? caughtError.message
-            : "Could not create invite",
-        );
-      }
-    });
-  };
-
-  const handleCopyInvite = async () => {
-    if (!inviteLink) return;
-
-    await navigator.clipboard.writeText(inviteLink);
-    setCopied(true);
-
-    setTimeout(() => {
-      setCopied(false);
-      setInviteLink(null);
-    }, 3000);
-  };
 
   const handleSmartAccountActivated = (smartAccountAddress: string | null) => {
     if (!smartAccountAddress) return;
@@ -823,7 +791,6 @@ export function EmployerClient() {
   return (
     <DashboardShell
       companyName={companyName}
-      copiedInvite={copied}
       employees={dashboardState.employees.map((employee) => ({
         id: employee.id,
         label: generateEmployeeReferenceId(employee.walletAddress),
@@ -838,8 +805,6 @@ export function EmployerClient() {
           name: agent.name,
           detail: agent.description ?? "Platform AI agent",
         }))}
-      inviteLink={inviteLink}
-      invitePending={isPending}
       onAddEmployee={(employeeId) =>
         runDashboardMutation(() =>
           createEmployeeDelegation({
@@ -850,11 +815,23 @@ export function EmployerClient() {
           }),
         )
       }
-      onCopyInvite={handleCopyInvite}
-      onCreateInvite={handleCreateInvite}
       onRefreshEmployees={() => {
         startRefreshTransition(async () => {
           updateDashboard(await getCompanyDashboardState(currentAuthAddress as string));
+        });
+      }}
+      companyId={profile?.user.companyId ?? ""}
+      workspaceOptions={profile?.workspaces ?? []}
+      onWorkspaceChange={(companyId, role) => {
+        startTransition(async () => {
+          try {
+            await setWorkspaceContext({ walletAddress: currentAuthAddress as string, companyId, role });
+            setDashboardState(null);
+            setProfile(null);
+            window.location.assign(role === "employer" ? "/employer" : "/employee");
+          } catch (caught) {
+            toast.error(caught instanceof Error ? caught.message : "Could not switch workspace");
+          }
         });
       }}
       employeesRefreshing={isRefreshing}
@@ -864,6 +841,70 @@ export function EmployerClient() {
       title="Company dashboard"
     >
       <div className="flex min-h-full flex-col gap-4">
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-end">
+          <div className="flex-1 space-y-1.5">
+            <Label htmlFor="employee-email">Add an employee</Label>
+            <Input
+              id="employee-email"
+              type="email"
+              autoComplete="email"
+              placeholder="name@company.com"
+              value={employeeEmail}
+              onChange={(event) => setEmployeeEmail(event.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">They’ll see this company after signing in with that verified email.</p>
+          </div>
+          <Button
+            type="button"
+            disabled={isAddingEmployee || !employeeEmail.trim()}
+            onClick={async () => {
+              setIsAddingEmployee(true);
+              try {
+                const result = await addEmployeeByEmail({ walletAddress: currentAuthAddress as string, email: employeeEmail });
+                if (result.status === "self_added") {
+                  toast.success("Employee access added");
+                  setDashboardState(null);
+                  router.replace("/employee");
+                } else {
+                  toast.success(result.status === "already_pending" ? "That email is already pending" : result.status === "already_active" ? "That employee already has access" : "Access will appear after they sign in");
+                  setEmployeeEmail("");
+                  updateDashboard(await getCompanyDashboardState(currentAuthAddress as string));
+                }
+              } catch (caught) {
+                toast.error(caught instanceof Error ? caught.message : "Could not add employee");
+              } finally {
+                setIsAddingEmployee(false);
+              }
+            }}
+          >
+            {isAddingEmployee ? "Adding…" : "Add by email"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={async () => {
+              try {
+                await addSelfAsEmployee(currentAuthAddress as string);
+                setDashboardState(null);
+                router.replace("/employee");
+              } catch (caught) {
+                toast.error(caught instanceof Error ? caught.message : "Could not add employee access");
+              }
+            }}
+          >
+            Add myself
+          </Button>
+          {dashboardState.pendingEmployees.length > 0 && (
+            <div className="w-full border-t border-border pt-3 text-xs sm:basis-full">
+              <p className="mb-2 font-medium">Awaiting acceptance</p>
+              <ul className="space-y-1 text-muted-foreground">
+                {dashboardState.pendingEmployees.map((pendingEmployee) => (
+                  <li key={pendingEmployee.id}>{pendingEmployee.email} · Pending</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
         {/* Smart account activation banner */}
         {!company.smartAccountAddress && (
           <div className="flex items-center justify-between rounded-lg border border-border bg-muted/50 px-4 py-3">

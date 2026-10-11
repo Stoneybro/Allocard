@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireSession } from "@/lib/auth-guard";
+import { requireEmployeeCompany, requireSessionUser } from "@/lib/auth-guard";
 import { delegationCaveats, delegations, companies } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { advisoryPolicyCheck } from "@/lib/venice";
@@ -8,7 +8,7 @@ import { advisoryPolicyCheck } from "@/lib/venice";
 
 export async function POST(req: NextRequest) {
   try {
-    await requireSession();
+    const user = await requireSessionUser();
     const { purpose, amountEth, delegationId } = await req.json();
 
     if (!purpose || !amountEth || !delegationId) {
@@ -39,6 +39,16 @@ export async function POST(req: NextRequest) {
       .where(eq(delegations.id, delegationId))
       .limit(1);
 
+    const [ownedDelegation] = await db.select().from(delegations).where(eq(delegations.id, delegationId)).limit(1);
+    if (
+      !delegation || !ownedDelegation || ownedDelegation.status !== "active" || !ownedDelegation.signedDelegation ||
+      ownedDelegation.delegatorType !== "company" || ownedDelegation.delegatorId !== delegation.delegatorId ||
+      ownedDelegation.delegateeType !== "user" || ownedDelegation.delegateeId !== user.id
+    ) {
+      return NextResponse.json({ error: "Active employee delegation not found" }, { status: 403 });
+    }
+    await requireEmployeeCompany(user.id, ownedDelegation.delegatorId);
+
     let companyPolicy: string | null = null;
     if (delegation?.delegatorType === "company") {
       const [co] = await db.select({ companyPolicy: companies.companyPolicy })
@@ -60,6 +70,9 @@ export async function POST(req: NextRequest) {
       reasoning: result.reasoning,
     });
   } catch (error) {
+    if (error instanceof Error && (error.message.startsWith("Unauthorized:") || error.message.startsWith("Forbidden:"))) {
+      return NextResponse.json({ error: error.message }, { status: error.message.startsWith("Unauthorized:") ? 401 : 403 });
+    }
     console.error("[policy-check] Error:", error);
     return NextResponse.json(
       { error: "Internal server error" },

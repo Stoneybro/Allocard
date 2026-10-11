@@ -1,22 +1,20 @@
 "use client";
 
 import * as React from "react";
-import { useDisconnect } from "wagmi";
+import { useAuth } from "@/components/AuthProvider";
+import type { WorkspaceOption } from "@/app/actions/identity";
 import {
   BotIcon,
   CheckIcon,
   CopyIcon,
-  LinkIcon,
   LogOutIcon,
   MoreVerticalIcon,
   RefreshCwIcon,
   SparklesIcon,
   UserRoundIcon,
-  UserPlusIcon,
   WalletIcon,
 } from "lucide-react";
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import {
@@ -46,7 +44,6 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarMenu,
-  SidebarSeparator,
 } from "@/components/ui/sidebar";
 
 // ---------------------------------------------------------------------------
@@ -147,82 +144,6 @@ function SmartAccountAddress({ label, fullAddress, role }: { label: string; full
 }
 
 // ---------------------------------------------------------------------------
-// Invite section
-// ---------------------------------------------------------------------------
-
-function InviteSection({
-  copiedInvite,
-  inviteLink,
-  invitePending,
-  onCopyInvite,
-  onCreateInvite,
-}: {
-  copiedInvite?: boolean;
-  inviteLink?: string | null;
-  invitePending?: boolean;
-  onCopyInvite?: () => void;
-  onCreateInvite?: () => void;
-}) {
-  return (
-    <div className="px-3 py-2">
-      <Card className="shadow-sm border-border bg-card">
-        <CardHeader className=" ">
-          <CardTitle className="flex items-center gap-2 text-[13px] font-semibold text-foreground/80">
-            <UserPlusIcon className="size-3.5" />
-            Invite Employee
-          </CardTitle>
-          <CardDescription className="text-[11px] leading-snug">
-            Send a one-time link to onboard a new employee to your workspace.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="p-3 pt-0 flex flex-col gap-2">
-          {!inviteLink ? (
-            <Button
-              id="create-invite-btn"
-              size="sm"
-              variant="outline"
-              onClick={onCreateInvite}
-              disabled={invitePending}
-              className="w-full gap-1.5 h-8 text-[11px]"
-            >
-              <LinkIcon className="size-3" />
-              {invitePending ? "Generating…" : "Generate invite link"}
-            </Button>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center gap-2 rounded-md border border-input bg-muted/50 px-2 py-1.5 focus-within:ring-1 focus-within:ring-ring">
-                <input
-                  readOnly
-                  value={inviteLink}
-                  className="flex-1 bg-transparent text-[11px] outline-none text-foreground min-w-0"
-                />
-                <button
-                  type="button"
-                  id="copy-invite-btn"
-                  aria-label={copiedInvite ? "Copied" : "Copy invite link"}
-                  onClick={onCopyInvite}
-                  disabled={!onCopyInvite}
-                  className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  {copiedInvite ? (
-                    <CheckIcon className="size-3.5 text-foreground" />
-                  ) : (
-                    <CopyIcon className="size-3.5" />
-                  )}
-                </button>
-              </div>
-              <p className="text-[10px]  font-regular leading-tight">
-                Warning: Do not open this link in the same browser window as the company account.  Use a different browser or an incognito window.
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Canvas section — employees + AI agents, each capped & scrollable
 // ---------------------------------------------------------------------------
 
@@ -294,7 +215,7 @@ function CanvasSection({
             {employees.length === 0 ? (
               <div className="flex items-center justify-center rounded-md border border-dashed border-border px-3 py-4">
                 <p className="text-[11px] text-muted-foreground">
-                  No employees yet — send an invite.
+                  No employees yet — add someone by verified email.
                 </p>
               </div>
             ) : (
@@ -562,10 +483,10 @@ function CanvasSection({
 // ---------------------------------------------------------------------------
 
 function LogoutMenuItem() {
-  const { disconnect } = useDisconnect();
+  const auth = useAuth();
 
   return (
-    <DropdownMenuItem onClick={() => void disconnect()} className="cursor-pointer text-muted-foreground hover:text-foreground">
+    <DropdownMenuItem onClick={() => { if (auth.status === "authenticated") void auth.disconnect(); }} className="cursor-pointer text-muted-foreground hover:text-foreground">
       <LogOutIcon className="mr-2 h-4 w-4" />
       <span>Log out</span>
     </DropdownMenuItem>
@@ -579,13 +500,11 @@ function LogoutMenuItem() {
 export function AppSidebar({
   agents,
   companyName,
-  copiedInvite,
   employees,
-  inviteLink,
-  invitePending,
+  companyId,
+  workspaceOptions,
+  onWorkspaceChange,
   onAddEmployee,
-  onCopyInvite,
-  onCreateInvite,
   onRefreshEmployees,
   employeesRefreshing,
   onSelectAgent,
@@ -599,13 +518,11 @@ export function AppSidebar({
 }: React.ComponentProps<typeof Sidebar> & {
   agents: SidebarAgent[];
   companyName: string;
-  copiedInvite?: boolean;
   employees: SidebarEmployee[];
-  inviteLink?: string | null;
-  invitePending?: boolean;
+  companyId: string;
+  workspaceOptions: WorkspaceOption[];
+  onWorkspaceChange?: (companyId: string, role: "employer" | "employee") => void;
   onAddEmployee?: (employeeId: string) => void;
-  onCopyInvite?: () => void;
-  onCreateInvite?: () => void;
   onRefreshEmployees?: () => void;
   employeesRefreshing?: boolean;
   onSelectAgent?: (agentId: string) => void;
@@ -640,10 +557,48 @@ export function AppSidebar({
           <h2 className="mt-0.5 truncate text-base font-semibold text-foreground pr-6">
             {companyName}
           </h2>
+          {workspaceOptions.length > 0 && (
+            <select
+              aria-label="Switch workspace"
+              className="mt-2 h-8 w-full rounded-md border border-border bg-background px-2 text-xs"
+              value={`${companyId}:${role ?? "employer"}`}
+              onChange={(event) => {
+                const [nextCompanyId, nextRole] = event.target.value.split(":");
+                if (nextCompanyId && (nextRole === "employer" || nextRole === "employee")) {
+                  onWorkspaceChange?.(nextCompanyId, nextRole);
+                }
+              }}
+            >
+              {workspaceOptions.flatMap((workspace) => [
+                ...(workspace.canEmployer ? [{ value: `${workspace.companyId}:employer`, label: `${workspace.companyName} · Employer` }] : []),
+                ...(workspace.canEmployee ? [{ value: `${workspace.companyId}:employee`, label: `${workspace.companyName} · Employee` }] : []),
+              ]).map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          )}
           {role === "employee" && employeeReferenceId && (
             <p className="mt-1 text-[11px] text-muted-foreground font-mono bg-muted/50 inline-flex px-1.5 py-0.5 rounded border border-border/50">
               {employeeReferenceId}
             </p>
+          )}
+          {workspaceOptions.length > 0 && onWorkspaceChange && (
+            <select
+              aria-label="Switch company or role"
+              className="mt-3 h-8 w-full rounded-md border border-border bg-background px-2 text-xs text-foreground"
+              value={`${companyId}:${role ?? "employee"}`}
+              onChange={(event) => {
+                const [nextCompanyId, nextRole] = event.target.value.split(":");
+                if (nextCompanyId && (nextRole === "employer" || nextRole === "employee")) {
+                  onWorkspaceChange(nextCompanyId, nextRole);
+                }
+              }}
+            >
+              {workspaceOptions.flatMap((workspace) => [
+                ...(workspace.canEmployer ? [<option key={`${workspace.companyId}:employer`} value={`${workspace.companyId}:employer`}>{workspace.companyName} · Employer</option>] : []),
+                ...(workspace.canEmployee ? [<option key={`${workspace.companyId}:employee`} value={`${workspace.companyId}:employee`}>{workspace.companyName} · Employee</option>] : []),
+              ])}
+            </select>
           )}
         </div>
 
@@ -656,20 +611,6 @@ export function AppSidebar({
 
       {/* ── CONTENT ────────────────────────────────────────────────────── */}
       <SidebarContent className="gap-0">
-
-        {/* Invite — employer only */}
-        {role !== "employee" && (
-          <>
-            <InviteSection
-              copiedInvite={copiedInvite}
-              inviteLink={inviteLink}
-              invitePending={invitePending}
-              onCopyInvite={onCopyInvite}
-              onCreateInvite={onCreateInvite}
-            />
-            <SidebarSeparator />
-          </>
-        )}
 
         {/* Canvas — employees + AI agents */}
         <CanvasSection

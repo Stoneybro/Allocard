@@ -10,17 +10,20 @@ import {
   companies,
   delegationCaveats,
   delegations,
-  invites,
+  companyMemberships,
+  employeeProfiles,
   manualTransactions,
+  pendingEmployees,
+  workspacePreferences,
   users,
 } from "@/lib/db/schema";
 import {
-  generateInviteCode,
   normalizeWalletAddress,
   validateCompanyName,
 } from "@/lib/wallet";
 import { withRetry } from "@/lib/db/withRetry";
 import { requireSession } from "@/lib/auth-guard";
+import { getSessionIdentity } from "@/lib/session";
 
 
 // ── Module-level caches (serverless-safe: each cold start resets) ───────────
@@ -54,25 +57,6 @@ function setCachedAgents(agents: PlatformAgent[]) {
   _agentCache = { data: agents, expiresAt: Date.now() + AGENT_CACHE_TTL_MS };
 }
 
-let _profileCache: CacheEntry<WalletProfile> | null = null;
-const PROFILE_CACHE_TTL_MS = 2_000; // 2s — prevents duplicate fetches within a single request
-
-function getCachedProfile(walletAddress: string): WalletProfile | null {
-  // Only use cache if the address matches AND TTL hasn't expired
-  if (_profileCache && Date.now() < _profileCache.expiresAt) {
-    // We store the last profile; for a real app you'd use a Map keyed by address.
-    // For a single-user server action this is sufficient.
-    return _profileCache.data;
-  }
-  return null;
-}
-
-function setCachedProfile(profile: WalletProfile) {
-  _profileCache = { data: profile, expiresAt: Date.now() + PROFILE_CACHE_TTL_MS };
-}
-
-
-
 type UserRole = "employer" | "employee";
 
 type ProfileUser = {
@@ -88,7 +72,6 @@ type ProfileCompany = {
   name: string;
   ownerId: string;
   smartAccountAddress: string | null;
-  inviteCode: string;
   companyPolicy: string | null;
 };
 
@@ -170,6 +153,7 @@ type CaveatRowWithoutDelegationId = Omit<
 export type CompanyDashboardState = {
   company: ProfileCompany;
   employees: CompanyEmployee[];
+  pendingEmployees: { id: string; email: string; createdAt: string }[];
   /** All active platform agents — same catalog regardless of company. */
   agents: PlatformAgent[];
   delegations: CompanyDelegation[];
@@ -191,30 +175,30 @@ export type WalletProfile =
       company: null;
     }
   | {
+      status: "picker";
+      user: ProfileUser;
+      company: null;
+      workspaces: WorkspaceOption[];
+    }
+  | {
       status: "employer";
       user: ProfileUser;
       company: ProfileCompany | null;
+      workspaces?: WorkspaceOption[];
     }
   | {
       status: "employee";
       user: ProfileUser;
       company: ProfileCompany | null;
+      workspaces?: WorkspaceOption[];
     };
 
-export type InviteDetails =
-  | {
-      status: "not_found";
-    }
-  | {
-      status: "expired" | "accepted" | "pending";
-      invite: {
-        id: string;
-        inviteCode: string;
-        companyId: string;
-        companyName: string;
-        acceptedAt: string | null;
-      };
-    };
+export type WorkspaceOption = {
+  companyId: string;
+  companyName: string;
+  canEmployer: boolean;
+  canEmployee: boolean;
+};
 
 export async function activateSmartAccount(input: {
   walletAddress: string;
@@ -248,7 +232,6 @@ export async function activateSmartAccount(input: {
       .where(eq(companies.id, profile.company.id))
       .returning();
 
-    _profileCache = null;
     return {
       target: "company" as const,
       smartAccountAddress: company.smartAccountAddress,
@@ -263,26 +246,34 @@ export async function activateSmartAccount(input: {
     throw new Error("This employee already has a different smart account");
   }
 
+  if (!profile.user.companyId) throw new Error("Select an employee company before activating its account");
   const [user] = await db
-    .update(users)
+    .update(employeeProfiles)
     .set({ smartAccountAddress })
-    .where(eq(users.id, profile.user.id))
+    .where(and(
+      eq(employeeProfiles.userId, profile.user.id),
+      eq(employeeProfiles.companyId, profile.user.companyId),
+    ))
     .returning();
 
-  _profileCache = null;
   return {
     target: "user" as const,
     smartAccountAddress: user.smartAccountAddress,
   };
 }
 
-function toProfileUser(user: typeof users.$inferSelect): ProfileUser {
+function toProfileUser(
+  user: typeof users.$inferSelect,
+  role: UserRole = user.role,
+  companyId: string | null = user.companyId,
+  smartAccountAddress: string | null = user.smartAccountAddress,
+): ProfileUser {
   return {
     id: user.id,
-    role: user.role,
+    role,
     walletAddress: user.embeddedWalletAddress,
-    smartAccountAddress: user.smartAccountAddress,
-    companyId: user.companyId,
+    smartAccountAddress,
+    companyId,
   };
 }
 
@@ -292,7 +283,6 @@ function toProfileCompany(company: typeof companies.$inferSelect): ProfileCompan
     name: company.name,
     ownerId: company.ownerId,
     smartAccountAddress: company.smartAccountAddress,
-    inviteCode: company.inviteCode,
     companyPolicy: company.companyPolicy ?? null,
   };
 }
@@ -579,275 +569,360 @@ async function getCompanyDelegationTree(companyId: string) {
   return delegationTree;
 }
 
-async function getCompanyForUser(user: typeof users.$inferSelect) {
-  if (user.role === "employer") {
-    const [company] = await withRetry(() => db
-      .select()
-      .from(companies)
-      .where(eq(companies.ownerId, user.id))
-      .limit(1), "getCompanyForUser:employer");
-
-    return company ?? null;
-  }
-
-  if (!user.companyId) {
-    return null;
-  }
-
-  const companyId = user.companyId;
-
-  const [company] = await withRetry(() => db
-    .select()
-    .from(companies)
-    .where(eq(companies.id, companyId))
-    .limit(1), "getCompanyForUser:employee");
-
-  return company ?? null;
-}
-
 export async function getWalletProfile(address: string): Promise<WalletProfile> {
   const walletAddress = normalizeWalletAddress(address);
+  await validateSessionWallet(walletAddress);
+  const identity = await getSessionIdentity();
+  if (!identity) throw new Error("Sign in again to continue");
 
-  // Check short-lived cache to prevent duplicate DB queries within a single request
-  const cached = getCachedProfile(walletAddress);
-  if (cached) return cached;
-
-  const [user] = await withRetry(() =>
-    db
-      .select()
-      .from(users)
-      .where(eq(users.embeddedWalletAddress, walletAddress))
-      .limit(1),
-    "getWalletProfile:user"
-  );
+  let [user] = await withRetry(() => db.select().from(users)
+    .where(eq(users.privyUserId, identity.providerUserId)).limit(1), "getWalletProfile:privy-user");
 
   if (!user) {
-    const result: WalletProfile = {
-      status: "new",
-      user: null,
-      company: null,
-    };
-    setCachedProfile(result);
+    [user] = await withRetry(() => db.select().from(users)
+      .where(eq(users.embeddedWalletAddress, walletAddress)).limit(1), "getWalletProfile:wallet-user");
+    if (user && user.privyUserId && user.privyUserId !== identity.providerUserId) {
+      throw new Error("This signing wallet is linked to a different account. Complete verified account linking before continuing.");
+    }
+    if (user && !user.privyUserId) {
+      [user] = await db.update(users).set({
+        privyUserId: identity.providerUserId,
+        verifiedEmail: identity.email,
+      }).where(eq(users.id, user.id)).returning();
+    }
+  }
+
+  if (user && user.embeddedWalletAddress.toLowerCase() !== walletAddress.toLowerCase()) {
+    throw new Error("This account is linked to a different signing wallet. Complete verified account linking before continuing.");
+  }
+
+  if (!user) {
+    const result: WalletProfile = { status: "new", user: null, company: null };
     return result;
   }
 
-  const company = await getCompanyForUser(user);
+  const memberships = await withRetry(() => db.select({
+    membership: companyMemberships,
+    company: companies,
+  }).from(companyMemberships).innerJoin(companies, eq(companyMemberships.companyId, companies.id))
+    .where(and(eq(companyMemberships.userId, user.id), eq(companyMemberships.status, "active"))),
+  "getWalletProfile:memberships");
 
+  if (memberships.length === 0) {
+    const result: WalletProfile = { status: "new", user: null, company: null };
+    return result;
+  }
+
+  const [preference] = await db.select().from(workspacePreferences)
+    .where(eq(workspacePreferences.userId, user.id)).limit(1);
+  const selected = memberships.find(({ membership }) => membership.companyId === preference?.companyId);
+
+  if (!selected && memberships.length > 1) {
+    const result: WalletProfile = {
+      status: "picker",
+      user: toProfileUser(user),
+      company: null,
+      workspaces: memberships.map(({ membership, company }) => ({
+        companyId: company.id,
+        companyName: company.name,
+        canEmployer: membership.canEmployer,
+        canEmployee: membership.canEmployee,
+      })),
+    };
+    return result;
+  }
+
+  const chosen = selected ?? memberships[0];
+  const preferredRole = preference?.companyId === chosen.company.id ? preference.role : null;
+  const role: UserRole = preferredRole === "employer" && chosen.membership.canEmployer
+    ? "employer"
+    : preferredRole === "employee" && chosen.membership.canEmployee
+      ? "employee"
+      : chosen.membership.canEmployer ? "employer" : "employee";
+
+  const [employeeProfile] = role === "employee"
+    ? await db.select().from(employeeProfiles).where(and(
+        eq(employeeProfiles.companyId, chosen.company.id),
+        eq(employeeProfiles.userId, user.id),
+      )).limit(1)
+    : [];
+
+  const currentUser = toProfileUser(
+    user,
+    role,
+    chosen.company.id,
+    role === "employee" ? employeeProfile?.smartAccountAddress ?? user.smartAccountAddress : null,
+  );
   const result: WalletProfile = {
-    status: user.role,
-    user: toProfileUser(user),
-    company: company ? toProfileCompany(company) : null,
+    status: role,
+    user: currentUser,
+    company: toProfileCompany(chosen.company),
+    workspaces: memberships.map(({ membership, company }) => ({
+      companyId: company.id,
+      companyName: company.name,
+      canEmployer: membership.canEmployer,
+      canEmployee: membership.canEmployee,
+    })),
   };
-  setCachedProfile(result);
   return result;
 }
 
-export async function createEmployerAccount(input: {
-  walletAddress: string;
-  companyName: string;
-}) {
+export async function createEmployerAccount(input: { walletAddress: string; companyName: string }) {
   const walletAddress = normalizeWalletAddress(input.walletAddress);
   await validateSessionWallet(walletAddress);
+  const identity = await getSessionIdentity();
+  if (!identity) throw new Error("Sign in again to continue");
   const companyName = validateCompanyName(input.companyName);
-  const existingProfile = await getWalletProfile(walletAddress);
 
-  if (existingProfile.status !== "new") {
-    return existingProfile;
+  let [user] = await db.select().from(users).where(eq(users.privyUserId, identity.providerUserId)).limit(1);
+  if (!user) user = (await db.select().from(users).where(eq(users.embeddedWalletAddress, walletAddress)).limit(1))[0];
+  if (user && user.embeddedWalletAddress.toLowerCase() !== walletAddress) {
+    throw new Error("This account is linked to a different signing wallet. Complete verified account linking before continuing.");
   }
-
-  const [user] = await db
-    .insert(users)
-    .values({
+  if (user?.privyUserId && user.privyUserId !== identity.providerUserId) {
+    throw new Error("This signing wallet is linked to a different account. Complete verified account linking before continuing.");
+  }
+  if (!user) {
+    [user] = await db.insert(users).values({
+      privyUserId: identity.providerUserId,
+      verifiedEmail: identity.email,
       embeddedWalletAddress: walletAddress,
       role: "employer",
-    })
-    .returning();
-
-  const [company] = await db
-    .insert(companies)
-    .values({
-      name: companyName,
-      ownerId: user.id,
-      inviteCode: generateInviteCode(),
-    })
-    .returning();
-
-  const [updatedUser] = await db
-    .update(users)
-    .set({ companyId: company.id })
-    .where(eq(users.id, user.id))
-    .returning();
-
-  const result = {
-    status: "employer",
-    user: toProfileUser(updatedUser),
-    company: toProfileCompany(company),
-  } satisfies WalletProfile;
-
-  _profileCache = null;
-  return result;
-}
-
-export async function getInviteDetails(
-  inviteCode: string,
-): Promise<InviteDetails> {
-  const [invite] = await db
-    .select({
-      id: invites.id,
-      inviteCode: invites.inviteCode,
-      companyId: invites.companyId,
-      companyName: companies.name,
-      status: invites.status,
-      acceptedAt: invites.acceptedAt,
-    })
-    .from(invites)
-    .innerJoin(companies, eq(invites.companyId, companies.id))
-    .where(eq(invites.inviteCode, inviteCode))
-    .limit(1);
-
-  if (!invite) {
-    return { status: "not_found" };
+    }).returning();
+  } else if (!user.privyUserId) {
+    [user] = await db.update(users).set({ privyUserId: identity.providerUserId, verifiedEmail: identity.email })
+      .where(eq(users.id, user.id)).returning();
   }
 
-  return {
-    status: invite.status,
-    invite: {
-      id: invite.id,
-      inviteCode: invite.inviteCode,
-      companyId: invite.companyId,
-      companyName: invite.companyName,
-      acceptedAt: invite.acceptedAt?.toISOString() ?? null,
-    },
-  };
-}
-
-export async function acceptInvite(input: {
-  walletAddress: string;
-  inviteCode: string;
-}) {
-  const walletAddress = normalizeWalletAddress(input.walletAddress);
-  await validateSessionWallet(walletAddress);
-
-  const [invite] = await db
-    .select()
-    .from(invites)
-    .where(eq(invites.inviteCode, input.inviteCode))
-    .limit(1);
-
-  if (!invite) {
-    throw new Error("Invite not found");
+  const [company] = await db.insert(companies).values({ name: companyName, ownerId: user.id }).returning();
+  if (!user.companyId) {
+    await db.update(users).set({ companyId: company.id, role: "employer" }).where(eq(users.id, user.id));
   }
-
-  if (invite.status === "expired") {
-    throw new Error("This invite has expired");
-  }
-
-  const [existingUser] = await db
-    .select()
-    .from(users)
-    .where(eq(users.embeddedWalletAddress, walletAddress))
-    .limit(1);
-
-  if (existingUser?.role === "employer") {
-    throw new Error("This wallet already owns a company");
-  }
-
-  if (existingUser?.role === "employee") {
-    if (existingUser.companyId !== invite.companyId) {
-      throw new Error("This wallet is already linked to another company");
-    }
-
-    if (
-      invite.status === "accepted" &&
-      invite.acceptedByUserId &&
-      invite.acceptedByUserId !== existingUser.id
-    ) {
-      throw new Error("This invite has already been accepted");
-    }
-
-    await db
-      .update(invites)
-      .set({
-        status: "accepted",
-        acceptedAt: new Date(),
-        acceptedByUserId: existingUser.id,
-      })
-      .where(eq(invites.id, invite.id));
-
-    _profileCache = null;
-    return getWalletProfile(walletAddress);
-  }
-
-  if (invite.status === "accepted") {
-    throw new Error("This invite has already been accepted");
-  }
-
-  const [user] = await db
-    .insert(users)
-    .values({
-      embeddedWalletAddress: walletAddress,
-      role: "employee",
-      companyId: invite.companyId,
-    })
-    .returning();
-
-  await db
-    .update(invites)
-    .set({
-      status: "accepted",
-      acceptedAt: new Date(),
-      acceptedByUserId: user.id,
-    })
-    .where(eq(invites.id, invite.id));
-
-  _profileCache = null;
+  await db.insert(companyMemberships).values({ userId: user.id, companyId: company.id, canEmployer: true })
+    .onConflictDoUpdate({
+      target: [companyMemberships.companyId, companyMemberships.userId],
+      set: { canEmployer: true, status: "active", removedAt: null },
+    });
+  await db.insert(workspacePreferences).values({ userId: user.id, companyId: company.id, role: "employer" })
+    .onConflictDoUpdate({ target: workspacePreferences.userId, set: { companyId: company.id, role: "employer", updatedAt: new Date() } });
   return getWalletProfile(walletAddress);
 }
 
-export async function createCompanyInvite(walletAddress: string) {
-  await validateSessionWallet(walletAddress);
-  const profile = await getWalletProfile(walletAddress);
+function normalizeVerifiedEmail(email: string) {
+  const normalized = email.trim().toLowerCase();
+  if (normalized.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+    throw new Error("Enter a valid email address");
+  }
+  return normalized;
+}
 
-  if (profile.status !== "employer" || !profile.company) {
-    throw new Error("Only a company owner can create employee invites");
+export async function getPendingCompanyMemberships() {
+  const identity = await getSessionIdentity();
+  if (!identity) throw new Error("Sign in again to continue");
+  const normalizedEmail = normalizeVerifiedEmail(identity.email);
+  const rows = await db.select({
+    id: pendingEmployees.id,
+    companyId: companies.id,
+    companyName: companies.name,
+    createdAt: pendingEmployees.createdAt,
+  }).from(pendingEmployees).innerJoin(companies, eq(pendingEmployees.companyId, companies.id))
+    .where(and(
+      eq(pendingEmployees.normalizedEmail, normalizedEmail),
+      eq(pendingEmployees.status, "pending"),
+    ));
+  return rows.map((row) => ({ ...row, createdAt: row.createdAt.toISOString() }));
+}
+
+export async function addSelfAsEmployee(walletAddress: string) {
+  const normalizedAddress = normalizeWalletAddress(walletAddress);
+  await validateSessionWallet(normalizedAddress);
+  const profile = await getWalletProfile(normalizedAddress);
+  if (profile.status !== "employer" || !profile.user.companyId) {
+    throw new Error("Switch to the employer workspace before adding yourself");
+  }
+  const companyId = profile.user.companyId;
+  const [membership] = await db.select().from(companyMemberships).where(and(
+    eq(companyMemberships.userId, profile.user.id),
+    eq(companyMemberships.companyId, companyId),
+    eq(companyMemberships.status, "active"),
+  )).limit(1);
+  if (!membership?.canEmployer) throw new Error("Employer access is required");
+
+  await db.insert(companyMemberships).values({
+    userId: profile.user.id,
+    companyId,
+    canEmployee: true,
+  }).onConflictDoUpdate({
+    target: [companyMemberships.companyId, companyMemberships.userId],
+    set: { canEmployee: true, status: "active", removedAt: null },
+  });
+  await db.insert(employeeProfiles).values({ companyId, userId: profile.user.id })
+    .onConflictDoNothing({ target: [employeeProfiles.companyId, employeeProfiles.userId] });
+  await db.insert(workspacePreferences).values({ userId: profile.user.id, companyId, role: "employee" })
+    .onConflictDoUpdate({ target: workspacePreferences.userId, set: { companyId, role: "employee", updatedAt: new Date() } });
+  return getWalletProfile(normalizedAddress);
+}
+
+export async function addEmployeeByEmail(input: { walletAddress: string; email: string }) {
+  const normalizedAddress = normalizeWalletAddress(input.walletAddress);
+  await validateSessionWallet(normalizedAddress);
+  const profile = await getWalletProfile(normalizedAddress);
+  if (profile.status !== "employer" || !profile.company) throw new Error("Employer access is required");
+  const email = normalizeVerifiedEmail(input.email);
+  const identity = await getSessionIdentity();
+  if (identity && email === normalizeVerifiedEmail(identity.email)) {
+    return { status: "self_added" as const, profile: await addSelfAsEmployee(normalizedAddress) };
   }
 
-  const [invite] = await db
-    .insert(invites)
-    .values({
-      companyId: profile.company.id,
-      inviteCode: generateInviteCode(),
-    })
-    .returning();
+  const [existing] = await db.select().from(pendingEmployees).where(and(
+    eq(pendingEmployees.companyId, profile.company.id),
+    eq(pendingEmployees.normalizedEmail, email),
+  )).limit(1);
+  if (existing?.status === "accepted") return { status: "already_active" as const };
+  if (existing?.status === "pending") return { status: "already_pending" as const };
 
-  return {
-    id: invite.id,
-    inviteCode: invite.inviteCode,
-    status: invite.status,
-  };
+  await db.insert(pendingEmployees).values({
+    companyId: profile.company.id,
+    email,
+    normalizedEmail: email,
+  }).onConflictDoUpdate({
+    target: [pendingEmployees.companyId, pendingEmployees.normalizedEmail],
+    set: { email, status: "pending", acceptedByUserId: null, acceptedAt: null },
+  });
+  return { status: "pending" as const };
+}
+
+export async function acceptEmployeeMembership(input: { walletAddress: string; companyId: string }) {
+  const normalizedAddress = normalizeWalletAddress(input.walletAddress);
+  await validateSessionWallet(normalizedAddress);
+  const identity = await getSessionIdentity();
+  if (!identity) throw new Error("Sign in again to continue");
+  const normalizedEmail = normalizeVerifiedEmail(identity.email);
+  const [pending] = await db.select().from(pendingEmployees).where(and(
+    eq(pendingEmployees.companyId, input.companyId),
+    eq(pendingEmployees.normalizedEmail, normalizedEmail),
+  )).limit(1);
+  if (!pending || (pending.status !== "pending" && pending.status !== "accepted")) {
+    throw new Error("No pending company access was found for this verified email");
+  }
+
+  let [user] = await db.select().from(users).where(eq(users.privyUserId, identity.providerUserId)).limit(1);
+  if (!user) {
+    [user] = await db.select().from(users).where(eq(users.embeddedWalletAddress, normalizedAddress)).limit(1);
+  }
+  if (!user) {
+    const [created] = await db.insert(users).values({
+      privyUserId: identity.providerUserId,
+      verifiedEmail: normalizedEmail,
+      embeddedWalletAddress: normalizedAddress,
+      role: "employee",
+      companyId: pending.companyId,
+    }).onConflictDoNothing().returning();
+    user = created ?? (await db.select().from(users).where(eq(users.privyUserId, identity.providerUserId)).limit(1))[0];
+  }
+  if (!user) throw new Error("Could not create your Allocard profile. Please retry");
+  if (user.embeddedWalletAddress.toLowerCase() !== normalizedAddress) {
+    throw new Error("This account is linked to a different signing wallet. Complete verified account linking before continuing.");
+  }
+  if (user.privyUserId && user.privyUserId !== identity.providerUserId) {
+    throw new Error("This signing wallet is linked to a different account. Complete verified account linking before continuing.");
+  }
+  if (pending.status === "accepted" && pending.acceptedByUserId && pending.acceptedByUserId !== user.id) {
+    throw new Error("This company membership has already been accepted by another account");
+  }
+  if (!user.privyUserId) {
+    [user] = await db.update(users).set({ privyUserId: identity.providerUserId, verifiedEmail: normalizedEmail })
+      .where(eq(users.id, user.id)).returning();
+  }
+
+  if (pending.status === "pending") {
+    const [claimed] = await db.update(pendingEmployees).set({
+      status: "accepted",
+      acceptedByUserId: user.id,
+      acceptedAt: new Date(),
+    }).where(and(
+      eq(pendingEmployees.id, pending.id),
+      eq(pendingEmployees.status, "pending"),
+    )).returning();
+    if (!claimed) {
+      const [latest] = await db.select().from(pendingEmployees).where(eq(pendingEmployees.id, pending.id)).limit(1);
+      if (latest?.acceptedByUserId !== user.id) throw new Error("This company membership has already been accepted by another account");
+    }
+  }
+
+  await db.insert(companyMemberships).values({ userId: user.id, companyId: pending.companyId, canEmployee: true })
+    .onConflictDoUpdate({
+      target: [companyMemberships.companyId, companyMemberships.userId],
+      set: { canEmployee: true, status: "active", removedAt: null },
+    });
+  await db.insert(employeeProfiles).values({ companyId: pending.companyId, userId: user.id })
+    .onConflictDoNothing({ target: [employeeProfiles.companyId, employeeProfiles.userId] });
+  await db.insert(workspacePreferences).values({ userId: user.id, companyId: pending.companyId, role: "employee" })
+    .onConflictDoUpdate({ target: workspacePreferences.userId, set: { companyId: pending.companyId, role: "employee", updatedAt: new Date() } });
+  return getWalletProfile(normalizedAddress);
+}
+
+export async function getWorkspaceOptions(walletAddress: string) {
+  const normalizedAddress = normalizeWalletAddress(walletAddress);
+  await validateSessionWallet(normalizedAddress);
+  const identity = await getSessionIdentity();
+  if (!identity) throw new Error("Sign in again to continue");
+  await getWalletProfile(normalizedAddress);
+  const [user] = await db.select().from(users).where(eq(users.privyUserId, identity.providerUserId)).limit(1);
+  const memberships = user ? await db.select({
+    companyId: companies.id,
+    companyName: companies.name,
+    canEmployer: companyMemberships.canEmployer,
+    canEmployee: companyMemberships.canEmployee,
+  }).from(companyMemberships).innerJoin(companies, eq(companyMemberships.companyId, companies.id))
+    .where(and(
+      eq(companyMemberships.userId, user.id),
+      eq(companyMemberships.status, "active"),
+    )) : [];
+  const pending = await getPendingCompanyMemberships();
+  return { memberships, pending };
+}
+
+export async function setWorkspaceContext(input: { walletAddress: string; companyId: string; role: UserRole }) {
+  const normalizedAddress = normalizeWalletAddress(input.walletAddress);
+  await validateSessionWallet(normalizedAddress);
+  const profile = await getWalletProfile(normalizedAddress);
+  if (!profile.user) throw new Error("Create an Allocard profile first");
+  const [membership] = await db.select().from(companyMemberships).where(and(
+    eq(companyMemberships.userId, profile.user.id),
+    eq(companyMemberships.companyId, input.companyId),
+    eq(companyMemberships.status, "active"),
+  )).limit(1);
+  if (!membership || (input.role === "employer" ? !membership.canEmployer : !membership.canEmployee)) {
+    throw new Error("You do not have that role in this company");
+  }
+  await db.insert(workspacePreferences).values({ userId: profile.user.id, companyId: input.companyId, role: input.role })
+    .onConflictDoUpdate({ target: workspacePreferences.userId, set: { companyId: input.companyId, role: input.role, updatedAt: new Date() } });
+  return getWalletProfile(normalizedAddress);
 }
 
 export async function getCompanyEmployees(walletAddress: string) {
   const profile = await getWalletProfile(walletAddress);
+  if (profile.status !== "employer" || !profile.company) throw new Error("Employer access is required");
 
-  if (profile.status !== "employer" || !profile.company) {
-    throw new Error("Only a company owner can view company employees");
-  }
+  const employees = await db.select({
+    id: users.id,
+    walletAddress: users.embeddedWalletAddress,
+    smartAccountAddress: employeeProfiles.smartAccountAddress,
+    createdAt: employeeProfiles.createdAt,
+  }).from(companyMemberships)
+    .innerJoin(users, eq(companyMemberships.userId, users.id))
+    .innerJoin(employeeProfiles, and(
+      eq(employeeProfiles.userId, users.id),
+      eq(employeeProfiles.companyId, profile.company.id),
+    ))
+    .where(and(
+      eq(companyMemberships.companyId, profile.company.id),
+      eq(companyMemberships.canEmployee, true),
+      eq(companyMemberships.status, "active"),
+    ));
 
-  const employees = await db
-    .select({
-      id: users.id,
-      walletAddress: users.embeddedWalletAddress,
-      smartAccountAddress: users.smartAccountAddress,
-      createdAt: users.createdAt,
-    })
-    .from(users)
-    .where(and(eq(users.companyId, profile.company.id), eq(users.role, "employee")));
-
-  return employees.map((employee) => ({
-    ...employee,
-    createdAt: employee.createdAt.toISOString(),
-  }));
+  return employees.map((employee) => ({ ...employee, createdAt: employee.createdAt.toISOString() }));
 }
 
 async function getEmployerDelegationOrThrow(
@@ -885,13 +960,23 @@ export async function createEmployeeDelegation(input: {
   await validateSessionWallet(input.walletAddress);
 
   const [employee] = await db
-    .select()
-    .from(users)
+    .select({
+      id: users.id,
+      embeddedWalletAddress: users.embeddedWalletAddress,
+      smartAccountAddress: employeeProfiles.smartAccountAddress,
+    })
+    .from(companyMemberships)
+    .innerJoin(users, eq(companyMemberships.userId, users.id))
+    .innerJoin(employeeProfiles, and(
+      eq(employeeProfiles.userId, users.id),
+      eq(employeeProfiles.companyId, profile.company.id),
+    ))
     .where(
       and(
-        eq(users.id, input.employeeId),
-        eq(users.role, "employee"),
-        eq(users.companyId, profile.company.id),
+        eq(companyMemberships.userId, input.employeeId),
+        eq(companyMemberships.companyId, profile.company.id),
+        eq(companyMemberships.canEmployee, true),
+        eq(companyMemberships.status, "active"),
       ),
     )
     .limit(1);
@@ -1089,13 +1174,19 @@ export async function activateDelegation(input: {
     }
 
     const [employee] = await db
-      .select()
-      .from(users)
+      .select({ smartAccountAddress: employeeProfiles.smartAccountAddress })
+      .from(companyMemberships)
+      .innerJoin(users, eq(companyMemberships.userId, users.id))
+      .innerJoin(employeeProfiles, and(
+        eq(employeeProfiles.userId, users.id),
+        eq(employeeProfiles.companyId, profile.company.id),
+      ))
       .where(
         and(
-          eq(users.id, delegation.delegateeId),
-          eq(users.companyId, profile.company.id),
-          eq(users.role, "employee"),
+          eq(companyMemberships.userId, delegation.delegateeId),
+          eq(companyMemberships.companyId, profile.company.id),
+          eq(companyMemberships.canEmployee, true),
+          eq(companyMemberships.status, "active"),
         ),
       )
       .limit(1);
@@ -1243,7 +1334,7 @@ export async function getCompanyDashboardState(
   // Capture in a local const so TypeScript narrowing is preserved inside async callbacks.
   const company = profile.company;
 
-  const [companyEmployees, platformAgents, companyDelegations] =
+  const [companyEmployees, pendingTeam, platformAgents, companyDelegations] =
     await Promise.all([
       withRetry(
         () =>
@@ -1251,14 +1342,27 @@ export async function getCompanyDashboardState(
             .select({
               id: users.id,
               walletAddress: users.embeddedWalletAddress,
-              smartAccountAddress: users.smartAccountAddress,
-              createdAt: users.createdAt,
+              smartAccountAddress: employeeProfiles.smartAccountAddress,
+              createdAt: employeeProfiles.createdAt,
             })
-            .from(users)
-            .where(
-              and(eq(users.companyId, company.id), eq(users.role, "employee")),
-            ),
+            .from(companyMemberships)
+            .innerJoin(users, eq(companyMemberships.userId, users.id))
+            .innerJoin(employeeProfiles, and(
+              eq(employeeProfiles.userId, users.id),
+              eq(employeeProfiles.companyId, company.id),
+            ))
+            .where(and(
+              eq(companyMemberships.companyId, company.id),
+              eq(companyMemberships.canEmployee, true),
+              eq(companyMemberships.status, "active"),
+            )),
         "getCompanyDashboardState:employees"
+      ),
+      withRetry(
+        () => db.select({ id: pendingEmployees.id, email: pendingEmployees.email, createdAt: pendingEmployees.createdAt })
+          .from(pendingEmployees)
+          .where(and(eq(pendingEmployees.companyId, company.id), eq(pendingEmployees.status, "pending"))),
+        "getCompanyDashboardState:pending-employees"
       ),
       // Platform agents — global catalog, cached.
       (async () => {
@@ -1415,6 +1519,7 @@ export async function getCompanyDashboardState(
       ...employee,
       createdAt: employee.createdAt.toISOString(),
     })),
+    pendingEmployees: pendingTeam.map((employee) => ({ ...employee, createdAt: employee.createdAt.toISOString() })),
     companyPolicy: company.companyPolicy,
     agents: platformAgents,
     delegations: delegationsWithCaveats,

@@ -40,7 +40,3 @@ export function validateCompanyName(name: string) {
 
   return formatted;
 }
-
-export function generateInviteCode() {
-  return crypto.randomUUID().replaceAll("-", "").slice(0, 16);
-}

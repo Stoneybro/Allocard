@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Web3Providers from "@/components/Web3Providers";
 import { AuthProvider } from "@/components/AuthProvider";
@@ -35,18 +34,16 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className="light" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} min-h-dvh antialiased`}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
-          <TooltipProvider>
-            <Web3Providers>
-              <AuthProvider>
-                {children}
-              </AuthProvider>
-            </Web3Providers>
-          </TooltipProvider>
-          <Toaster />
-        </ThemeProvider>
+        <TooltipProvider>
+          <Web3Providers>
+            <AuthProvider>
+              {children}
+            </AuthProvider>
+          </Web3Providers>
+        </TooltipProvider>
+        <Toaster />
       </body>
     </html>
   );

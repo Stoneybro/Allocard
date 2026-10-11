@@ -1,6 +1,6 @@
 "use client"
 
-import { useDisconnect } from "wagmi"
+import { useAuth } from "@/components/AuthProvider"
 import {
   Avatar,
   AvatarFallback,
@@ -38,7 +38,7 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
-  const { disconnect } = useDisconnect()
+  const auth = useAuth()
 
   return (
     <SidebarMenu>
@@ -96,7 +96,7 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => void disconnect()}>
+            <DropdownMenuItem onClick={() => { if (auth.status === "authenticated") void auth.disconnect() }}>
               <LogOutIcon
               />
               Log out

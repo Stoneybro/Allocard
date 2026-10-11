@@ -22,6 +22,34 @@
       "when": 1780966800000,
       "tag": "0002_remove_eoa_delegations",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781135580000,
+      "tag": "0003_phase6_platform_agents",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791590400000,
+      "tag": "0004_retire_invites",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791676800000,
+      "tag": "0005_privy_identity",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791763200000,
+      "tag": "0006_company_memberships",
+      "breakpoints": true
     }
   ]
 }

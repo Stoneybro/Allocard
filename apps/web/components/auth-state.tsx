@@ -45,8 +45,8 @@ function Spinner() {
 // ── ConnectRequiredCard ──────────────────────────────────────────────────────
 
 export function ConnectRequiredCard({
-  title = "Connect your wallet",
-  description = "Connect your MetaMask wallet to continue.",
+  title = "Sign in to Allocard",
+  description = "Continue with Google or email to open your Allocard workspace.",
 }: {
   title?: string;
   description?: string;
@@ -79,7 +79,7 @@ export function ConnectRequiredCard({
             className="h-12 w-full rounded-md bg-[#111] text-white text-base font-semibold hover:bg-[#333] transition-colors disabled:opacity-40 cursor-pointer flex items-center justify-center gap-3"
           >
             {auth.connecting && <Spinner />}
-            {auth.connecting ? "Connecting..." : "Connect wallet"}
+            {auth.connecting ? "Connecting..." : "Continue with Google or email"}
           </button>
           <Link href="/" className="h-12 w-full rounded-md border border-[#eaeaea] bg-white text-[#111] text-base font-semibold hover:bg-[#f5f5f5] transition-colors flex items-center justify-center">
             Return to Home Page

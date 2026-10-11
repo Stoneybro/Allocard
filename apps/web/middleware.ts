@@ -1,19 +1,29 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { jwtVerify } from "jose";
 
 /**
- * Middleware is intentionally minimal.
- *
- * Web3Auth stores sessions in browser localStorage, which is inaccessible
- * from server-side middleware. A hard redirect here would break the reconnection
- * flow on page reload.
- *
- * Auth gating is handled client-side by AuthProvider + ConnectRequiredCard.
- * The SESSION_SECRET cookie is a performance optimization (avoids duplicate
- * getWalletProfile calls) — not a security barrier.
+ * This guard improves navigation by redirecting requests without a valid
+ * Allocard session. API handlers and server actions must still authorize their
+ * own data access and mutations.
  */
-export function middleware(_request: NextRequest) {
-  return NextResponse.next();
+export async function middleware(request: NextRequest) {
+  const token = request.cookies.get("allocard_session")?.value;
+  const secret = process.env.SESSION_SECRET;
+  if (token && secret && secret.length >= 32) {
+    try {
+      const { payload } = await jwtVerify(token, new TextEncoder().encode(secret));
+      if (typeof payload.sub === "string" && typeof payload.walletAddress === "string") {
+        return NextResponse.next();
+      }
+    } catch {
+      // Treat an invalid or expired session the same as a missing session.
+    }
+  }
+
+  const destination = new URL("/", request.url);
+  destination.searchParams.set("redirect", request.nextUrl.pathname);
+  return NextResponse.redirect(destination);
 }
 
 export const config = {

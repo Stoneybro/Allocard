@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import type { WorkspaceOption } from "@/app/actions/identity";
 import {
   AppSidebar,
   type SidebarAgent,
@@ -12,14 +13,12 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 export function DashboardShell({
   children,
   companyName,
-  copiedInvite,
+  companyId,
+  workspaceOptions,
+  onWorkspaceChange,
   employees,
   agents,
-  inviteLink,
-  invitePending,
   onAddEmployee,
-  onCopyInvite,
-  onCreateInvite,
   onSelectAgent,
   onRefreshEmployees,
   employeesRefreshing,
@@ -32,14 +31,12 @@ export function DashboardShell({
 }: {
   children: ReactNode;
   companyName: string;
-  copiedInvite?: boolean;
+  companyId?: string;
+  workspaceOptions?: WorkspaceOption[];
+  onWorkspaceChange?: (companyId: string, role: "employer" | "employee") => void;
   employees?: SidebarEmployee[];
   agents?: SidebarAgent[];
-  inviteLink?: string | null;
-  invitePending?: boolean;
   onAddEmployee?: (employeeId: string) => void;
-  onCopyInvite?: () => void;
-  onCreateInvite?: () => void;
   onSelectAgent?: (agentId: string) => void;
   onRefreshEmployees?: () => void;
   employeesRefreshing?: boolean;
@@ -62,14 +59,12 @@ export function DashboardShell({
       <AppSidebar
         variant="inset"
         companyName={companyName}
-        copiedInvite={copiedInvite}
+        companyId={companyId ?? ""}
+        workspaceOptions={workspaceOptions ?? []}
+        onWorkspaceChange={onWorkspaceChange}
         employees={employees ?? []}
         agents={agents ?? []}
-        inviteLink={inviteLink}
-        invitePending={invitePending}
         onAddEmployee={onAddEmployee}
-        onCopyInvite={onCopyInvite}
-        onCreateInvite={onCreateInvite}
         onSelectAgent={onSelectAgent}
         onRefreshEmployees={onRefreshEmployees}
         employeesRefreshing={employeesRefreshing}

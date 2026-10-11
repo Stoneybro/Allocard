@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 import { parseEther } from "viem";
 import { db } from "@/lib/db";
-import { requireSession } from "@/lib/auth-guard";
+import { requireEmployeeAgentDelegation, requireSessionUser } from "@/lib/auth-guard";
 import { delegations, delegationCaveats, agentBookings, companies } from "@/lib/db/schema";
 import { eq, sql } from "drizzle-orm";
 import { researchVendor } from "@/lib/venice";
 
 export async function POST(req: Request) {
   try {
-    await requireSession();
+    const sessionUser = await requireSessionUser();
     const { toolCategory, teamSize, additionalRequirements, delegationId } = await req.json();
 
     if (!delegationId) {
@@ -24,6 +24,7 @@ export async function POST(req: Request) {
     if (!delegation) {
       return NextResponse.json({ error: "Delegation not found" }, { status: 404 });
     }
+    const { parentDelegation } = await requireEmployeeAgentDelegation(sessionUser.id, delegationId);
 
     const caveatsRows = await db
       .select()
@@ -68,9 +69,9 @@ export async function POST(req: Request) {
 
     // 2. Fetch company policy
     let companyPolicy: string | null = null;
-    if (delegation.delegatorType === "company") {
+    if (parentDelegation.delegatorType === "company") {
       const [co] = await db.select({ companyPolicy: companies.companyPolicy })
-        .from(companies).where(eq(companies.id, delegation.delegatorId)).limit(1);
+        .from(companies).where(eq(companies.id, parentDelegation.delegatorId)).limit(1);
       companyPolicy = co?.companyPolicy ?? null;
     }
 
@@ -96,6 +97,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ choice: vendorChoice });
   } catch (err: any) {
+    if (err instanceof Error && (err.message.startsWith("Unauthorized:") || err.message.startsWith("Forbidden:"))) {
+      return NextResponse.json({ error: err.message }, { status: err.message.startsWith("Unauthorized:") ? 401 : 403 });
+    }
     console.error("Procurement research error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
