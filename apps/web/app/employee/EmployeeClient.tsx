@@ -19,6 +19,12 @@ import {
   ExternalLink,
   BanIcon,
   ShieldAlertIcon,
+  PlaneIcon,
+  ShoppingCartIcon,
+  CpuIcon,
+  SparklesIcon,
+  PlayIcon,
+  Settings2Icon,
 } from "lucide-react";
 import { formatEther, parseEther, parseUnits, encodeFunctionData, type Hex } from "viem";
 import { toast } from "sonner";
@@ -40,7 +46,6 @@ import {
 import { useAuth } from "@/components/AuthProvider";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { EmployeeSectionCards } from "@/components/employee-section-cards";
-import { EmployeeFlowCanvas } from "@/components/employee-flow-canvas";
 import { ReimbursementDrawer } from "./ReimbursementDrawer";
 import { ReimbursementsCard } from "@/components/reimbursements-card";
 import { isReimbursementAgent } from "@/lib/reimbursements/shared";
@@ -51,6 +56,14 @@ import { DevOpsAgentDrawer } from "./DevOpsAgentDrawer";
 import { SmartAccountActivationButton } from "@/components/smart-account-activation-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -85,12 +98,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { DirectSpendForm } from "./DirectSpendForm";
-import { SmartAccountSpendForm } from "./SmartAccountSpendForm";
 import { createHybridSmartAccount } from "@/lib/smartAccount";
 import { publicClient, getPimlicoGasPrice } from "@/lib/client";
 import { cn } from "@/lib/utils";
 import { formatWalletAddress, generateEmployeeReferenceId } from "@/lib/wallet";
-import { useWalletClient, useSwitchChain, useBalance } from "wagmi";
+import { useWalletClient, useSwitchChain } from "wagmi";
 import { chain, CHAIN_ID, TOKEN_SYMBOL, getAddressExplorerUrl, getTxExplorerUrl, AUSD_ADDRESS, AUSD_DECIMALS, ERC20_ABI } from "@/lib/chain";
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -369,44 +381,6 @@ export function EmployeeClient({
   const [caveatForm, setCaveatForm] = useState<CaveatForm>(buildEmptyCaveatForm(""));
   const [formErrors, setFormErrors] = useState<FormErrors>({});
 
-  const [smartAccountBalanceEth, setSmartAccountBalanceEth] = useState<string>("0");
-
-  useEffect(() => {
-    const address = dashboardState?.employee?.smartAccountAddress;
-    if (!address) return;
-    
-    let isMounted = true;
-    const fetchBalance = async () => {
-      try {
-        const { publicClient } = await import("@/lib/client");
-        const { formatUnits } = await import("viem");
-        const balance = await publicClient.readContract({ 
-          address: AUSD_ADDRESS,
-          abi: ERC20_ABI,
-          functionName: "balanceOf",
-          args: [address as `0x${string}`],
-        });
-        
-        if (isMounted) {
-          const s = formatUnits(balance, AUSD_DECIMALS);
-          const trimmed = s.includes(".")
-            ? s.replace(/(\.[0-9]{1,2}?)0*$/, "$1").replace(/\.$/, "")
-            : s;
-          setSmartAccountBalanceEth(trimmed || "0");
-        }
-      } catch (err) {
-        console.error("Failed to fetch balance", err);
-      }
-    };
-    
-    fetchBalance();
-    const interval = setInterval(fetchBalance, 5_000);
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
-  }, [dashboardState?.employee?.smartAccountAddress]);
-
   useEffect(() => {
     if (auth.status !== "authenticated") return;
     if (didLoadDashboard.current) {
@@ -540,6 +514,14 @@ export function EmployeeClient({
     [dashboardState?.agents],
   );
 
+  const platformAgents = useMemo(
+    () =>
+      (dashboardState?.agents ?? []).filter(
+        (agent) => !isReimbursementAgent(agent) && !isAgoraAgent(agent),
+      ),
+    [dashboardState?.agents],
+  );
+
   // ── Handlers ───────────────────────────────────────────────────────────────
 
   function formatEthTrimmed(wei: bigint) {
@@ -593,94 +575,7 @@ export function EmployeeClient({
   const [isProcurementAgentDrawerOpen, setIsProcurementAgentDrawerOpen] = useState(false);
   const [activeProcurementDelegationId, setActiveProcurementDelegationId] = useState<string | null>(null);
 
-  // Task 4: agent picker — creates a new redelegation row then opens the drawer
-  const handleSelectAgent = useCallback(
-    (agentId: string, canvasPositionX?: number, canvasPositionY?: number) => {
-      if (auth.status !== "authenticated" || !auth.address || !dashboardState) return;
-      const walletAddress = auth.address;
-      setError(null);
-
-      const selectedAgent = dashboardState.agents.find(a => a.id === agentId);
-      if (isReimbursementAgent(selectedAgent)) {
-        setIsReimbursementDrawerOpen(true);
-        return;
-      }
-
-      // Guard: Check if employee has an active inbound delegation from the employer
-      if (!dashboardState.inboundDelegation || dashboardState.inboundDelegation.status !== "active") {
-        toast.warning("No Spending Allowance Delegated", {
-          description:
-            "Your company has not delegated spending funds to you yet. Please ask your employer to configure an allowance for you first before assigning funds to agents.",
-        });
-        return;
-      }
-      
-      startTransition(async () => {
-        try {
-          const state = await createAgentRedelegation({ walletAddress, agentId, canvasPositionX, canvasPositionY });
-          setDashboardState(state);
-          toast.info("Agent Added to Canvas", {
-            description: "Configure spending rules and caveats to activate sub-delegation.",
-          });
-
-          const pending = state.outboundDelegations.find(
-            (d) => d.delegateeId === agentId && d.status !== "revoked",
-          );
-          if (pending) {
-            setSelectedDelegationId(pending.id);
-            setCaveatForm(formFromDelegation(pending, parentMaxEth));
-            setFormErrors({});
-          }
-        } catch (caughtError) {
-          const message = caughtError instanceof Error ? caughtError.message : "Could not create redelegation";
-          if (
-            message.toLowerCase().includes("inbound") ||
-            message.toLowerCase().includes("activate a delegation")
-          ) {
-            toast.warning("No Spending Allowance Delegated", {
-              description:
-                "Your company has not delegated spending funds to you yet. Please ask your employer to configure an allowance for you first before assigning funds to agents.",
-            });
-          } else {
-            toast.error("Unable to Add Agent", {
-              description: message,
-            });
-          }
-        }
-      });
-    },
-    [auth, parentMaxEth, dashboardState],
-  );
-
-  // Wrapper for drag-and-drop: canvas calls onDropAgent({ agentId, canvasPositionX, canvasPositionY })
-  const handleDropAgent = useCallback(
-    (input: { agentId: string; canvasPositionX: number; canvasPositionY: number }) => {
-      handleSelectAgent(input.agentId, input.canvasPositionX, input.canvasPositionY);
-    },
-    [handleSelectAgent],
-  );
-
-  const handleNodeClick = useCallback((event: any, node: any) => {
-    if (node.data?.kind === "agent") {
-      if (!dashboardState?.inboundDelegation || dashboardState.inboundDelegation.status !== "active") {
-        toast.warning("No Spending Allowance Delegated", {
-          description:
-            "Your company has not delegated spending funds to you yet. Please ask your employer to configure an allowance for you first.",
-        });
-        return;
-      }
-      if (node.data?.status === "active") {
-        const agentId = node.data.agentId;
-        const agent = dashboardState?.agents.find(a => a.id === agentId);
-        if (agent?.name === "DevOps Procurement Agent" || agent?.name === "Procurement Agent" || node.data?.title === "DevOps Procurement Agent") {
-          setActiveProcurementDelegationId(node.data.delegationId);
-          setIsProcurementAgentDrawerOpen(true);
-        }
-      }
-    }
-  }, [dashboardState]);
-
-  // Task 7a: open drawer for existing delegation (configure / view rules)
+  // Open drawer for existing delegation (configure / view rules)
   const handleConfigureDelegation = useCallback(
     (delegationId: string) => {
       const delegation =
@@ -720,6 +615,78 @@ export function EmployeeClient({
       }, 0);
     },
     [dashboardState?.outboundDelegations, dashboardState?.agents, dashboardState?.inboundDelegation, availableMaxEth],
+  );
+
+  // Agent selector / budget assigner
+  const handleSelectAgent = useCallback(
+    (agentId: string) => {
+      if (auth.status !== "authenticated" || !auth.address || !dashboardState) return;
+      const walletAddress = auth.address;
+      setError(null);
+
+      const selectedAgent = dashboardState.agents.find(a => a.id === agentId);
+      if (isReimbursementAgent(selectedAgent)) {
+        setIsReimbursementDrawerOpen(true);
+        return;
+      }
+      if (isAgoraAgent(selectedAgent)) {
+        setIsAgoraDrawerOpen(true);
+        return;
+      }
+
+      // If already delegated, open rules or task drawer
+      const existing = dashboardState.outboundDelegations.find(
+        (d) => d.delegateeId === agentId && d.status !== "revoked"
+      );
+      if (existing) {
+        handleConfigureDelegation(existing.id);
+        return;
+      }
+
+      // Guard: Check if employee has an active inbound delegation from the employer
+      if (!dashboardState.inboundDelegation || dashboardState.inboundDelegation.status !== "active") {
+        toast.warning("No Spending Allowance Delegated", {
+          description:
+            "Your company has not delegated spending funds to you yet. Please ask your employer to configure an allowance for you first before assigning funds to agents.",
+        });
+        return;
+      }
+      
+      startTransition(async () => {
+        try {
+          const state = await createAgentRedelegation({ walletAddress, agentId });
+          setDashboardState(state);
+          toast.info("Agent Budget Created", {
+            description: "Configure spending rules and caveats to activate sub-delegation.",
+          });
+
+          const pending = state.outboundDelegations.find(
+            (d) => d.delegateeId === agentId && d.status !== "revoked",
+          );
+          if (pending) {
+            setSelectedDelegationId(pending.id);
+            setCaveatForm(formFromDelegation(pending, parentMaxEth));
+            setFormErrors({});
+          }
+        } catch (caughtError) {
+          const message = caughtError instanceof Error ? caughtError.message : "Could not create redelegation";
+          if (
+            message.toLowerCase().includes("inbound") ||
+            message.toLowerCase().includes("activate a delegation")
+          ) {
+            toast.warning("No Spending Allowance Delegated", {
+              description:
+                "Your company has not delegated spending funds to you yet. Please ask your employer to configure an allowance for you first before assigning funds to agents.",
+            });
+          } else {
+            toast.error("Unable to Add Agent", {
+              description: message,
+            });
+          }
+        }
+      });
+    },
+    [auth, parentMaxEth, dashboardState, handleConfigureDelegation],
   );
 
   // Task 7b: revoke an employee's own outbound delegation
@@ -989,68 +956,6 @@ export function EmployeeClient({
     return data.verification;
   };
 
-  const handleSmartAccountSpend = async (details: { toAddress: string; amountEth: string }) => {
-    if (auth.status !== "authenticated" || !auth.address || !dashboardState?.employee?.smartAccountAddress) {
-      throw new Error("Smart account not activated.");
-    }
-    const walletAddress = auth.address;
-
-    if (!walletClient) {
-      throw new Error("Wallet signer is still loading. Please try again.");
-    }
-
-    try {
-      await switchChainAsync({ chainId: chain.id });
-    } catch (switchError) {
-      console.warn("Could not switch chain via wagmi", switchError);
-    }
-
-    const smartAccount = await createHybridSmartAccount(walletClient, walletAddress);
-    
-    const { createBundlerClient, createPaymasterClient } = await import("viem/account-abstraction");
-    const { createPublicClient, http, parseEther } = await import("viem");
-
-    const bundlerUrl = process.env.NEXT_PUBLIC_BUNDLER_RPC_URL;
-    if (!bundlerUrl) throw new Error("Missing NEXT_PUBLIC_BUNDLER_RPC_URL");
-
-    const paymasterUrl = process.env.NEXT_PUBLIC_PAYMASTER_RPC_URL;
-    if (!paymasterUrl) throw new Error("Missing NEXT_PUBLIC_PAYMASTER_RPC_URL");
-
-    const paymasterClient = createPaymasterClient({
-      transport: http(paymasterUrl),
-    });
-
-    const publicClient = createPublicClient({ chain, transport: http() });
-    const bundlerClient = createBundlerClient({
-      client: publicClient,
-      chain,
-      transport: http(bundlerUrl),
-      paymaster: paymasterClient,
-      userOperation: {
-        estimateFeesPerGas: async () => {
-          return await getPimlicoGasPrice(bundlerUrl);
-        },
-      },
-    });
-
-    const parsedAmount = parseUnits(details.amountEth, AUSD_DECIMALS);
-    const userOpHash = await bundlerClient.sendUserOperation({
-      account: smartAccount as any,
-      calls: [{
-        to: AUSD_ADDRESS,
-        value: 0n,
-        data: encodeFunctionData({
-          abi: ERC20_ABI,
-          functionName: "transfer",
-          args: [details.toAddress as `0x${string}`, parsedAmount],
-        }),
-      }] as any
-    });
-
-    const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash });
-    return receipt.receipt.transactionHash;
-  };
-
   // ── Render guards ──────────────────────────────────────────────────────────
 
   if (auth.status === "unauthenticated" && !dashboardState) {
@@ -1185,10 +1090,10 @@ export function EmployeeClient({
 
         {/* Summary cards */}
         <EmployeeSectionCards
-          smartAccountBalanceEth={smartAccountBalanceEth}
           approvedLimitEth={summary.approvedLimitEth}
           redelegatedEth={summary.redelegatedEth}
           remainingEth={formatEthTrimmed(remainingWei)}
+          spentEth={summary.spentEth}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1222,54 +1127,282 @@ export function EmployeeClient({
           />
         </div>
 
-        {/* Tabs for Canvas and Direct Spend */}
-        <Tabs defaultValue="canvas" className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger value="canvas">Delegation Canvas</TabsTrigger>
-            <TabsTrigger value="wallet">Wallet & Direct Spend</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="canvas" className="mt-0">
-            {/* Canvas */}
-            <EmployeeFlowCanvas
-              dashboardState={dashboardState}
-              onConfigureDelegation={handleConfigureDelegation}
-              onRevokeDelegation={handleRevokeDelegation}
-              onNodeClick={handleNodeClick}
-              onDropAgent={handleDropAgent}
-              headerAction={
-                <Button type="button" variant="outline" size="sm" onClick={() => void refreshDashboard()} disabled={isPending}>
-                  {isPending ? "Refreshing..." : "Refresh"}
-                </Button>
-              }
-            />
-          </TabsContent>
-          
-          <TabsContent value="wallet" className="mt-0">
-            <Tabs defaultValue="delegated" className="w-full">
-              <div className="mb-4 flex items-center justify-between">
-                <TabsList>
-                  <TabsTrigger value="delegated">Delegated Spend</TabsTrigger>
-                  <TabsTrigger value="smart-account">Smart Account Spend</TabsTrigger>
-                </TabsList>
+        {/* Main Workspaces: Autonomous Agents & Direct Spend */}
+        <Tabs defaultValue="agents" className="w-full">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <TabsList className="bg-muted/60 p-1 border border-border/60">
+              <TabsTrigger value="agents" className="gap-2 text-xs">
+                <BotIcon className="size-3.5" />
+                Autonomous AI Agents
+                {platformAgents.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px] font-mono">
+                    {platformAgents.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="direct-spend" className="gap-2 text-xs">
+                <ShieldCheckIcon className="size-3.5" />
+                Direct Corporate Spend
+              </TabsTrigger>
+            </TabsList>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => void refreshDashboard()}
+              disabled={isPending}
+              className="text-xs h-8"
+            >
+              {isPending ? "Refreshing..." : "Refresh"}
+            </Button>
+          </div>
+
+          <TabsContent value="agents" className="mt-0 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Assigned AI Agents & Spending Tools</h3>
+                <p className="text-xs text-muted-foreground">
+                  Autonomous agents authorized to spend within your strict delegation rules.
+                </p>
               </div>
+            </div>
 
-              <TabsContent value="delegated" className="mt-0">
-                <DirectSpendForm 
-                  delegationId={dashboardState.inboundDelegation?.id || ""} 
-                  remainingBalanceEth={formatEthTrimmed(remainingWei)}
-                  onExecute={handleExecuteSpend}
-                  onVerifyReceipt={handleVerifyReceipt}
-                />
-              </TabsContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {platformAgents.map((agent) => {
+                const delegation = dashboardState.outboundDelegations.find(
+                  (d) => d.delegateeId === agent.id && d.status !== "revoked"
+                );
+                const limitCaveat = delegation?.caveats.find(
+                  (c) => c.caveatType === "nativeTokenTransferAmount"
+                );
+                const limitAmountEth = limitCaveat
+                  ? formatEthTrimmed(
+                      BigInt(
+                        String(
+                          (limitCaveat.caveatValue as any)?.maxAmount ??
+                            (limitCaveat.caveatValue as any)?.amount ??
+                            "0"
+                        )
+                      )
+                    )
+                  : "0";
 
-              <TabsContent value="smart-account" className="mt-0">
-                <SmartAccountSpendForm 
-                  availableBalanceEth={smartAccountBalanceEth}
-                  onExecute={handleSmartAccountSpend}
-                />
-              </TabsContent>
-            </Tabs>
+                const isDevOps =
+                  agent.name.toLowerCase().includes("devops") ||
+                  agent.name.toLowerCase().includes("procurement");
+
+                return (
+                  <Card key={agent.id} className="border-border/80 bg-card shadow-xs flex flex-col justify-between">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-muted/60 text-foreground">
+                            <BotIcon className="size-4" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-sm font-semibold text-foreground">
+                              {agent.name}
+                            </CardTitle>
+                            <CardDescription className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                              {agent.description || "Autonomous platform agent"}
+                            </CardDescription>
+                          </div>
+                        </div>
+                        <Badge
+                          variant={
+                            delegation?.status === "active"
+                              ? "secondary"
+                              : delegation?.status === "pending_config"
+                                ? "outline"
+                                : "outline"
+                          }
+                          className={cn(
+                            "text-[10px] font-mono shrink-0",
+                            !delegation && "text-muted-foreground border-dashed"
+                          )}
+                        >
+                          {delegation?.status === "active"
+                            ? "Active"
+                            : delegation?.status === "pending_config"
+                              ? "Pending Rules"
+                              : "Unallocated"}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="pb-4 flex flex-col gap-3">
+                      <div className="rounded-md border border-border/60 bg-muted/30 p-2.5 text-xs flex flex-col gap-1.5 font-mono">
+                        <div className="flex items-center justify-between text-muted-foreground">
+                          <span className="font-sans">Assigned Allowance:</span>
+                          <span className="font-semibold text-foreground">
+                            {delegation?.status === "active" ? `${limitAmountEth} ${TOKEN_SYMBOL}` : `0 ${TOKEN_SYMBOL}`}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-muted-foreground">
+                          <span className="font-sans">Status:</span>
+                          <span className="text-[11px] text-foreground">
+                            {delegation?.status === "active"
+                              ? "Authorized on Monad"
+                              : delegation?.status === "pending_config"
+                                ? "Awaiting Rule Setup"
+                                : "No Budget Assigned"}
+                          </span>
+                        </div>
+                      </div>
+                    </CardContent>
+
+                    <CardFooter className="pt-0 flex items-center gap-2 border-t border-border/40 pt-3">
+                      {delegation?.status === "active" ? (
+                        <>
+                          {isDevOps && (
+                            <Button
+                              size="sm"
+                              className="flex-1 text-xs"
+                              onClick={() => {
+                                setActiveProcurementDelegationId(delegation.id);
+                                setIsProcurementAgentDrawerOpen(true);
+                              }}
+                            >
+                              Launch Agent
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className={cn("text-xs", !isDevOps && "flex-1")}
+                            onClick={() => handleConfigureDelegation(delegation.id)}
+                          >
+                            Rules
+                          </Button>
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="text-xs text-muted-foreground hover:text-destructive px-2"
+                              >
+                                <BanIcon className="size-3.5" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Revoke Agent Spending Authority?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will revoke spending permissions for {agent.name}. The agent will no longer be able to execute purchases.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={() => handleRevokeDelegation(delegation.id)}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  Revoke Authority
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </>
+                      ) : delegation?.status === "pending_config" ? (
+                        <Button
+                          size="sm"
+                          className="w-full text-xs"
+                          onClick={() => handleConfigureDelegation(delegation.id)}
+                        >
+                          Configure Spending Rules
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full text-xs"
+                          onClick={() => handleSelectAgent(agent.id)}
+                        >
+                          Allocate Spending Budget
+                        </Button>
+                      )}
+                    </CardFooter>
+                  </Card>
+                );
+              })}
+
+              {/* Catalog Preview Agents (Coming Soon) */}
+              <Card className="border-dashed border-border/70 bg-muted/15 shadow-none flex flex-col justify-between opacity-80">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/30 text-muted-foreground">
+                        <PlaneIcon className="size-4" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-sm font-semibold text-foreground/80">
+                          Travel Concierge Agent
+                        </CardTitle>
+                        <CardDescription className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                          Autonomous corporate flight & hotel booking
+                        </CardDescription>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground border-border/70">
+                      Coming Soon
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="pb-4">
+                  <div className="rounded-md border border-dashed border-border/60 bg-muted/20 p-2.5 text-xs text-muted-foreground">
+                    Automates corporate travel arrangements with automatic per-diem policy compliance and receipt ledger integration.
+                  </div>
+                </CardContent>
+                <CardFooter className="pt-0 border-t border-border/40 pt-3">
+                  <Button size="sm" variant="ghost" disabled className="w-full text-xs text-muted-foreground cursor-not-allowed">
+                    In Development
+                  </Button>
+                </CardFooter>
+              </Card>
+
+              <Card className="border-dashed border-border/70 bg-muted/15 shadow-none flex flex-col justify-between opacity-80">
+                <CardHeader className="pb-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/30 text-muted-foreground">
+                        <ShoppingCartIcon className="size-4" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-sm font-semibold text-foreground/80">
+                          SaaS Subscription Agent
+                        </CardTitle>
+                        <CardDescription className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
+                          License seats & API quota renewals
+                        </CardDescription>
+                      </div>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground border-border/70">
+                      Coming Soon
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="pb-4">
+                  <div className="rounded-md border border-dashed border-border/60 bg-muted/20 p-2.5 text-xs text-muted-foreground">
+                    Monitors monthly SaaS tool renewals, detects unused team seats, and caps recurring vendor charges.
+                  </div>
+                </CardContent>
+                <CardFooter className="pt-0 border-t border-border/40 pt-3">
+                  <Button size="sm" variant="ghost" disabled className="w-full text-xs text-muted-foreground cursor-not-allowed">
+                    In Development
+                  </Button>
+                </CardFooter>
+              </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="direct-spend" className="mt-0">
+            <DirectSpendForm 
+              delegationId={dashboardState.inboundDelegation?.id || ""} 
+              remainingBalanceEth={formatEthTrimmed(remainingWei)}
+              onExecute={handleExecuteSpend}
+              onVerifyReceipt={handleVerifyReceipt}
+            />
           </TabsContent>
         </Tabs>
       </div>

@@ -418,7 +418,7 @@ function CanvasSection({
               </div>
               <Alert className="py-2 px-3 bg-muted/50 mb-1 border-border/60">
                 <AlertDescription className="text-[11px] text-muted-foreground leading-snug">
-                  Drag or click an AI agent to add them to the canvas and configure a delegation.
+                  Click an AI agent to assign a spending budget or run tasks.
                 </AlertDescription>
               </Alert>
               <div className="relative">

@@ -1211,10 +1211,20 @@ export function EmployerClient({
       >
         <DrawerContent>
           <DrawerHeader>
-            <DrawerTitle>{isReimbursementBudget ? "Reimbursement budget & policy" : "Spending Limits & Rules"}</DrawerTitle>
+            <DrawerTitle>
+              {isReimbursementBudget
+                ? "Reimbursement budget & policy"
+                : isAgoraBudget
+                ? "Agora Remittance Pool & Settlement Rules"
+                : "Spending Limits & Rules"}
+            </DrawerTitle>
             <DrawerDescription>
               {isReimbursementBudget
                 ? "Authorize company funds for approved employee claims. To change an active budget, stop payouts and set up a new budget."
+                : isAgoraBudget
+                ? selectedDelegation?.status === "active"
+                  ? "This remittance pool is currently active on Monad. International contractor invoices and cross-border expenses settle instantly from this authorized pool."
+                  : "Authorize a dedicated company pool for global contractor payouts and multi-currency expenses. Settles across borders in seconds with Agora AUSD."
                 : selectedDelegation?.status === "active"
                   ? "These rules are currently active and enforced on-chain."
                   : "Configure exactly what this delegatee is allowed to do with the company's funds."}
@@ -1234,10 +1244,23 @@ export function EmployerClient({
 
             {/* Section 1: Overall Spending Limits */}
             <div className="flex flex-col gap-4">
-              <h4 className="text-sm font-semibold text-foreground">{isReimbursementBudget ? "1. Reimbursement budget" : "1. Overall Spending Limits"}</h4>
+              <h4 className="text-sm font-semibold text-foreground">
+                {isReimbursementBudget
+                  ? "1. Reimbursement budget"
+                  : isAgoraBudget
+                  ? "1. Remittance Pool Allocation"
+                  : "1. Overall Spending Limits"}
+              </h4>
               
               <div className="flex flex-col gap-2">
-                <Label htmlFor="max-amount">{isReimbursementBudget ? "Total reimbursement budget" : "Lifetime Spending Limit"} ({TOKEN_SYMBOL})</Label>
+                <Label htmlFor="max-amount">
+                  {isReimbursementBudget
+                    ? "Total reimbursement budget"
+                    : isAgoraBudget
+                    ? "Total Remittance Pool Capacity"
+                    : "Lifetime Spending Limit"}{" "}
+                  ({TOKEN_SYMBOL})
+                </Label>
                 <Input
                   id="max-amount"
                   value={caveatForm.maxAmountEth}
@@ -1254,7 +1277,13 @@ export function EmployerClient({
                   <p className="text-[0.8rem] text-destructive">{formErrors.maxAmountEth}</p>
                 ) : (
                   <div className="text-[0.8rem] text-muted-foreground space-y-1">
-                    <p>{isReimbursementBudget ? "The total amount available for employee claims under this authorization." : <>The absolute maximum amount of {TOKEN_SYMBOL} this delegatee can spend in total over the lifetime of this delegation.</>}</p>
+                    <p>
+                      {isReimbursementBudget
+                        ? "The total amount available for employee claims under this authorization."
+                        : isAgoraBudget
+                        ? "The maximum AUSD allocated for international contractor settlements and foreign invoices under this pool authorization."
+                        : <>The absolute maximum amount of {TOKEN_SYMBOL} this delegatee can spend in total over the lifetime of this delegation.</>}
+                    </p>
                     {availableBalanceEth !== null && selectedDelegation?.status !== "active" && (
                       <p>
                         Remaining available to delegate: <span className="font-semibold text-foreground">{Number(availableBalanceEth.toFixed(4))} {TOKEN_SYMBOL}</span>
@@ -1266,7 +1295,9 @@ export function EmployerClient({
 
               {!isReimbursementBudget && (
                 <div className="flex flex-col gap-2 mt-2">
-                  <Label>Recurring Allowance</Label>
+                  <Label>
+                    {isAgoraBudget ? "Pool Replenishment Schedule" : "Recurring Allowance"}
+                  </Label>
                   <Select
                     value={caveatForm.period}
                     disabled={selectedDelegation?.status === "active"}
@@ -1290,13 +1321,19 @@ export function EmployerClient({
                       </SelectGroup>
                     </SelectContent>
                   </Select>
-                  <p className="text-[0.8rem] text-muted-foreground">Automatically reset their spending limit on a recurring schedule.</p>
+                  <p className="text-[0.8rem] text-muted-foreground">
+                    {isAgoraBudget
+                      ? "Automatically replenish new AUSD allowance into the remittance pool on a recurring schedule."
+                      : "Automatically reset their spending limit on a recurring schedule."}
+                  </p>
                 </div>
               )}
 
               {!isReimbursementBudget && caveatForm.period !== "none" && (
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="period-amount">Allowance per Period ({TOKEN_SYMBOL})</Label>
+                  <Label htmlFor="period-amount">
+                    {isAgoraBudget ? `Replenishment per Period (${TOKEN_SYMBOL})` : `Allowance per Period (${TOKEN_SYMBOL})`}
+                  </Label>
                   <Input
                     id="period-amount"
                     value={caveatForm.periodAmountEth}
@@ -1312,7 +1349,11 @@ export function EmployerClient({
                   {formErrors.periodAmountEth ? (
                     <p className="text-[0.8rem] text-destructive">{formErrors.periodAmountEth}</p>
                   ) : (
-                    <p className="text-[0.8rem] text-muted-foreground">How much they can spend within the selected timeframe.</p>
+                    <p className="text-[0.8rem] text-muted-foreground">
+                      {isAgoraBudget
+                        ? "How much AUSD is replenished into the remittance pool each period."
+                        : "How much they can spend within the selected timeframe."}
+                    </p>
                   )}
                 </div>
               )}
@@ -1322,10 +1363,16 @@ export function EmployerClient({
 
             {/* Section 2: Transaction Restrictions */}
             <div className="flex flex-col gap-4">
-              <h4 className="text-sm font-semibold text-foreground">2. Transaction Restrictions</h4>
+              <h4 className="text-sm font-semibold text-foreground">
+                {isAgoraBudget ? "2. Settlement Safeguards" : "2. Transaction Restrictions"}
+              </h4>
               
               <div className="flex flex-col gap-2">
-                <Label htmlFor="value-lte">Maximum Per-Transaction ({TOKEN_SYMBOL})</Label>
+                <Label htmlFor="value-lte">
+                  {isAgoraBudget
+                    ? `Maximum Single Remittance Cap (${TOKEN_SYMBOL})`
+                    : `Maximum Per-Transaction (${TOKEN_SYMBOL})`}
+                </Label>
                 <Input
                   id="value-lte"
                   value={caveatForm.perTransactionCapEth}
@@ -1341,7 +1388,11 @@ export function EmployerClient({
                 {formErrors.perTransactionCapEth ? (
                   <p className="text-[0.8rem] text-destructive">{formErrors.perTransactionCapEth}</p>
                 ) : (
-                  <p className="text-[0.8rem] text-muted-foreground">The most they can spend in any single transaction. Leave blank for no per-transaction cap.</p>
+                  <p className="text-[0.8rem] text-muted-foreground">
+                    {isAgoraBudget
+                      ? "The most that can be remitted in any single contractor payout. Leave blank for no per-invoice cap."
+                      : "The most they can spend in any single transaction. Leave blank for no per-transaction cap."}
+                  </p>
                 )}
               </div>
 
@@ -1359,7 +1410,9 @@ export function EmployerClient({
                         }))
                       }
                     />
-                    <Label htmlFor="limited-calls-enabled">Limit Total Transactions</Label>
+                    <Label htmlFor="limited-calls-enabled">
+                      {isAgoraBudget ? "Cap Total Remittance Payouts" : "Limit Total Transactions"}
+                    </Label>
                   </div>
                   {caveatForm.limitedCallsEnabled && (
                     <>
@@ -1377,7 +1430,11 @@ export function EmployerClient({
                       {formErrors.limitedCalls ? (
                         <p className="text-[0.8rem] text-destructive">{formErrors.limitedCalls}</p>
                       ) : (
-                        <p className="text-[0.8rem] text-muted-foreground">Restrict the delegatee to a specific number of total transactions.</p>
+                        <p className="text-[0.8rem] text-muted-foreground">
+                          {isAgoraBudget
+                            ? "Restrict this pool to a specific number of contractor payouts."
+                            : "Restrict the delegatee to a specific number of total transactions."}
+                        </p>
                       )}
                     </>
                   )}
@@ -1390,10 +1447,14 @@ export function EmployerClient({
             {/* Section 3: Target & Address Restrictions */}
             {!isReimbursementBudget && (
               <div className="flex flex-col gap-4">
-                <h4 className="text-sm font-semibold text-foreground">3. Address Whitelist</h4>
+                <h4 className="text-sm font-semibold text-foreground">
+                  {isAgoraBudget ? "3. Pre-Approved Contractor Whitelist" : "3. Address Whitelist"}
+                </h4>
                 
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="targets">Permitted Addresses</Label>
+                  <Label htmlFor="targets">
+                    {isAgoraBudget ? "Approved Contractor Wallet Addresses" : "Permitted Addresses"}
+                  </Label>
                   <Input
                     id="targets"
                     value={caveatForm.allowedTargets}
@@ -1405,14 +1466,22 @@ export function EmployerClient({
                         allowedTargets: event.target.value,
                       }))
                     }
-                    placeholder="One address per line or comma-separated"
+                    placeholder={
+                      isAgoraBudget
+                        ? "0x... (one address per line or comma-separated)"
+                        : "One address per line or comma-separated"
+                    }
                   />
                   {formErrors.allowedTargets ? (
                     <p className="text-[0.8rem] text-destructive">{formErrors.allowedTargets}</p>
                   ) : formErrors.allowedTargetsWarning ? (
                     <p className="text-[0.8rem] text-amber-500">{formErrors.allowedTargetsWarning}</p>
                   ) : (
-                    <p className="text-[0.8rem] text-muted-foreground">Only allow sends to these addresses. Leave blank to allow any destination (less secure).</p>
+                    <p className="text-[0.8rem] text-muted-foreground">
+                      {isAgoraBudget
+                        ? "Only permit remittances to these verified contractor wallets. Leave blank to allow payouts to any contractor invoice (default)."
+                        : "Only allow sends to these addresses. Leave blank to allow any destination (less secure)."}
+                    </p>
                   )}
                 </div>
               </div>
@@ -1425,11 +1494,21 @@ export function EmployerClient({
               <div className="flex flex-col gap-4">
                 <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
                   <BotIcon className="h-4 w-4 text-chart-5" />
-                  {isReimbursementBudget ? "3. Reimbursement Policy Rules" : "4. AI Policy Prompt"}
+                  {isAgoraBudget
+                    ? "4. Remittance Compliance Guidelines"
+                    : isReimbursementBudget
+                      ? "3. Reimbursement Policy Rules"
+                      : "4. AI Policy Prompt"}
                 </h4>
                 
                 <div className="flex flex-col gap-2">
-                  <Label htmlFor="policy-prompt">Natural Language Rules</Label>
+                  <Label htmlFor="policy-prompt">
+                    {isAgoraBudget
+                      ? "Remittance Policy Rules"
+                      : isReimbursementBudget
+                        ? "Policy Guidelines"
+                        : "Natural Language Rules"}
+                  </Label>
                   <Textarea
                     id="policy-prompt"
                     value={caveatForm.policyPrompt}
@@ -1440,10 +1519,20 @@ export function EmployerClient({
                         policyPrompt: event.target.value,
                       }))
                     }
-                    placeholder="e.g. Do not reimburse alcohol. Limit meals to $50. Flights must be economy."
+                    placeholder={
+                      isAgoraBudget
+                        ? "e.g. Approve software development, design, and infrastructure contractor invoices. Require verified deliverable links or invoice numbers. Exclude personal or non-business wires."
+                        : isReimbursementBudget
+                          ? "e.g. Do not reimburse alcohol. Limit meals to $50. Flights must be economy."
+                          : "e.g. Only allow cloud infrastructure purchases. Reject any request over $500 without manager approval."
+                    }
                     className="min-h-[100px] resize-none"
                   />
-                  <p className="text-[0.8rem] text-muted-foreground">These additional rules are used with your company policy to assess expenses. The authorized payment limits still apply.</p>
+                  <p className="text-[0.8rem] text-muted-foreground">
+                    {isAgoraBudget
+                      ? "Compliance guidelines verified during cross-border remittance evaluation. Authorized pool payment limits apply."
+                      : "These additional rules are used with your company policy to assess expenses. The authorized payment limits still apply."}
+                  </p>
                 </div>
               </div>
             )}
@@ -1457,16 +1546,22 @@ export function EmployerClient({
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive" disabled={isPending}>
                       <BanIcon className="size-4 mr-2" />
-                      {isReimbursementBudget ? "Stop reimbursement payouts" : "Revoke delegation"}
+                      {isAgoraBudget
+                        ? "Pause remittance pool"
+                        : isReimbursementBudget
+                          ? "Stop reimbursement payouts"
+                          : "Revoke delegation"}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        {isReimbursementBudget
-                          ? "This stops new reimbursement payouts under the current budget. Previous payments stay in your activity log. Authorize a new budget to resume payouts."
-                          : "This will permanently revoke this active delegation on Monad Testnet. All child AI agents under this delegation will also lose spending authority immediately."}
+                        {isAgoraBudget
+                          ? "This pauses contractor settlements from this remittance pool on Monad. No new remittance payouts will be processed until re-authorized. Existing settled transactions remain recorded."
+                          : isReimbursementBudget
+                            ? "This stops new reimbursement payouts under the current budget. Previous payments stay in your activity log. Authorize a new budget to resume payouts."
+                            : "This will permanently revoke this active delegation on Monad Testnet. All child AI agents under this delegation will also lose spending authority immediately."}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -1479,7 +1574,11 @@ export function EmployerClient({
                         }}
                         className="bg-red-600 text-white hover:bg-red-700"
                       >
-                        {isReimbursementBudget ? "Stop payouts" : "Yes, revoke delegation"}
+                        {isAgoraBudget
+                          ? "Pause remittance pool"
+                          : isReimbursementBudget
+                            ? "Stop payouts"
+                            : "Yes, revoke delegation"}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -1491,7 +1590,11 @@ export function EmployerClient({
                   ) : (
                     <ShieldCheckIcon className="size-4 mr-2" />
                   )}
-                  {isReimbursementBudget ? "Authorize reimbursement budget" : "Activate delegation"}
+                  {isAgoraBudget
+                    ? "Authorize Remittance Pool"
+                    : isReimbursementBudget
+                      ? "Authorize reimbursement budget"
+                      : "Activate delegation"}
                 </Button>
               ) : null}
             </DrawerFooter>

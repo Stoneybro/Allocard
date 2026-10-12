@@ -218,14 +218,18 @@ export async function checkPolicy(input: {
 Your task is to evaluate whether an employee's reimbursement claim complies with the company's approved delegation policy.
 Return a JSON object with: approved (boolean), reasoning (string, 1-3 sentences), confidence (number 0.0-1.0).
 Be strict about policy compliance. Approve only if the claim clearly falls within all constraints.
-CRITICAL BUSINESS CONTEXT RULE: You MUST reject any claim that lacks a clear, explicit business justification (e.g., general "coffee", "lunch", "uber", or "supplies" without stating the corporate purpose like "client meeting" or "travel to conference"). Personal expenses or vague claims are strictly prohibited.
-IMPORTANT: When comparing numeric limits and amounts, evaluate them mathematically as numbers. Do not reject claims for formatting or decimal differences.`;
+
+CRITICAL RULES:
+1. CURRENCY EQUIVALENCE: ${TOKEN_SYMBOL} (Agora Digital Dollar) is pegged 1:1 with USD ($). 1 ${TOKEN_SYMBOL} = $1.00 USD. All limits, receipts, and claims in USD or ${TOKEN_SYMBOL} are 1:1 equivalent.
+2. BUSINESS JUSTIFICATION: You MUST reject any claim that lacks a clear, explicit business justification (e.g., general "coffee", "lunch", "uber", or "supplies" without stating the corporate purpose like "client meeting" or "travel to conference"). Personal expenses or vague claims are strictly prohibited.
+3. NUMERIC COMPARISON: When comparing numeric limits and amounts, evaluate them mathematically as numbers. Do not reject claims for formatting or decimal differences.
+4. TONE: Do not use em-dashes in your reasoning.`;
 
   const userPrompt = `${policy}
 
 Employee reimbursement claim:
 - Description: ${input.claimDescription}
-- Amount requested: ${input.amountEth} ${TOKEN_SYMBOL}
+- Amount requested: ${input.amountEth} ${TOKEN_SYMBOL} (equivalent to $${input.amountEth} USD)
 
 Does this claim comply with the policy and limits? Respond in valid JSON with { approved: boolean, reasoning: string, confidence: number }.`;
 
@@ -275,10 +279,13 @@ export async function advisoryPolicyCheck(input: {
   const systemPrompt = `You are a strict policy compliance advisor for Allocard corporate spend management.
 An employee is attempting a direct, manual on-chain spend from their delegated wallet.
 Evaluate whether the stated purpose and amount comply with the company's approved delegation policy AND general corporate spending standards.
+
 CRITICAL RULES:
-1. ALL expenses MUST be strictly for legitimate, provable business purposes.
-2. Vague or obviously personal expenses (e.g., "coffee", "lunch", "ice cream", "snacks") MUST be REJECTED unless accompanied by a clear, explicit business justification (e.g., "lunch with client X").
-3. Do not assume business context if none is provided.
+1. CURRENCY EQUIVALENCE: ${TOKEN_SYMBOL} (Agora Digital Dollar) is pegged 1:1 with USD ($). 1 ${TOKEN_SYMBOL} = $1.00 USD.
+2. ALL expenses MUST be strictly for legitimate, provable business purposes.
+3. Vague or obviously personal expenses (e.g., "coffee", "lunch", "ice cream", "snacks") MUST be REJECTED unless accompanied by a clear, explicit business justification (e.g., "lunch with client X").
+4. Do not assume business context if none is provided.
+5. TONE: Do not use em-dashes in your reasoning.
 
 Return a JSON object with: approved (boolean), reasoning (string, 1-3 sentences advising the employee), confidence (number 0.0-1.0).
 If the spend violates policy or lacks business context, set approved to false and explain why.`;
@@ -287,7 +294,7 @@ If the spend violates policy or lacks business context, set approved to false an
 
 Employee intended spend:
 - Purpose: ${input.purpose}
-- Amount: ${input.amountEth} ${TOKEN_SYMBOL}
+- Amount: ${input.amountEth} ${TOKEN_SYMBOL} (equivalent to $${input.amountEth} USD)
 
 Does this intended spend comply with the policy and limits? Respond in valid JSON with { approved: boolean, reasoning: string, confidence: number }.`;
 
@@ -348,13 +355,28 @@ export async function verifyReceipt(input: {
   const systemPrompt = `You are a receipt verification assistant for Allocard corporate spend management.
 Examine the receipt image and verify whether it matches the stated claim.
 Extract the total amount, merchant name, and date if visible.
-IMPORTANT: When comparing amounts, evaluate them mathematically as numbers. Do NOT reject claims just because of formatting differences, currency symbols, or a different number of decimal places (e.g., 100 ${TOKEN_SYMBOL} is exactly equal to 100.00 ${TOKEN_SYMBOL}).
-Return JSON with: verified (boolean), reasoning (string), confidence (number 0-1), extractedAmount (string), extractedMerchant (string), extractedDate (string).`;
+
+CRITICAL CURRENCY & VERIFICATION RULES:
+1. CURRENCY EQUIVALENCE: Allocard operates with ${TOKEN_SYMBOL} (Agora Digital Dollar), which is pegged 1:1 with USD ($). 1 ${TOKEN_SYMBOL} = $1.00 USD.
+2. Standard commercial receipts are denominated in USD ($) or local fiat currency. A receipt showing "$" or "USD" matches a claim in ${TOKEN_SYMBOL} at a 1:1 ratio. You MUST NEVER reject a claim because the receipt is in USD ($) while the claim is in ${TOKEN_SYMBOL}. Treat $46.87 USD and 46.87 ${TOKEN_SYMBOL} as completely identical in value.
+3. NUMERIC COMPARISON: Evaluate amounts mathematically as numbers. Do NOT reject claims just because of formatting differences, currency symbols, or decimal places (e.g., $100, $100.00, and 100 ${TOKEN_SYMBOL} are all identical).
+4. TONE: Do not use em-dashes in your reasoning.
+
+Return JSON with:
+- verified (boolean): true if the receipt proves the expense matches the claim description and amount, false otherwise.
+- reasoning (string): clear 1-2 sentence explanation without em-dashes.
+- confidence (number 0-1)
+- extractedAmount (string)
+- extractedMerchant (string)
+- extractedDate (string)`;
 
   const userMessage = {
     role: "user",
     content: [
-      { type: "text", text: `Claim details:\n- Description: ${input.claimDescription}\n- Amount: ${input.amountEth} ${TOKEN_SYMBOL}\n\nPlease verify this receipt matches the claim. Respond in JSON.` },
+      {
+        type: "text",
+        text: `Claim details:\n- Description: ${input.claimDescription}\n- Amount: ${input.amountEth} ${TOKEN_SYMBOL} ($${input.amountEth} USD)\n\nPlease verify this receipt matches the claim. Note: ${TOKEN_SYMBOL} is pegged 1:1 to USD ($), so dollar signs on receipts match ${TOKEN_SYMBOL} exactly. Respond in JSON.`,
+      },
       { type: "image_url", image_url: { url: dataUri } },
     ],
   };

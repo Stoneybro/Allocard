@@ -231,6 +231,19 @@ export function AgoraRemittanceDrawer({
             </div>
           ) : step === "form" ? (
             <div className="flex flex-col gap-4">
+              {/* Remittance Pool Capacity Indicator */}
+              {program.status === "ready" && program.remainingAmount !== null && (
+                <div className="flex items-center justify-between rounded-lg border border-border bg-card px-3.5 py-2.5 text-xs shadow-xs">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheckIcon className="size-4 text-emerald-500" />
+                    <span className="text-muted-foreground">Authorized Remittance Pool:</span>
+                  </div>
+                  <span className="font-mono font-semibold text-foreground">
+                    {program.remainingAmount} {TOKEN_SYMBOL} remaining
+                  </span>
+                </div>
+              )}
+
               {/* Optional Invoice Upload */}
               <div className="flex flex-col gap-1.5 p-3 rounded-lg border border-dashed border-border/80 bg-muted/30">
                 <div className="flex items-center justify-between">
@@ -384,7 +397,7 @@ export function AgoraRemittanceDrawer({
             <div className="flex flex-col items-center justify-center py-12 gap-3">
               <LoaderCircleIcon className="size-8 animate-spin text-primary" />
               <p className="text-sm font-medium">Executing cross-border settlement in Agora AUSD on Monad...</p>
-              <p className="text-xs text-muted-foreground">Checking company caveat limits & broadcasting UserOperation</p>
+              <p className="text-xs text-muted-foreground">Verifying remittance pool authorization & broadcasting settlement on Monad</p>
             </div>
           ) : step === "success" ? (
             <div className="flex flex-col items-center justify-center py-8 gap-4 text-center">

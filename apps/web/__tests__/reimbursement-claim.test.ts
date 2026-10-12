@@ -31,7 +31,7 @@ describe("reimbursement claim setup guard", () => {
       vi.mocked(loadReimbursementProgram).mockResolvedValue({
         program: { status, agentId: null, delegationId: null, remainingAmount: null },
         agent: undefined, delegation: undefined, caveats: [],
-      });
+      } as any);
       const response = await POST(request());
       expect(response.status).toBe(409);
       expect(await response.json()).toMatchObject({ code: "REIMBURSEMENT_NOT_READY", error: expect.any(String) });

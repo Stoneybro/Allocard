@@ -1,10 +1,9 @@
 import "server-only";
 
 import { and, eq, sql } from "drizzle-orm";
-import { formatUnits, parseUnits } from "viem";
+import { formatEther, parseEther } from "viem";
 import { db } from "@/lib/db";
 import { agents, agentBookings, delegationCaveats, delegations } from "@/lib/db/schema";
-import { AUSD_DECIMALS } from "@/lib/chain";
 import {
   AGORA_SERVICE_NAME,
   findAgoraDelegation,
@@ -70,11 +69,26 @@ export async function loadAgoraProgram(companyId: string) {
         ),
       );
 
-    const spentUnits = parseUnits(spent?.total ?? "0", AUSD_DECIMALS);
-    const remaining = limitUnits > spentUnits ? limitUnits - spentUnits : 0n;
-    program.remainingAmount = formatUnits(remaining, AUSD_DECIMALS);
-    if (remaining <= 0n) program.status = "exhausted";
+    // Caveat values in Allocard are stored with 18 decimals (nativeTokenTransferAmount / wei format).
+    // If limitUnits has >= 14 decimals or caveatType is nativeTokenTransferAmount, it's 18 decimals;
+    // otherwise if saved as 6 decimals (AUSD_DECIMALS), normalize to 18 decimals.
+    let limitWei: bigint;
+    if (limit.caveatType === "nativeTokenTransferAmount" || limitUnits >= 10n ** 14n) {
+      limitWei = limitUnits;
+    } else {
+      limitWei = limitUnits * 10n ** 12n;
+    }
+
+    const spentWei = parseEther(spent?.total ?? "0");
+    const remainingWei = limitWei > spentWei ? limitWei - spentWei : 0n;
+    const formatted = formatEther(remainingWei);
+    program.remainingAmount = formatted.includes(".")
+      ? formatted.replace(/(\.[0-9]*?)0+$/, "$1").replace(/\.$/, "")
+      : formatted;
+
+    if (remainingWei <= 0n) program.status = "exhausted";
   }
 
   return { program, agent, delegation, caveats };
 }
+
