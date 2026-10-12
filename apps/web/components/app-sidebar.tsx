@@ -9,8 +9,10 @@ import {
   BotIcon,
   CheckIcon,
   CopyIcon,
+  GripVertical,
   LogOutIcon,
   MoreVerticalIcon,
+  PlusIcon,
   RefreshCwIcon,
   UserPlusIcon,
   UserRoundIcon,
@@ -298,9 +300,9 @@ function CanvasSection({
       <SidebarGroupContent className="flex flex-col gap-4 px-2">
         {/* Hint */}
         {role !== "employee" && (
-          <Alert className="py-2 px-3 bg-muted/50">
+          <Alert className="py-2 px-3 bg-muted/50 border-border/60">
             <AlertDescription className="text-[11px] text-muted-foreground leading-snug">
-              Drag an employee to the canvas to configure their spending allowance.
+              Drag or click an employee to add them to the canvas and configure their spending allowance.
             </AlertDescription>
           </Alert>
         )}
@@ -310,16 +312,11 @@ function CanvasSection({
           <div className="flex flex-col gap-1.5">
             {/* Sub-label row */}
             <div className="flex items-center justify-between gap-2 px-1">
-              <span className="flex items-center gap-1.5 text-[11px] font-medium text-foreground/70">
-                <UserRoundIcon className="size-3" />
+              <span className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground/80">
+                <UserRoundIcon className="size-3.5 text-primary/80" />
                 Employees
               </span>
               <div className="flex items-center gap-1">
-                {employees.length > 0 && (
-                  <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
-                    {employees.length}
-                  </Badge>
-                )}
                 {pendingEmployees && pendingEmployees.length > 0 && (
                   <Badge variant="outline" className="h-4 px-1.5 text-[10px] text-amber-600 border-amber-300">
                     {pendingEmployees.length} pending
@@ -329,7 +326,7 @@ function CanvasSection({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="size-6"
+                  className="size-6 text-muted-foreground hover:text-foreground"
                   onClick={onRefreshEmployees}
                   disabled={!onRefreshEmployees || employeesRefreshing}
                   aria-label="Refresh employees"
@@ -350,52 +347,55 @@ function CanvasSection({
               />
             )}
 
-            {/* Scrollable list — shows ~3 rows before scrolling */}
+            {/* Prominent list — interactive draggable & clickable cards */}
             {employees.length === 0 ? (
-              <div className="flex items-center justify-center rounded-md border border-dashed border-border px-3 py-4">
-                <p className="text-[11px] text-muted-foreground text-center">
+              <div className="flex items-center justify-center rounded-lg border border-dashed border-border/80 bg-muted/20 px-3 py-4 text-center">
+                <p className="text-[11px] text-muted-foreground">
                   No active employees yet. Click &ldquo;Add employee&rdquo; above.
                 </p>
               </div>
             ) : (
               <div className="relative">
-                <div className="max-h-[9.5rem] overflow-y-auto rounded-md">
-                  <SidebarMenu>
-                    {employees.map((employee) => (
-                      <SidebarMenuItem key={employee.id}>
-                        <SidebarMenuButton
-                          id={`recipient-${employee.id}`}
-                          tooltip={`${employee.label} — drag to canvas`}
-                          draggable
-                          onClick={() => onAddEmployee?.(employee.id)}
-                          onDragStart={(event) => {
-                            event.dataTransfer.setData(
-                              "application/allocard-employee-id",
-                              employee.id,
-                            );
-                            event.dataTransfer.effectAllowed = "copy";
-                          }}
-                          className="h-auto cursor-grab py-2 active:cursor-grabbing"
-                        >
-                          <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-foreground/70">
-                            <UserRoundIcon className="size-3" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-[13px] font-medium leading-none">
-                              {employee.label}
-                            </p>
-                            <p className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
-                              {employee.detail}
-                            </p>
-                          </div>
-                        </SidebarMenuButton>
-                      </SidebarMenuItem>
-                    ))}
-                  </SidebarMenu>
+                <div className="max-h-[14rem] overflow-y-auto space-y-1.5 pr-0.5">
+                  {employees.map((employee) => (
+                    <div
+                      key={employee.id}
+                      id={`recipient-${employee.id}`}
+                      draggable
+                      title={`${employee.label} — drag or click to add to canvas`}
+                      onClick={() => onAddEmployee?.(employee.id)}
+                      onDragStart={(event) => {
+                        event.dataTransfer.setData(
+                          "application/allocard-employee-id",
+                          employee.id,
+                        );
+                        event.dataTransfer.effectAllowed = "copy";
+                      }}
+                      className="group relative flex items-center gap-2 rounded-lg border border-border/80 bg-card/80 p-2 shadow-2xs transition-all duration-150 hover:border-primary/50 hover:bg-accent/60 hover:shadow-xs cursor-grab active:cursor-grabbing select-none"
+                    >
+                      <div className="flex items-center text-muted-foreground/35 group-hover:text-muted-foreground transition-colors">
+                        <GripVertical className="size-3.5" />
+                      </div>
+                      <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-muted/80 text-foreground/80 group-hover:border-primary/40 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                        <UserRoundIcon className="size-3.5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-semibold text-foreground group-hover:text-primary transition-colors">
+                          {employee.label}
+                        </p>
+                        <p className="truncate font-mono text-[10px] text-muted-foreground">
+                          {employee.detail}
+                        </p>
+                      </div>
+                      <div className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/40 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                        <PlusIcon className="size-3.5" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
-                {/* Fade mask — signals overflow */}
-                {employees.length > 3 && (
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 rounded-b-md bg-gradient-to-t from-sidebar to-transparent" />
+                {/* Fade mask for overflow */}
+                {employees.length > 4 && (
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-4 rounded-b-lg bg-gradient-to-t from-sidebar to-transparent" />
                 )}
               </div>
             )}
@@ -406,73 +406,102 @@ function CanvasSection({
         {role === "employee" && (
           <>
             {/* Your AI Agents */}
-            <div className="flex flex-col gap-1 mt-2">
-              <div className="flex items-center justify-between px-1 mb-1">
-                <span className="flex items-center gap-1.5 text-[11px] font-medium text-foreground/70">
-                  <BotIcon className="size-3" />
+            <div className="flex flex-col gap-1.5 mt-2">
+              <div className="flex items-center justify-between px-1 mb-0.5">
+                <span className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground/80">
+                  <BotIcon className="size-3.5 text-primary/80" />
                   Your AI Agents
                 </span>
                 {!hasLiveAgents && (
                   <Badge variant="outline" className="h-4 px-1.5 text-[10px]">Coming soon</Badge>
                 )}
               </div>
-              <Alert className="py-2 px-3 bg-muted/50 mb-1">
+              <Alert className="py-2 px-3 bg-muted/50 mb-1 border-border/60">
                 <AlertDescription className="text-[11px] text-muted-foreground leading-snug">
-                  Drag and drop any AI agent to the canvas to configure and activate a new delegation.
+                  Drag or click an AI agent to add them to the canvas and configure a delegation.
                 </AlertDescription>
               </Alert>
               <div className="relative">
-                <div className="max-h-[9.5rem] overflow-y-auto rounded-md">
-                  <SidebarMenu>
-                    {displayAgents.map((agent) => (
-                      <SidebarMenuItem key={agent.id}>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <SidebarMenuButton
-                              id={`agent-${agent.id}`}
-                              tooltip={agent.isPlaceholder ? agent.detail : `Drag to canvas to delegate to ${agent.name}`}
-                              draggable={!agent.isPlaceholder}
-                              className={`h-auto py-2 ${
-                                agent.isPlaceholder
-                                  ? "cursor-default select-none opacity-50"
-                                  : "cursor-grab active:cursor-grabbing"
-                              }`}
-                              onClick={
-                                !agent.isPlaceholder && onSelectAgent
-                                  ? () => onSelectAgent(agent.id)
-                                  : undefined
-                              }
-                              onDragStart={
-                                !agent.isPlaceholder
-                                  ? (event) => {
-                                      event.dataTransfer.setData("application/allocard-agent-id", agent.id);
-                                      event.dataTransfer.effectAllowed = "copy";
-                                    }
-                                  : undefined
-                              }
-                            >
-                              <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-foreground/70">
-                                <BotIcon className="size-3" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-[13px] font-medium leading-none">{agent.name}</p>
-                                <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{agent.detail}</p>
-                              </div>
-                            </SidebarMenuButton>
-                          </HoverCardTrigger>
-                          <HoverCardContent side="right" align="start" className="w-64 z-[100]">
-                            <div className="flex flex-col gap-1.5">
-                              <h4 className="text-sm font-semibold leading-none">{agent.name}</h4>
-                              <p className="text-xs text-muted-foreground leading-relaxed">{agent.detail}</p>
+                <div className="max-h-[14rem] overflow-y-auto space-y-1.5 pr-0.5">
+                  {displayAgents.map((agent) => (
+                    <HoverCard key={agent.id}>
+                      <HoverCardTrigger asChild>
+                        <div
+                          id={`agent-${agent.id}`}
+                          draggable={!agent.isPlaceholder}
+                          onClick={
+                            !agent.isPlaceholder && onSelectAgent
+                              ? () => onSelectAgent(agent.id)
+                              : undefined
+                          }
+                          onDragStart={
+                            !agent.isPlaceholder
+                              ? (event) => {
+                                  event.dataTransfer.setData(
+                                    "application/allocard-agent-id",
+                                    agent.id,
+                                  );
+                                  event.dataTransfer.effectAllowed = "copy";
+                                }
+                              : undefined
+                          }
+                          className={`group relative flex items-center gap-2 rounded-lg border p-2 shadow-2xs transition-all duration-150 select-none ${
+                            agent.isPlaceholder
+                              ? "border-dashed border-border/50 bg-muted/20 opacity-55 cursor-default"
+                              : "border-border/80 bg-card/80 hover:border-primary/50 hover:bg-accent/60 hover:shadow-xs cursor-grab active:cursor-grabbing"
+                          }`}
+                        >
+                          {!agent.isPlaceholder ? (
+                            <div className="flex items-center text-muted-foreground/35 group-hover:text-muted-foreground transition-colors">
+                              <GripVertical className="size-3.5" />
                             </div>
-                          </HoverCardContent>
-                        </HoverCard>
-                        {agent.isPlaceholder && (
-                          <SidebarMenuBadge className="text-[9px] text-muted-foreground/40">planned</SidebarMenuBadge>
-                        )}
-                      </SidebarMenuItem>
-                    ))}
-                  </SidebarMenu>
+                          ) : (
+                            <div className="w-1" />
+                          )}
+                          <div
+                            className={`flex size-7 shrink-0 items-center justify-center rounded-md border transition-colors ${
+                              agent.isPlaceholder
+                                ? "border-border/50 bg-muted/40 text-muted-foreground/50"
+                                : "border-border bg-muted/80 text-foreground/80 group-hover:border-primary/40 group-hover:bg-primary/10 group-hover:text-primary"
+                            }`}
+                          >
+                            <BotIcon className="size-3.5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs font-semibold text-foreground group-hover:text-primary transition-colors">
+                              {agent.name}
+                            </p>
+                            <p className="truncate text-[10px] text-muted-foreground">
+                              {agent.detail}
+                            </p>
+                          </div>
+                          {agent.isPlaceholder ? (
+                            <Badge variant="outline" className="h-4 px-1 text-[9px] text-muted-foreground/60 border-border/60">
+                              planned
+                            </Badge>
+                          ) : (
+                            <div className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/40 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                              <PlusIcon className="size-3.5" />
+                            </div>
+                          )}
+                        </div>
+                      </HoverCardTrigger>
+                      <HoverCardContent side="right" align="start" className="w-68 z-[100] shadow-md">
+                        <div className="flex flex-col gap-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <BotIcon className="size-4 text-primary" />
+                            <h4 className="text-sm font-semibold leading-none">{agent.name}</h4>
+                          </div>
+                          <p className="text-xs text-muted-foreground leading-relaxed">{agent.detail}</p>
+                          {!agent.isPlaceholder && (
+                            <p className="text-[10px] text-primary/80 font-medium pt-1 border-t border-border/50">
+                              Drag or click to add delegation to canvas
+                            </p>
+                          )}
+                        </div>
+                      </HoverCardContent>
+                    </HoverCard>
+                  ))}
                 </div>
               </div>
             </div>
@@ -563,13 +592,10 @@ export function AppSidebar({
           <p className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground">
             Workspace
           </p>
-          <div className="flex items-center justify-between gap-2 mt-0.5">
-            <h2 className="truncate text-base font-semibold text-foreground pr-2">
+          <div className="mt-0.5">
+            <h2 className="truncate text-base font-semibold text-foreground">
               {companyName}
             </h2>
-            <Badge variant="outline" className="text-[10px] font-medium uppercase tracking-wider shrink-0">
-              {role ?? "employer"}
-            </Badge>
           </div>
           {workspaceOptions.length > 1 && onWorkspaceChange && (
             <div className="mt-2.5">
@@ -598,9 +624,14 @@ export function AppSidebar({
             </div>
           )}
           {role === "employee" && employeeReferenceId && (
-            <p className="mt-2 text-[11px] text-muted-foreground font-mono bg-muted/50 inline-flex px-1.5 py-0.5 rounded border border-border/50">
-              {employeeReferenceId}
-            </p>
+            <div className="mt-2.5 flex items-center justify-between rounded-md border border-primary/25 bg-primary/5 px-2.5 py-1.5 shadow-2xs">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                Employee ID
+              </span>
+              <span className="font-mono text-xs font-extrabold text-primary tracking-wide">
+                {employeeReferenceId}
+              </span>
+            </div>
           )}
         </div>
 

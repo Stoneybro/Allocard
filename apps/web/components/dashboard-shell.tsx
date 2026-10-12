@@ -81,7 +81,7 @@ export function DashboardShell({
         employeeReferenceId={employeeReferenceId}
       />
       <SidebarInset className="h-dvh overflow-hidden">
-        <SiteHeader title={title} />
+        <SiteHeader title={title} employeeReferenceId={employeeReferenceId} />
         <div className="min-h-0 flex-1 overflow-y-auto p-4 lg:p-6">
           {children}
         </div>

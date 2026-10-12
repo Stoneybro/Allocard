@@ -605,6 +605,15 @@ export function EmployeeClient({
         setIsReimbursementDrawerOpen(true);
         return;
       }
+
+      // Guard: Check if employee has an active inbound delegation from the employer
+      if (!dashboardState.inboundDelegation || dashboardState.inboundDelegation.status !== "active") {
+        toast.warning("No Spending Allowance Delegated", {
+          description:
+            "Your company has not delegated spending funds to you yet. Please ask your employer to configure an allowance for you first before assigning funds to agents.",
+        });
+        return;
+      }
       
       startTransition(async () => {
         try {
@@ -623,7 +632,20 @@ export function EmployeeClient({
             setFormErrors({});
           }
         } catch (caughtError) {
-          setError(caughtError instanceof Error ? caughtError.message : "Could not create redelegation");
+          const message = caughtError instanceof Error ? caughtError.message : "Could not create redelegation";
+          if (
+            message.toLowerCase().includes("inbound") ||
+            message.toLowerCase().includes("activate a delegation")
+          ) {
+            toast.warning("No Spending Allowance Delegated", {
+              description:
+                "Your company has not delegated spending funds to you yet. Please ask your employer to configure an allowance for you first before assigning funds to agents.",
+            });
+          } else {
+            toast.error("Unable to Add Agent", {
+              description: message,
+            });
+          }
         }
       });
     },
@@ -639,15 +661,24 @@ export function EmployeeClient({
   );
 
   const handleNodeClick = useCallback((event: any, node: any) => {
-    if (node.data?.kind === "agent" && node.data?.status === "active") {
-      const agentId = node.data.agentId;
-      const agent = dashboardState?.agents.find(a => a.id === agentId);
-      if (agent?.name === "DevOps Procurement Agent" || agent?.name === "Procurement Agent" || node.data?.title === "DevOps Procurement Agent") {
-        setActiveProcurementDelegationId(node.data.delegationId);
-        setIsProcurementAgentDrawerOpen(true);
+    if (node.data?.kind === "agent") {
+      if (!dashboardState?.inboundDelegation || dashboardState.inboundDelegation.status !== "active") {
+        toast.warning("No Spending Allowance Delegated", {
+          description:
+            "Your company has not delegated spending funds to you yet. Please ask your employer to configure an allowance for you first.",
+        });
+        return;
+      }
+      if (node.data?.status === "active") {
+        const agentId = node.data.agentId;
+        const agent = dashboardState?.agents.find(a => a.id === agentId);
+        if (agent?.name === "DevOps Procurement Agent" || agent?.name === "Procurement Agent" || node.data?.title === "DevOps Procurement Agent") {
+          setActiveProcurementDelegationId(node.data.delegationId);
+          setIsProcurementAgentDrawerOpen(true);
+        }
       }
     }
-  }, [dashboardState?.agents]);
+  }, [dashboardState]);
 
   // Task 7a: open drawer for existing delegation (configure / view rules)
   const handleConfigureDelegation = useCallback(
@@ -659,6 +690,13 @@ export function EmployeeClient({
       if (delegation?.status === "active" && delegation.delegateeId) {
         const agent = dashboardState?.agents.find(a => a.id === delegation.delegateeId);
         if (agent?.name === "DevOps Procurement Agent" || agent?.name === "Procurement Agent") {
+          if (!dashboardState?.inboundDelegation || dashboardState.inboundDelegation.status !== "active") {
+            toast.warning("No Spending Allowance Delegated", {
+              description:
+                "Your company has not delegated spending funds to you yet. Please ask your employer to configure an allowance for you first.",
+            });
+            return;
+          }
           setActiveProcurementDelegationId(delegationId);
           setIsProcurementAgentDrawerOpen(true);
           return;
@@ -681,7 +719,7 @@ export function EmployeeClient({
         setFormErrors({});
       }, 0);
     },
-    [dashboardState?.outboundDelegations, dashboardState?.agents, availableMaxEth],
+    [dashboardState?.outboundDelegations, dashboardState?.agents, dashboardState?.inboundDelegation, availableMaxEth],
   );
 
   // Task 7b: revoke an employee's own outbound delegation
@@ -1547,7 +1585,7 @@ export function EmployeeClient({
         />
       )}
 
-      {activeProcurementDelegationId && (
+      {activeProcurementDelegationId && dashboardState && (
         <DevOpsAgentDrawer
           isOpen={isProcurementAgentDrawerOpen}
           onOpenChange={setIsProcurementAgentDrawerOpen}
