@@ -8,7 +8,7 @@ import { reimbursementEmployeeMessage } from "@/lib/reimbursements/shared";
 import { TOKEN_SYMBOL } from "@/lib/chain";
 import { z } from "zod";
 import { eq, and } from "drizzle-orm";
-import { checkPolicy, verifyReceipt } from "@/lib/venice";
+import { checkPolicy, verifyReceipt } from "@/lib/ai";
 import { createWalletClient, http, parseEther, parseUnits, encodeFunctionData, type Hex, createPublicClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { chain, AUSD_ADDRESS, AUSD_DECIMALS, ERC20_ABI } from "@/lib/chain";
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     }
     const mappedCaveats = caveats.map(c => ({ ...c, createdAt: c.createdAt.toISOString() }));
 
-    // 3. Verify Receipt with Venice Vision (Stateless, no storage)
+    // 3. Verify Receipt with Qwen Vision (Stateless, no storage)
     let receiptUrl = null;
     let visionReasoning = "";
     
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
       try {
         const base64Data = receiptBase64.split(',')[1] || receiptBase64;
         
-        // Verify with Venice Vision
+        // Verify with Qwen Vision
         const visionResult = await verifyReceipt({
           imageBase64: base64Data,
           claimDescription,
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
       companyPolicy = co?.companyPolicy ?? null;
     }
 
-    // Venice Policy Check
+    // Qwen Policy Check
     const policyResult = await checkPolicy({
       claimDescription,
       amountEth,

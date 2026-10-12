@@ -84,7 +84,7 @@ export function HelpModal() {
                   <li>Switch to the employee window.</li>
                   <li>Go to the <strong>Direct Spend</strong> tab.</li>
                   <li>Enter recipient, amount, and purpose.</li>
-                  <li>Click <strong>Review Spend</strong>. The contract checks math limits. Venice AI checks policy.</li>
+                  <li>Click <strong>Review Spend</strong>. The contract checks math limits. Qwen AI checks policy.</li>
                   <li>Proceed to execute. You spend directly from delegated authority.</li>
                 </ol>
               </AccordionContent>
@@ -94,11 +94,11 @@ export function HelpModal() {
               <AccordionTrigger className="text-base font-semibold hover:no-underline">4. Employee: Redelegate to an Agent</AccordionTrigger>
               <AccordionContent className="text-muted-foreground pt-2 pb-4">
                 <ol className="list-decimal pl-5 space-y-2.5">
-                  <li>Drag the <strong>Procurement Agent</strong> (or Travel Agent) from the sidebar to the canvas.</li>
-                  <li>Click <strong>Configure</strong> and set child spending limits.</li>
+                  <li>Drag the <strong>DevOps Procurement Agent</strong> from the sidebar to the canvas.</li>
+                  <li>Click <strong>Configure</strong> and set child spending limits in AUSD.</li>
                   <li>Click <strong>Sign and Activate Delegation</strong>.</li>
-                  <li>Click <strong>Procure</strong> on the active agent and enter a business request.</li>
-                  <li>Venice AI finds options. Approve one, and the agent executes autonomously.</li>
+                  <li>Click <strong>Procure Infra</strong> on the active agent and choose from verified Monad providers (Chainstack, Crouton, Ack3, Envio).</li>
+                  <li>The agent executes autonomously on Monad Testnet, delivering provisioned credentials directly to you.</li>
                 </ol>
               </AccordionContent>
             </AccordionItem>

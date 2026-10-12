@@ -87,7 +87,7 @@ export const companies = pgTable(
       .references(() => users.id, { onDelete: "restrict" }),
     smartAccountAddress: text("smart_account_address"),
     /** Company-wide expense policy document — the single source of truth
-     *  for all Venice AI policy checks. Seeded with sensible defaults. */
+     *  for all Qwen AI policy checks. Seeded with sensible defaults. */
     companyPolicy: text("company_policy"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -248,7 +248,7 @@ export const delegationCaveats = pgTable(
 
 /**
  * Audit log for every agent claim attempt — approved, rejected, or failed.
- * Stores the full Venice reasoning, prompt, and on-chain tx hash for employer
+ * Stores the full AI reasoning, prompt, and on-chain tx hash for employer
  * visibility.
  */
 export const claimRedemptions = pgTable(
@@ -270,7 +270,7 @@ export const claimRedemptions = pgTable(
     amountEth: text("amount_eth").notNull(),
     /** Vercel Blob URL of the uploaded receipt image, if provided. */
     receiptUrl: text("receipt_url"),
-    /** Full prompt text sent to Venice, stored for audit. */
+    /** Full prompt text sent to AI, stored for audit. */
     venicePrompt: text("venice_prompt"),
     veniceApproved: boolean("venice_approved"),
     veniceReasoning: text("venice_reasoning"),
@@ -324,7 +324,7 @@ export const manualTransactions = pgTable(
     purpose: text("purpose").notNull(),
     isFlagged: boolean("is_flagged").notNull().default(false),
     txHash: text("tx_hash"),
-    receiptSummary: text("receipt_summary"), // Venice summary of the uploaded receipt
+    receiptSummary: text("receipt_summary"), // AI summary of the uploaded receipt
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [

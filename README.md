@@ -19,11 +19,11 @@ Corporate expense card providers like Brex and Ramp allow companies to issue the
 
 Allocard replicates this system with improvements. Using MetaMask's delegation features, we don't need to give employees direct access to funds. Instead, the company has a master smart account that holds all the expense funds. We then delegate funds to employees, which they can only spend under certain rules (caveats).
 
-Allocard takes it a step further with the use of MetaMask's redelegation. We empower employees with AI agents (powered by Venice AI and smart accounts) built for specific expenses like travel and procurement. Employees can choose an agent that fits their expense need and redelegate the funds they received from the company to that agent to sort out the expense (e.g., the agent automatically books a flight).
+Allocard takes it a step further with the use of MetaMask's redelegation. We empower employees with AI agents (powered by Qwen 3.8 Max and smart accounts) built for specific expenses like travel and procurement. Employees can choose an agent that fits their expense need and redelegate the funds they received from the company to that agent to sort out the expense (e.g., the agent automatically books a flight).
 
 Reimbursements are a built-in company feature with a permanent section on both dashboards. Employers authorize a shared reimbursement budget directly from that section; employees upload receipts and submit claims without adding an agent to either canvas or receiving a personal spending allowance. AI checks the receipt and claim, and the backend pays approved claims within the authorized budget. Missing setup, paused payouts, exhausted budgets and unavailable service have explicit status messages.
 
-Using MetaMask Smart Account ERC-7710 delegation, redelegation features, and Venice AI, Allocard replicates and improves on the current state of corporate expense card systems.
+Using MetaMask Smart Account ERC-7710 delegation, redelegation features, and Qwen 3.8 Max AI, Allocard replicates and improves on the current state of corporate expense card systems.
 
 ---
 
@@ -32,7 +32,7 @@ Using MetaMask Smart Account ERC-7710 delegation, redelegation features, and Ven
 - [What Allocard Does Differently](#what-allocard-does-differently)
 - [How It Works](#how-it-works)
 - [MetaMask Delegation ERC-7710 Implementation](#metamask-delegation-erc-7710-implementation)
-- [Venice AI and the Agent System](#venice-ai-and-the-agent-system)
+- [Qwen 3.8 Max AI and the Agent System](#qwen-38-max-ai-and-the-agent-system)
 - [The Delegation Canvas](#the-delegation-canvas)
 - [App Walkthrough](#app-walkthrough)
 - [Hackathon Track Eligibility](#hackathon-track-eligibility)
@@ -69,7 +69,7 @@ This maps directly onto the corporate card feature set:
 | Per-transaction cap | `valueLte` caveat: maximum ETH per transaction |
 | Merchant restrictions | `allowedTargets` caveat: whitelist of recipient addresses |
 | Card cancellation | Delegation revocation: instant, cascades to all sub-delegations |
-| Receipt compliance | Venice Vision OCR: receipt scanned and matched to claim |
+| Receipt compliance | Qwen Vision OCR: receipt scanned and matched to claim |
 | Reimbursement | Reimbursement Agent: autonomous ETH transfer after policy check |
 | Virtual cards for agents | Agent delegations: each agent gets a scoped, revocable delegation |
 
@@ -77,7 +77,7 @@ The difference is that every rule in this table is enforced at the contract leve
 
 ### A Note on Fraud Protection
 
-Allocard cannot prevent sophisticated employee fraud. An employee could collaborate with a malicious merchant or submit a highly manipulated receipt. However, combining on-chain caveats with Venice AI creates a strict defense layer. The smart contract blocks any transaction that exceeds hard limits. Venice AI flags policy violations before funds move. Every spend generates a permanent, auditable on-chain record. This setup limits the impact of any fraudulent act and guarantees full visibility for the employer.
+Allocard cannot prevent sophisticated employee fraud. An employee could collaborate with a malicious merchant or submit a highly manipulated receipt. However, combining on-chain caveats with Qwen AI creates a strict defense layer. The smart contract blocks any transaction that exceeds hard limits. Qwen AI flags policy violations before funds move. Every spend generates a permanent, auditable on-chain record. This setup limits the impact of any fraudulent act and guarantees full visibility for the employer.
 
 ---
 
@@ -147,7 +147,7 @@ Company Smart Account  (e.g. 0.5 ETH lifetime for reimbursements)
 
 The employer creates a delegation from the company smart account to the employee's smart account. The employee redeems that delegation themselves, specifying a merchant address as the recipient. No new delegation is created. No agent holds the authority. The employee is the delegatee and the one executing the transaction.
 
-This covers ad-hoc business purchases that the Travel or Procurement Agents do not handle: a one-off software license, a business lunch, a conference ticket. Before the transaction executes, Venice AI checks the stated purpose against the company's expense policy. If Venice flags a violation, the employee sees the reason and decides whether to proceed.
+This covers ad-hoc business purchases that the Travel or Procurement Agents do not handle: a one-off software license, a business lunch, a conference ticket. Before the transaction executes, Qwen AI checks the stated purpose against the company's expense policy. If Qwen flags a violation, the employee sees the reason and decides whether to proceed.
 ```
 Company Smart Account
   |
@@ -160,7 +160,7 @@ Revoking a parent delegation revokes every delegation in its subtree. An employe
 
 ---
 
-## Venice AI and the Agent System
+## Qwen 3.8 Max AI and the Agent System
 
 Allocard's agents are not chat assistants. Each agent holds a smart account, receives a scoped delegation, and executes on-chain transactions. Together, they cover the core workflows of a corporate expense card.
 
@@ -170,18 +170,18 @@ Allocard's agents are not chat assistants. Each agent holds a smart account, rec
 - **Travel Agent:** `0x916BE00E5cCd1A3a7930f20dFDC55D21947B8903`
 - **Procurement Agent:** `0x1Cf7F91e72727AEfFb31603CBD3a7d5Ae03aa922`
 
-### Venice AI as the Decision Layer
+### Qwen 3.8 Max as the Decision Layer
 
-Every transaction in Allocard passes through Venice AI before it executes. Venice is privacy-first: it does not retain data between requests, and no expense decisions or receipt images are stored or used for model training. This is a hard requirement for any system handling corporate financial data.
+Every transaction in Allocard passes through Qwen 3.8 Max before it executes. Qwen evaluates policy and receipts in real time with private, zero-retention execution.
 
-Before Venice evaluates any request, the app assembles three layers of context:
+Before Qwen evaluates any request, the app assembles three layers of context:
 - **Layer 1: On-chain caveats** — hard numeric limits from the delegation
 - **Layer 2: Company expense policy** — natural language rules the employer sets
 - **Layer 3: Per-delegation rules** — agent-specific additions, e.g. "economy flights only"
 
-Venice reads all three together and returns a pass or reject decision with written reasoning. The two enforcement mechanisms are independent. If Venice approves a request but the amount would still exceed an on-chain caveat, the Delegation Manager contract reverts the transaction. Venice enforces policy. The contract enforces math. Neither can override the other.
+Qwen reads all three together and returns a pass or reject decision with written reasoning. The two enforcement mechanisms are independent. If Qwen approves a request but the amount would still exceed an on-chain caveat, the Delegation Manager contract reverts the transaction. Qwen enforces policy. The contract enforces math. Neither can override the other.
 
-The agents below each call Venice at a specific point in their flow. The model used, the inputs it receives, and the decision it makes differ for each one.
+The agents below each call Qwen at a specific point in their flow. The model used, the inputs it receives, and the decision it makes differ for each one.
 
 ### Reimbursements
 
@@ -192,20 +192,20 @@ Allocard automates this entirely. The company creates a delegation directly to t
 How it works:
 
 1. The employer opens **Reimbursements → Set up reimbursement budget**, sets payment limits and authorizes the budget. Existing reimbursement delegations are reused automatically. The employee then opens **New reimbursement claim**, uploads a required receipt and reviews the claim details.
-2. If a receipt is uploaded, `openai-gpt-4o-2024-11-20` scans the image and extracts the merchant name, total amount, and date.
-3. `openai-gpt-4o-2024-11-20` reads the extracted receipt data alongside the claim description, the on-chain caveat limits, the company's expense policy, and any agent-specific rules. It returns a pass or reject decision with written reasoning.
+2. If a receipt is uploaded, `qwen3-vl-plus` scans the image and extracts the merchant name, total amount, and date.
+3. `qwen3.8-max` reads the extracted receipt data alongside the claim description, the on-chain caveat limits, the company's expense policy, and any agent-specific rules. It returns a pass or reject decision with written reasoning.
 4. If the claim passes, the agent's backend signer redeems the company-to-agent delegation on-chain and transfers ETH directly to the employee's wallet. No finance team involved. No delay.
-5. The full audit record is stored: the Venice prompt, the reasoning, a confidence score, and the transaction hash.
+5. The full audit record is stored: the prompt, the reasoning, a confidence score, and the transaction hash.
 
-The company sets the budget ceiling in the delegation's caveats. Venice decides whether the individual claim fits policy. The contract ensures the ETH moved matches what was approved.
+The company sets the budget ceiling in the delegation's caveats. Qwen decides whether the individual claim fits policy. The contract ensures the ETH moved matches what was approved.
 
 ### Pre-Spend Advisory
 
 The Travel and Procurement Agents cover planned, recurring business expenses. But employees sometimes need to pay a merchant that no agent covers. A one-off software license, a business lunch, a conference ticket. For these cases, employees can transfer ETH directly from their delegated smart account to any address.
 
-Before that transfer executes, Allocard runs a policy check. The employee enters the recipient address, the ETH amount, and a short description of the purpose. `openai-gpt-4o-2024-11-20` reads that description against the company's expense policy and returns a verdict with reasoning.
+Before that transfer executes, Allocard runs a policy check. The employee enters the recipient address, the ETH amount, and a short description of the purpose. `qwen3.8-max` reads that description against the company's expense policy and returns a verdict with reasoning.
 
-The check is advisory. If Venice flags a policy violation, the employee sees the reason and can choose to cancel or proceed. If they proceed, the transaction is flagged in the employer's activity log for review. This gives employees flexibility while preserving a full audit trail for the employer.
+The check is advisory. If Qwen flags a policy violation, the employee sees the reason and can choose to cancel or proceed. If they proceed, the transaction is flagged in the employer's activity log for review. This gives employees flexibility while preserving a full audit trail for the employer.
 
 ### Travel Agent
 
@@ -213,9 +213,9 @@ Business travel is one of the largest uncontrolled expense categories for compan
 
 With Allocard, an employee redelegates a portion of their budget to the Travel Agent's smart account. The caveats on that delegation define the exact budget available. The employee then opens the Travel Agent drawer and submits a travel request: destination, departure date, return date, and any specific requirements.
 
-`openai-gpt-4o-2024-11-20` reads the request alongside the caveat limits and company policy. It researches flight and hotel options, selects the best fit within the budget, and returns a proposed itinerary with an estimated ETH cost. The employee reviews the itinerary and clicks Approve.
+`qwen3.8-max` reads the request alongside the caveat limits and company policy. It researches flight and hotel options, selects the best fit within the budget, and returns a proposed itinerary with an estimated ETH cost. The employee reviews the itinerary and clicks Approve.
 
-On approval, the agent's backend signer redeems the employee-to-agent delegation and transfers ETH to the employee's smart account. In a production deployment, this ETH would go to the vendor or airline directly. For this demo, there are no live merchant integrations, so the funds go to the employee's smart account instead. The important thing is that the full delegation flow completed on-chain: Venice evaluated the request, the agent redeemed a real delegation, and ETH actually moved from the company's budget to a recipient address. The employee never had to touch the company's full budget. The agent only had access to what the employee delegated to it.
+On approval, the agent's backend signer redeems the employee-to-agent delegation and transfers ETH to the employee's smart account. In a production deployment, this ETH would go to the vendor or airline directly. For this demo, there are no live merchant integrations, so the funds go to the employee's smart account instead. The important thing is that the full delegation flow completed on-chain: Qwen evaluated the request, the agent redeemed a real delegation, and ETH actually moved from the company's budget to a recipient address. The employee never had to touch the company's full budget. The agent only had access to what the employee delegated to it.
 
 ### Procurement Agent
 
@@ -223,9 +223,9 @@ Teams buy software subscriptions regularly. Without central visibility, companie
 
 The Procurement Agent addresses this. An employee redelegates a procurement budget to the agent and opens the Procurement Agent drawer. They specify the tool category (e.g. project management, design, analytics), the team size, and any additional requirements.
 
-`openai-gpt-4o-2024-11-20` receives the request and the list of tools the company already subscribes to. It checks for duplicates first. If the requested category is already covered by an existing tool, it flags this. If no duplicate exists, it researches vendors, compares pricing against the delegation budget, and returns a recommendation with estimated monthly ETH cost.
+`qwen3.8-max` receives the request and the list of tools the company already subscribes to. It checks for duplicates first. If the requested category is already covered by an existing tool, it flags this. If no duplicate exists, it researches vendors, compares pricing against the delegation budget, and returns a recommendation with estimated monthly ETH cost.
 
-On employee approval, the agent redeems the delegation and transfers ETH to the employee's smart account. In a production deployment, this ETH would go to the software vendor directly. For this demo, there are no live vendor integrations, so the funds go to the employee's smart account instead. The full on-chain flow completed: Venice evaluated the request, the agent redeemed a real delegation, and ETH moved from the company's budget. The employer sees the full activity in the delegation tree and can revoke the agent's delegation at any time.
+On employee approval, the agent redeems the delegation and transfers ETH to the employee's smart account. In a production deployment, this ETH would go to the software vendor directly. For this demo, there are no live vendor integrations, so the funds go to the employee's smart account instead. The full on-chain flow completed: Qwen evaluated the request, the agent redeemed a real delegation, and ETH moved from the company's budget. The employer sees the full activity in the delegation tree and can revoke the agent's delegation at any time.
 
 ---
 
@@ -325,14 +325,14 @@ The employer can now see the agent node branching from the employee node on thei
 
 1. On the employee dashboard, open the **Direct Spend** tab.
 2. Enter a recipient address, amount, and the purpose of the expense.
-3. Click **Review Spend**. Allocard checks the delegation caveats and Venice AI reviews the purpose.
+3. Click **Review Spend**. Allocard checks the delegation caveats and Qwen AI reviews the purpose.
 4. If the expense is valid, proceed with the transaction. The employee spends directly from delegated authority without holding company funds.
 
 ### Step 6: Agent Execution (Travel / Procurement)
 
 1. Click **Book Trip** on the active Travel Agent node, or **Procure** on the Procurement Agent node.
 2. Enter a business request.
-3. The agent uses Venice AI to find suitable options. Once approved, the agent executes the purchase using its redelegated authority.
+3. The agent uses Qwen 3.8 Max AI to find suitable options. Once approved, the agent executes the purchase using its redelegated authority.
 
 ### Step 7: Company to Agent (Reimbursements)
 
@@ -340,7 +340,7 @@ The employer can now see the agent node branching from the employee node on thei
 2. In the permanent **Reimbursements** section, select **Set up reimbursement budget**, configure limits and authorize the budget. No canvas node is needed.
 3. Switch to the employee dashboard and select **New reimbursement claim** under **Reimbursements**. If setup is incomplete, use **View reimbursement status** and refresh after the employer finishes setup.
 4. Upload a receipt and submit a reimbursement claim.
-5. Venice AI validates the receipt data against company policy. If approved, the agent executes the payment automatically to the employee's wallet.
+5. Qwen Vision AI validates the receipt data against company policy. If approved, the agent executes the payment automatically to the employee's wallet.
 
 ### Step 8: Master Canvas Monitoring
 
@@ -356,6 +356,7 @@ The employer can now see the agent node branching from the employee node on thei
 | **Monad Metropolis: Consumer Products & Payments** | Eligible | Allocard is built to make corporate crypto spending feel completely native and familiar: zero seed phrases, zero manual gas handling, and intuitive employee onboarding. The company master smart account retains treasury custody while issuing ERC-7710 scoped delegations with programmable caveats (spending limits, allowed merchants, recurring allowances). |
 | **Privy Sponsor Bounty** | Eligible | Allocard uses Privy embedded wallets and verified social/email authentication (`google` and `email`). Employees onboard seamlessly using their corporate email identity with session-managed security and zero onboarding friction. |
 | **MetaMask Smart Accounts Bounty** | Eligible | Deployed directly on Monad Testnet (`chainId: 10143`), Allocard integrates MetaMask Smart Accounts Kit with ERC-7710 delegation and sub-delegation to autonomous AI agents for travel, procurement, and policy-driven reimbursements. |
+| **Alibaba Cloud Bounty: Best Builds with Qwen 3.8 Max** | Eligible | Allocard integrates Alibaba Cloud's flagship **Qwen 3.8 Max** for autonomous agent policy intelligence and multi-step reasoning, paired with **Qwen Vision** (`qwen3-vl-plus`) for OCR parsing and verification of employee expense receipts. |
 
 ---
 
@@ -381,7 +382,7 @@ For a single-person demo, use **Add myself** and switch to the employee workspac
 | Framework | Next.js 15, React 19 |
 | UI | shadcn/ui, React Flow, Tailwind CSS |
 | Blockchain | Monad Testnet (10143), MetaMask Smart Accounts Kit (ERC-7710, ERC-4337), Viem |
-| AI | Venice AI: `openai-gpt-4o-2024-11-20` (text + vision) |
+| AI | Alibaba Cloud Model Studio: Qwen 3.8 Max (`qwen3.8-max`) + Qwen Vision (`qwen3-vl-plus`) |
 | Auth | Privy (Google and email) with server-verified sessions |
 | Database | Neon (Postgres), Drizzle ORM |
 | Deployment | Vercel, Monad Testnet (10143) |
@@ -403,7 +404,8 @@ NEXT_PUBLIC_BUNDLER_RPC_URL=https://api.pimlico.io/v2/10143/rpc?apikey=YOUR_PIML
 NEXT_PUBLIC_PAYMASTER_RPC_URL=https://api.pimlico.io/v2/10143/rpc?apikey=YOUR_PIMLICO_API_KEY
 NEXT_PUBLIC_PIMLICO_SPONSOR_ID=your_pimlico_sponsor_id
 DATABASE_URL=your_neon_postgres_connection_string
-VENICE_API_KEY=your_venice_api_key
+DASHSCOPE_API_KEY=your_dashscope_api_key
+DASHSCOPE_BASE_URL=your_dashscope_compatible_mode_url
 AGENTS_PRIVATE_KEY=your_agents_private_key
 AGENT_REIMBURSEMENT_SMART_ACCOUNT=0xD61C510c51a1DD4a73C4Dfeca6893aeEE6A731c1
 AGENT_TRAVEL_SMART_ACCOUNT=0x916BE00E5cCd1A3a7930f20dFDC55D21947B8903
@@ -438,9 +440,9 @@ Next.js App Router
   /api/wallet   Direct spend and pre-spend policy check
         |
  ┌──────────────────────────┐    ┌─────────────────────────────────┐
- │   Neon Postgres           │    │   Venice AI                     │
- │   Drizzle ORM             │    │   openai-gpt-4o-2024-11-20     │
- │   Delegation records      │    │   text + vision                 │
+ │   Neon Postgres           │    │   Qwen 3.8 Max AI               │
+ │   Drizzle ORM             │    │   Alibaba Cloud Model Studio    │
+ │   Delegation records      │    │   text (3.8-max) + vision (vl)  │
  │   Audit trail             │    └─────────────────────────────────┘
  └──────────────────────────┘
         |

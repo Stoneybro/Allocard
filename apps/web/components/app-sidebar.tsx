@@ -4,6 +4,7 @@ import * as React from "react";
 import { useAuth } from "@/components/AuthProvider";
 import type { WorkspaceOption } from "@/app/actions/identity";
 import { isReimbursementAgent } from "@/lib/reimbursements/shared";
+import { isAgoraAgent } from "@/lib/agora/shared";
 import {
   BotIcon,
   CheckIcon,
@@ -11,7 +12,6 @@ import {
   LogOutIcon,
   MoreVerticalIcon,
   RefreshCwIcon,
-  ReceiptTextIcon,
   UserPlusIcon,
   UserRoundIcon,
   WalletIcon,
@@ -289,7 +289,7 @@ function CanvasSection({
   onSelectAgent?: (agentId: string) => void;
   role?: "employer" | "employee";
 }) {
-  const spendingAgents = agents.filter(agent => !isReimbursementAgent(agent));
+  const spendingAgents = agents.filter(agent => !isReimbursementAgent(agent) && !isAgoraAgent(agent));
   const displayAgents = spendingAgents.length > 0 ? spendingAgents : PLACEHOLDER_AGENTS;
   const hasLiveAgents = spendingAgents.length > 0;
 
@@ -401,17 +401,6 @@ function CanvasSection({
             )}
           </div>
         )}
-
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton asChild tooltip="Reimbursements">
-              <a href="#reimbursements">
-                <ReceiptTextIcon />
-                <span>Reimbursements</span>
-              </a>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
 
         {/* Spending assistants are separate from the built-in reimbursement feature. */}
         {role === "employee" && (

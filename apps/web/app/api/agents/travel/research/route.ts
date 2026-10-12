@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { requireEmployeeAgentDelegation, requireSessionUser } from "@/lib/auth-guard";
 import { delegations, delegationCaveats, agentBookings, companies } from "@/lib/db/schema";
 import { eq, sql } from "drizzle-orm";
-import { researchTravel } from "@/lib/venice";
+import { researchTravel } from "@/lib/ai";
 
 export async function POST(req: Request) {
   try {
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
       companyPolicy = co?.companyPolicy ?? null;
     }
 
-    // 3. Research options with Venice
+    // 3. Research options with Qwen AI
     const travelPlan = await researchTravel({
       destination,
       departureDateApprox: departureDate,

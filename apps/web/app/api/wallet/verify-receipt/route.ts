@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { requireEmployeeCompany, requireSessionUser } from "@/lib/auth-guard";
 import { manualTransactions } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { verifyReceipt } from "@/lib/venice";
+import { verifyReceipt } from "@/lib/ai";
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     }
     await requireEmployeeCompany(user.id, tx.companyId);
 
-    // Call Venice AI to verify receipt
+    // Call Qwen AI to verify receipt
     const verification = await verifyReceipt({
       imageBase64,
       mimeType,

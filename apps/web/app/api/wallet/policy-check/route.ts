@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { requireEmployeeCompany, requireSessionUser } from "@/lib/auth-guard";
 import { delegationCaveats, delegations, companies } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { advisoryPolicyCheck } from "@/lib/venice";
+import { advisoryPolicyCheck } from "@/lib/ai";
 
 
 export async function POST(req: NextRequest) {
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
       companyPolicy = co?.companyPolicy ?? null;
     }
 
-    // Call Venice AI advisory check
+    // Call Qwen AI advisory check
     const result = await advisoryPolicyCheck({
       purpose,
       amountEth,

@@ -287,7 +287,7 @@ export function LandingPageClient({
                   mode: "Pattern 3",
                   title: "Company → Employee (direct)",
                   subtitle: "Employee redeems directly.",
-                  body: "The employee spends from their delegation to pay a merchant. Venice checks the purpose before the transaction executes.",
+                  body: "The employee spends from their delegation to pay a merchant. Qwen AI checks the purpose before the transaction executes.",
                 },
               ].map(({ mode, title, subtitle, body }) => (
                 <div key={mode} className="p-6 rounded-xl border border-[#eaeaea] bg-white flex flex-col gap-3">
@@ -303,20 +303,20 @@ export function LandingPageClient({
           </div>
         </section>
 
-        {/* ── Venice AI ── */}
-        <section id="venice" className="border-t border-[#eaeaea]">
+        {/* ── Qwen 3.8 Max AI ── */}
+        <section id="ai" className="border-t border-[#eaeaea]">
           <div className="max-w-6xl mx-auto px-6 py-24">
             <div className="grid md:grid-cols-2 gap-16 items-start">
               <div>
-                <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#999] mb-4">Venice AI</p>
+                <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#999] mb-4">Qwen 3.8 Max AI</p>
                 <h2 className="text-3xl sm:text-4xl font-bold tracking-[-0.03em] leading-[1.1] text-[#111] mb-5">
                   Policy enforcement before every transaction.
                 </h2>
                 <p className="text-[#666] leading-relaxed text-sm mb-4">
-                  Every agent request passes through Venice before execution. Venice reads on-chain caveats, the company&apos;s expense policy, and delegation-specific rules together, then returns a pass or reject decision with reasoning.
+                  Every agent request passes through Qwen 3.8 Max before execution. Qwen reads on-chain caveats, the company&apos;s expense policy, and delegation-specific rules together, then returns a pass or reject decision with reasoning.
                 </p>
                 <p className="text-[#666] leading-relaxed text-sm">
-                  Venice and the contract check independently. Neither can override the other. Venice does not retain data between requests.
+                  Qwen and the contract check independently. Neither can override the other. Decisions are evaluated in real time with private, zero-retention execution.
                 </p>
               </div>
               <div className="grid grid-cols-1 gap-3">
@@ -354,27 +354,27 @@ export function LandingPageClient({
             <div className="grid md:grid-cols-3 gap-4">
               {[
                 {
-                  tag: "Travel Agent",
-                  pattern: "Employee redelegates → Agent executes",
-                  title: "Books travel within the delegated budget.",
-                  body: "Submit a destination and dates. Venice proposes an itinerary within the caveat limits. Approve, and the agent pays.",
-                  venice: "Reads the request, caveat limits, and policy. Returns an itinerary with estimated AUSD cost.",
+                  tag: "DevOps Procurement Agent",
+                  pattern: "Developer redelegates → Agent procures",
+                  title: "Procures Monad RPC nodes, security audits & indexers.",
+                  body: "Developers request dedicated RPC endpoints (Chainstack, Crouton), Ack3 security scans, or Envio clusters. Funds transfer directly to verified sponsor merchant contracts.",
+                  ai: "Validates team infra budgets, prevents duplicate node provisioning, and enforces per-service caveat caps.",
                 },
                 {
-                  tag: "Procurement Agent",
-                  pattern: "Employee redelegates → Agent executes",
-                  title: "Buys software. Checks for duplicates first.",
-                  body: "Submit a tool category and team size. Venice checks existing subscriptions, picks a vendor, and executes on approval.",
-                  venice: "Checks existing tools for overlap, compares vendors against the delegation limit.",
+                  tag: "Agora Remittances",
+                  pattern: "Company pool → Instant cross-border settlement",
+                  title: "Zero-fee international contractor payouts in AUSD.",
+                  body: "Submit contractor invoices in EUR, GBP, JPY, or BRL. Converts at live mid-market FX rates, eliminates $45 SWIFT bank wire fees, and settles on Monad in 0.8 seconds.",
+                  ai: "OCR parses contractor VAT/tax IDs, verifies deliverables, and certifies compliance before on-chain remittance.",
                 },
                 {
                   tag: "Reimbursement Agent",
                   pattern: "Company delegates → Agent pays employee",
                   title: "Pays employees back for out-of-pocket expenses.",
-                  body: "Submit a description, amount, and optional receipt. Venice checks the claim. AUSD transfers to the employee's wallet if it passes.",
-                  venice: "Vision model reads the receipt. Text model checks the claim against company policy.",
+                  body: "Submit an out-of-pocket receipt. Qwen Vision extracts line items and checks company policy. AUSD transfers to the employee's wallet upon verification.",
+                  ai: "Qwen Vision reads the receipt. Qwen 3.8 Max checks the claim against company policy.",
                 },
-              ].map(({ tag, pattern, title, body, venice }) => (
+              ].map(({ tag, pattern, title, body, ai }) => (
                 <div key={tag} className="p-6 rounded-xl border border-[#eaeaea] bg-white flex flex-col gap-4">
                   <div className="flex flex-col gap-1">
                     <span className="self-start text-xs font-semibold px-2.5 py-1 rounded-full border border-[#ddd] text-[#555] bg-[#fafafa]">{tag}</span>
@@ -384,7 +384,7 @@ export function LandingPageClient({
                   <p className="text-sm text-[#666] leading-relaxed">{body}</p>
                   <div className="mt-auto pt-3 border-t border-[#f0f0f0]">
                     <p className="text-xs text-[#999] leading-relaxed">
-                      <span className="font-semibold text-[#bbb]">Venice: </span>{venice}
+                      <span className="font-semibold text-[#bbb]">Qwen AI: </span>{ai}
                     </p>
                   </div>
                 </div>

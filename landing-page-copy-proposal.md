@@ -109,18 +109,18 @@ Allocard lets you run your own in-house corporate card system. Your company keep
 
 ---
 
-## Venice AI Section
+## Qwen 3.8 Max AI Section
 
 ### Eyebrow
-Venice AI
+Qwen 3.8 Max AI
 
 ### Headline
 ### Policy checks before every transaction.
 
 ### Left Column Text
-Every agent purchase passes through Venice AI before execution. The AI reviews the purchase against company guidelines, budget limits, and task rules. It returns an immediate approval or rejection with a clear explanation.
+Every agent purchase passes through Qwen 3.8 Max before execution. The AI reviews the purchase against company guidelines, budget limits, and task rules. It returns an immediate approval or rejection with a clear explanation.
 
-The AI checks company policy while the account rules check the numbers. Neither can override the other. Venice retains zero user data between requests.
+The AI checks company policy while the account rules check the numbers. Neither can override the other. Decisions are evaluated in real time with private, zero-retention execution.
 
 ### Right Column: Three Policy Checks
 

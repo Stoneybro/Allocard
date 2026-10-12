@@ -29,6 +29,7 @@ import {
   activateDelegation,
   createAgentDelegation,
   prepareReimbursementBudget,
+  prepareAgoraRemittanceBudget,
   createEmployeeDelegation,
   addEmployeeByEmail,
   getCompanyDashboardState,
@@ -49,6 +50,8 @@ import { DashboardFlowCanvas } from "@/components/dashboard-flow-canvas";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { ReimbursementsCard } from "@/components/reimbursements-card";
 import { isReimbursementAgent } from "@/lib/reimbursements/shared";
+import { AgoraCrossBorderCard } from "@/components/agora-card";
+import { isAgoraAgent } from "@/lib/agora/shared";
 import { SectionCards } from "@/components/section-cards";
 import { SmartAccountActivationButton } from "@/components/smart-account-activation-button";
 import { Badge } from "@/components/ui/badge";
@@ -638,6 +641,38 @@ export function EmployerClient({
     });
   };
 
+  const isAgoraBudget = Boolean(selectedDelegation && dashboardState?.agents.some(
+    agent => agent.id === selectedDelegation.delegateeId && isAgoraAgent(agent),
+  ));
+
+  const handleOpenAgoraBudget = () => {
+    if (!currentAuthAddress || !dashboardState) return;
+    const current = dashboardState.delegations.find(d => d.id === dashboardState.agora?.delegationId);
+    if (current && current.status !== "revoked") {
+      handleConfigureDelegation(current.id);
+      return;
+    }
+    startTransition(async () => {
+      try {
+        const { delegation, agora } = await prepareAgoraRemittanceBudget(currentAuthAddress);
+        setDashboardState(prev => {
+          if (!prev) return prev;
+          const other = prev.delegations.filter(d => d.id !== delegation.id);
+          return {
+            ...prev,
+            delegations: [...other, delegation],
+            agora,
+          };
+        });
+        setSelectedDelegationId(delegation.id);
+        setCaveatForm(formFromDelegation(delegation));
+        setFormErrors({});
+      } catch (caught) {
+        toast.error(caught instanceof Error ? caught.message : "Could not prepare Agora remittance setup");
+      }
+    });
+  };
+
   const handleDropEmployee = useCallback(
     (input: {
       employeeId: string;
@@ -854,8 +889,20 @@ export function EmployerClient({
         );
         setSelectedDelegationId(null);
 
-        toast.success(isReimbursementBudget ? "Reimbursement budget authorized" : "Delegation Activated", {
-          description: isReimbursementBudget ? `Employees can now submit claims against the ${caveatForm.maxAmountEth} ${TOKEN_SYMBOL} reimbursement budget.` : `Assigned ${caveatForm.maxAmountEth} ${TOKEN_SYMBOL} spending limit to ${targetName} on Monad Testnet`,
+        const toastTitle = isReimbursementBudget
+          ? "Reimbursement budget authorized"
+          : isAgoraBudget
+          ? "Agora Remittance Pool authorized"
+          : "Delegation Activated";
+
+        const toastDesc = isReimbursementBudget
+          ? `Employees can now submit claims against the ${caveatForm.maxAmountEth} ${TOKEN_SYMBOL} reimbursement budget.`
+          : isAgoraBudget
+          ? `Global contractors can now settle invoices against the ${caveatForm.maxAmountEth} ${TOKEN_SYMBOL} remittance pool on Monad.`
+          : `Assigned ${caveatForm.maxAmountEth} ${TOKEN_SYMBOL} spending limit to ${targetName} on Monad Testnet`;
+
+        toast.success(toastTitle, {
+          description: toastDesc,
           action: {
             label: "View Explorer",
             onClick: () => window.open(getAddressExplorerUrl(delegateAddress), "_blank"),
@@ -1043,17 +1090,30 @@ export function EmployerClient({
           isToppingUp={isToppingUp}
         />
 
-        <ReimbursementsCard
-          role="employer"
-          program={dashboardState.reimbursement}
-          accountReady={Boolean(company.smartAccountAddress)}
-          busy={isPending || isRefreshing}
-          onOpen={handleOpenReimbursementBudget}
-          onRefresh={() => startRefreshTransition(async () => {
-            try { updateDashboard(await getCompanyDashboardState(currentAuthAddress as string)); }
-            catch (caught) { toast.error(caught instanceof Error ? caught.message : "Could not refresh reimbursements"); }
-          })}
-        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <ReimbursementsCard
+            role="employer"
+            program={dashboardState.reimbursement}
+            accountReady={Boolean(company.smartAccountAddress)}
+            busy={isPending || isRefreshing}
+            onOpen={handleOpenReimbursementBudget}
+            onRefresh={() => startRefreshTransition(async () => {
+              try { updateDashboard(await getCompanyDashboardState(currentAuthAddress as string)); }
+              catch (caught) { toast.error(caught instanceof Error ? caught.message : "Could not refresh reimbursements"); }
+            })}
+          />
+          <AgoraCrossBorderCard
+            role="employer"
+            program={dashboardState.agora}
+            accountReady={Boolean(company.smartAccountAddress)}
+            busy={isPending || isRefreshing}
+            onOpen={handleOpenAgoraBudget}
+            onRefresh={() => startRefreshTransition(async () => {
+              try { updateDashboard(await getCompanyDashboardState(currentAuthAddress as string)); }
+              catch (caught) { toast.error(caught instanceof Error ? caught.message : "Could not refresh remittances"); }
+            })}
+          />
+        </div>
 
         <Tabs defaultValue="canvas" className="w-full">
           <TabsList className="mb-4">
@@ -1081,7 +1141,7 @@ export function EmployerClient({
                 </Button>
               }
               employees={canvasEmployees}
-              agents={dashboardState.agents.filter(agent => !isReimbursementAgent(agent)).map((agent) => ({
+              agents={dashboardState.agents.filter(agent => !isReimbursementAgent(agent) && !isAgoraAgent(agent)).map((agent) => ({
                 id: agent.id,
                 name: agent.name,
                 smartAccountAddress: agent.smartAccountAddress,
@@ -1477,7 +1537,7 @@ function CompanyPolicyEditor({
       <div className="mb-6">
         <h3 className="text-lg font-semibold text-neutral-800">Company Expense Policy</h3>
         <p className="mt-1 text-sm text-neutral-500">
-          This policy is the single source of truth for all Venice AI checks —
+          This policy is the single source of truth for all Qwen AI checks:
           reimbursements, direct spends, and agent decisions. Edit once, applied everywhere.
         </p>
       </div>
@@ -1508,7 +1568,7 @@ function CompanyPolicyEditor({
         </div>
         {saved && (
           <span className="text-xs text-green-600 font-medium">
-            Policy saved — all Venice AI checks now use this policy.
+            Policy saved: all Qwen AI checks now use this policy.
           </span>
         )}
         {!hasChanges && !saved && (

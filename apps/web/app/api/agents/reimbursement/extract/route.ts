@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/auth-guard";
-import { extractReceiptData } from "@/lib/venice";
+import { extractReceiptData } from "@/lib/ai";
 
 export async function POST(req: NextRequest) {
   try {

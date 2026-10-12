@@ -5,11 +5,12 @@ vi.mock("@/lib/db", () => ({ db: {} }));
 vi.mock("@/lib/client", () => ({ getPimlicoGasPrice: vi.fn() }));
 vi.mock("@/lib/auth-guard", () => ({ requireSessionUser: vi.fn(), requireEmployeeCompany: vi.fn() }));
 vi.mock("@/lib/reimbursements/server", () => ({ loadReimbursementProgram: vi.fn() }));
+vi.mock("@/lib/ai", () => ({ checkPolicy: vi.fn(), verifyReceipt: vi.fn() }));
 vi.mock("@/lib/venice", () => ({ checkPolicy: vi.fn(), verifyReceipt: vi.fn() }));
 
 import { requireSessionUser, requireEmployeeCompany } from "@/lib/auth-guard";
 import { loadReimbursementProgram } from "@/lib/reimbursements/server";
-import { verifyReceipt } from "@/lib/venice";
+import { verifyReceipt } from "@/lib/ai";
 import { POST } from "@/app/api/agents/reimbursement/claim/route";
 
 const employeeId = "00000000-0000-4000-8000-000000000001";

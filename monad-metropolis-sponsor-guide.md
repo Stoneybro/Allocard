@@ -252,7 +252,7 @@ A [public sponsor-representative post surfaced on LinkedIn](https://pt.linkedin.
 
 **Questions before choosing:** Cash or credits? Which models qualify? Must usage be through Alibaba Cloud directly? Is deployment on Alibaba infrastructure required? What counts as an agentic workflow?
 
-**Assessment:** potentially strong fit for existing AI features. Obtain the brief before replacing Venice or hosting infrastructure.
+**Assessment:** strong fit for existing AI features. Qwen 3.8 Max integrates directly for autonomous policy and vision.
 
 ### 4.13 Cleanverse — identity and asset verification
 
@@ -433,7 +433,7 @@ This order balances product fit and incremental effort. It is not an estimate of
 - [Web3Providers.tsx](./apps/web/components/Web3Providers.tsx) configures Google/email login and embedded wallets through Privy.
 - [chain.ts](./apps/web/lib/chain.ts) selects Monad Testnet.
 - [Travel execution](./apps/web/app/api/agents/travel/book/route.ts), [procurement execution](./apps/web/app/api/agents/procurement/book/route.ts), and [reimbursement execution](./apps/web/app/api/agents/reimbursement/claim/route.ts) still contain explicit Sepolia clients/environment references.
-- [venice.ts](./apps/web/lib/venice.ts) uses the Venice endpoint.
+- [ai.ts](./apps/web/lib/ai.ts) uses the Qwen 3.8 Max endpoint via Alibaba Cloud Model Studio.
 - The existing [README](./README.md) describes native-asset spending controls and an earlier Sepolia demo. It also discloses that travel/procurement payments are demo flows without live merchant fulfillment.
 
 These observations mean a selected Monad chain in the frontend is not yet sufficient evidence that the complete agent payment flow executes on Monad. Resolve this before spending the remaining submission time on unrelated sponsors.

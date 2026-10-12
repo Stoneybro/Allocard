@@ -26,6 +26,9 @@ import { requireSession } from "@/lib/auth-guard";
 import { getSessionIdentity } from "@/lib/session";
 import { loadReimbursementProgram } from "@/lib/reimbursements/server";
 import { isReimbursementAgent, type ReimbursementProgram } from "@/lib/reimbursements/shared";
+import { loadAgoraProgram } from "@/lib/agora/server";
+import { isAgoraAgent, type AgoraProgram } from "@/lib/agora/shared";
+export { isAgoraAgent, type AgoraProgram };
 import { TOKEN_SYMBOL } from "@/lib/chain";
 
 
@@ -160,9 +163,10 @@ export type CompanyDashboardState = {
   /** All active platform agents — same catalog regardless of company. */
   agents: PlatformAgent[];
   delegations: CompanyDelegation[];
-  /** Company-wide expense policy — the single source of truth for Venice AI checks. */
+  /** Company-wide expense policy — the single source of truth for Qwen AI checks. */
   companyPolicy: string | null;
   reimbursement: ReimbursementProgram;
+  agora: AgoraProgram;
   summary: {
     employeeCount: number;
     /** Number of active company → agent delegations (not total agent count). */
@@ -1091,6 +1095,54 @@ export async function prepareReimbursementBudget(walletAddress: string): Promise
   return { delegation: companyDelegation, reimbursement: updatedProgram };
 }
 
+/** Prepare the built-in Agora Cross-Border remittance pool without adding a canvas node. */
+export async function prepareAgoraRemittanceBudget(walletAddress: string): Promise<{
+  delegation: CompanyDelegation;
+  agora: AgoraProgram;
+}> {
+  await validateSessionWallet(walletAddress);
+  const profile = await getEmployerProfileOrThrow(walletAddress);
+  const { agent, delegation: existingDelegation, program } = await loadAgoraProgram(profile.company.id);
+  if (!agent) throw new Error("Agora remittance service is temporarily unavailable. Check the service configuration.");
+
+  let targetDelegation = existingDelegation && existingDelegation.status !== "revoked" ? existingDelegation : null;
+
+  if (!targetDelegation) {
+    const [inserted] = await db
+      .insert(delegations)
+      .values({
+        delegatorType: "company",
+        delegatorId: profile.company.id,
+        delegateeType: "agent",
+        delegateeId: agent.id,
+        canvasPositionX: 0,
+        canvasPositionY: 0,
+      })
+      .returning();
+    targetDelegation = inserted;
+  }
+
+  const caveats = await db
+    .select()
+    .from(delegationCaveats)
+    .where(eq(delegationCaveats.delegationId, targetDelegation.id));
+
+  const companyDelegation = toCompanyDelegation(
+    targetDelegation,
+    caveats.map(toCompanyDelegationCaveat),
+  );
+
+  const updatedProgram: AgoraProgram = {
+    ...program,
+    delegationId: targetDelegation.id,
+    status: targetDelegation.status === "active" && Boolean(targetDelegation.signedDelegation)
+      ? "ready"
+      : "pending",
+  };
+
+  return { delegation: companyDelegation, agora: updatedProgram };
+}
+
 export async function updateDelegationPosition(input: {
   walletAddress: string;
   delegationId: string;
@@ -1546,6 +1598,7 @@ export async function getCompanyDashboardState(
     agents: platformAgents,
     delegations: delegationsWithCaveats,
     reimbursement: (await loadReimbursementProgram(company.id)).program,
+    agora: (await loadAgoraProgram(company.id)).program,
     summary: {
       employeeCount: companyEmployees.length,
       activeAgentCount: activeAgentDelegationCount,
@@ -1574,9 +1627,10 @@ export type EmployeeDashboardState = {
   outboundDelegations: CompanyDelegation[];
   /** All active platform agents — available for the employee to redelegate to. */
   agents: PlatformAgent[];
-  /** Company-wide expense policy — passed through to Venice AI checks. */
+  /** Company-wide expense policy — passed through to Qwen AI checks. */
   companyPolicy: string | null;
   reimbursement: ReimbursementProgram;
+  agora: AgoraProgram;
   summary: {
     /** ETH limit approved by the company (from the inbound delegation caveats). */
     approvedLimitEth: string;
@@ -1831,6 +1885,7 @@ export async function getEmployeeDashboardState(
     agents: platformAgents,
     activeCompanyAgentIds,
     reimbursement: (await loadReimbursementProgram(company.id)).program,
+    agora: (await loadAgoraProgram(company.id)).program,
     summary: {
       approvedLimitEth: formatEthAllowance(approvedLimitWei),
       redelegatedEth: formatEthAllowance(redelegatedWei),

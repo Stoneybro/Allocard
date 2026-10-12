@@ -155,7 +155,7 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
       setStep("done");
       if (result?.isCompliant) {
         toast.success("Receipt Verified", {
-          description: "Venice AI verified the receipt against company policy.",
+          description: "Qwen AI verified the receipt against company policy.",
         });
       } else {
         toast.warning("Receipt Flagged", {
@@ -178,7 +178,7 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
       <CardHeader>
         <CardTitle>Delegated Balance Spend</CardTitle>
         <CardDescription>
-          Spend funds from your remaining delegated balance. Your intended purpose will be verified against the company policy by Venice AI.
+          Spend funds from your remaining delegated balance. Your intended purpose will be verified against the company policy by Qwen AI.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -323,7 +323,7 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
               </div>
               <h3 className="text-sm font-medium mb-1">Upload Receipt (Optional)</h3>
               <p className="text-xs text-muted-foreground mb-4">
-                Provide a receipt for Venice AI to verify against your stated purpose.
+                Provide a receipt for Qwen AI to verify against your stated purpose.
               </p>
               <Input type="file" accept="image/*" onChange={handleFileUpload} className="max-w-xs mx-auto mb-4" disabled={isSubmittingReceipt} />
               {receiptImage && (

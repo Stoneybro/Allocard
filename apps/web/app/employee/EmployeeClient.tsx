@@ -44,8 +44,10 @@ import { EmployeeFlowCanvas } from "@/components/employee-flow-canvas";
 import { ReimbursementDrawer } from "./ReimbursementDrawer";
 import { ReimbursementsCard } from "@/components/reimbursements-card";
 import { isReimbursementAgent } from "@/lib/reimbursements/shared";
-import { TravelAgentDrawer } from "./TravelAgentDrawer";
-import { ProcurementAgentDrawer } from "./ProcurementAgentDrawer";
+import { isAgoraAgent } from "@/lib/agora/shared";
+import { AgoraCrossBorderCard } from "@/components/agora-card";
+import { AgoraRemittanceDrawer } from "./AgoraRemittanceDrawer";
+import { DevOpsAgentDrawer } from "./DevOpsAgentDrawer";
 import { SmartAccountActivationButton } from "@/components/smart-account-activation-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -528,11 +530,13 @@ export function EmployeeClient({
   // Platform agents come from dashboardState.agents (populated by getEmployeeDashboardState).
   const sidebarAgents = useMemo(
     () =>
-      (dashboardState?.agents ?? []).filter(agent => !isReimbursementAgent(agent)).map((agent) => ({
-        id: agent.id,
-        name: agent.name,
-        detail: agent.description ?? "Platform AI agent",
-      })),
+      (dashboardState?.agents ?? [])
+        .filter(agent => !isReimbursementAgent(agent) && !isAgoraAgent(agent))
+        .map((agent) => ({
+          id: agent.id,
+          name: agent.name,
+          detail: agent.description ?? "Platform AI agent",
+        })),
     [dashboardState?.agents],
   );
 
@@ -585,8 +589,7 @@ export function EmployeeClient({
   };
 
   const [isReimbursementDrawerOpen, setIsReimbursementDrawerOpen] = useState(false);
-  const [isTravelAgentDrawerOpen, setIsTravelAgentDrawerOpen] = useState(false);
-  const [activeTravelDelegationId, setActiveTravelDelegationId] = useState<string | null>(null);
+  const [isAgoraDrawerOpen, setIsAgoraDrawerOpen] = useState(false);
   const [isProcurementAgentDrawerOpen, setIsProcurementAgentDrawerOpen] = useState(false);
   const [activeProcurementDelegationId, setActiveProcurementDelegationId] = useState<string | null>(null);
 
@@ -637,12 +640,9 @@ export function EmployeeClient({
 
   const handleNodeClick = useCallback((event: any, node: any) => {
     if (node.data?.kind === "agent" && node.data?.status === "active") {
-      const agentId = node.data.subtitle; // subtitle holds the delegateeId which is agent.id
+      const agentId = node.data.agentId;
       const agent = dashboardState?.agents.find(a => a.id === agentId);
-      if (agent?.name === "Travel Agent") {
-        setActiveTravelDelegationId(node.data.delegationId);
-        setIsTravelAgentDrawerOpen(true);
-      } else if (agent?.name === "Procurement Agent") {
+      if (agent?.name === "DevOps Procurement Agent" || agent?.name === "Procurement Agent" || node.data?.title === "DevOps Procurement Agent") {
         setActiveProcurementDelegationId(node.data.delegationId);
         setIsProcurementAgentDrawerOpen(true);
       }
@@ -658,18 +658,17 @@ export function EmployeeClient({
       // For active agent delegations, open the agent-specific drawer
       if (delegation?.status === "active" && delegation.delegateeId) {
         const agent = dashboardState?.agents.find(a => a.id === delegation.delegateeId);
-        if (agent?.name === "Travel Agent") {
-          setActiveTravelDelegationId(delegationId);
-          setIsTravelAgentDrawerOpen(true);
-          return;
-        }
-        if (agent?.name === "Procurement Agent") {
+        if (agent?.name === "DevOps Procurement Agent" || agent?.name === "Procurement Agent") {
           setActiveProcurementDelegationId(delegationId);
           setIsProcurementAgentDrawerOpen(true);
           return;
         }
         if (isReimbursementAgent(agent)) {
           setIsReimbursementDrawerOpen(true);
+          return;
+        }
+        if (isAgoraAgent(agent)) {
+          setIsAgoraDrawerOpen(true);
           return;
         }
       }
@@ -1154,20 +1153,36 @@ export function EmployeeClient({
           remainingEth={formatEthTrimmed(remainingWei)}
         />
 
-        <ReimbursementsCard
-          role="employee"
-          program={dashboardState.reimbursement}
-          accountReady={Boolean(employee.smartAccountAddress)}
-          busy={isPending}
-          onOpen={() => {
-            setIsReimbursementDrawerOpen(true);
-            void refreshDashboard().catch(() => toast.error("Could not refresh reimbursement status"));
-          }}
-          onRefresh={() => startTransition(async () => {
-            try { await refreshDashboard(); }
-            catch { toast.error("Could not refresh reimbursement status"); }
-          })}
-        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <ReimbursementsCard
+            role="employee"
+            program={dashboardState.reimbursement}
+            accountReady={Boolean(employee.smartAccountAddress)}
+            busy={isPending}
+            onOpen={() => {
+              setIsReimbursementDrawerOpen(true);
+              void refreshDashboard().catch(() => toast.error("Could not refresh reimbursement status"));
+            }}
+            onRefresh={() => startTransition(async () => {
+              try { await refreshDashboard(); }
+              catch { toast.error("Could not refresh reimbursement status"); }
+            })}
+          />
+          <AgoraCrossBorderCard
+            role="employee"
+            program={dashboardState.agora}
+            accountReady={Boolean(employee.smartAccountAddress)}
+            busy={isPending}
+            onOpen={() => {
+              setIsAgoraDrawerOpen(true);
+              void refreshDashboard().catch(() => toast.error("Could not refresh Agora remittance status"));
+            }}
+            onRefresh={() => startTransition(async () => {
+              try { await refreshDashboard(); }
+              catch { toast.error("Could not refresh Agora remittance status"); }
+            })}
+          />
+        </div>
 
         {/* Tabs for Canvas and Direct Spend */}
         <Tabs defaultValue="canvas" className="w-full">
@@ -1520,25 +1535,29 @@ export function EmployeeClient({
           onRefresh={refreshDashboard}
         />
       )}
-      
-      {activeTravelDelegationId && (
-        <TravelAgentDrawer
-          isOpen={isTravelAgentDrawerOpen}
-          onOpenChange={setIsTravelAgentDrawerOpen}
-          employee={dashboardState.employee}
-          company={dashboardState.company}
-          agentId={dashboardState.agents.find(a => a.name === "Travel Agent")?.id || ""}
-          delegationId={activeTravelDelegationId}
+      {dashboardState && (
+        <AgoraRemittanceDrawer
+          isOpen={isAgoraDrawerOpen}
+          onOpenChange={setIsAgoraDrawerOpen}
+          companyId={dashboardState.company.id}
+          employeeId={dashboardState.employee.id}
+          program={dashboardState.agora}
+          accountReady={Boolean(dashboardState.employee.smartAccountAddress)}
+          onRefresh={refreshDashboard}
         />
       )}
 
       {activeProcurementDelegationId && (
-        <ProcurementAgentDrawer
+        <DevOpsAgentDrawer
           isOpen={isProcurementAgentDrawerOpen}
           onOpenChange={setIsProcurementAgentDrawerOpen}
           employee={dashboardState.employee}
           company={dashboardState.company}
-          agentId={dashboardState.agents.find(a => a.name === "Procurement Agent")?.id || ""}
+          agentId={
+            dashboardState.agents.find(
+              (a) => a.name === "DevOps Procurement Agent" || a.name === "Procurement Agent",
+            )?.id || ""
+          }
           delegationId={activeProcurementDelegationId}
         />
       )}

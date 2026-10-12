@@ -19,6 +19,7 @@ import {
   BotIcon,
   CheckIcon,
   CopyIcon,
+  CpuIcon,
   PlaneIcon,
   Settings2Icon,
   ShoppingCartIcon,
@@ -27,6 +28,7 @@ import {
 
 import type { EmployeeDashboardState } from "@/app/actions/identity";
 import { isReimbursementAgent } from "@/lib/reimbursements/shared";
+import { isAgoraAgent } from "@/lib/agora/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -119,8 +121,9 @@ function CopyAddressButton({ address, dark }: { address?: string; dark?: boolean
 }
 
 function agentActionLabel(agentTitle: string): { label: string; Icon: React.ElementType } {
-  if (agentTitle === "Travel Agent") return { label: "Book Trip", Icon: PlaneIcon };
-  if (agentTitle === "Procurement Agent") return { label: "Procure", Icon: ShoppingCartIcon };
+  if (agentTitle === "DevOps Procurement Agent" || agentTitle === "Procurement Agent") {
+    return { label: "Procure Infra", Icon: CpuIcon };
+  }
   return { label: "Open", Icon: BotIcon };
 }
 
@@ -360,7 +363,7 @@ export function EmployeeFlowCanvas({
     outboundDelegations.forEach((delegation) => {
       const agentNodeId = `agent:${delegation.id}`;
       const agent = delegation.delegateeId ? agentById.get(delegation.delegateeId) : undefined;
-      if (isReimbursementAgent(agent)) return;
+      if (isReimbursementAgent(agent) || isAgoraAgent(agent)) return;
 
       nextNodes.push({
         id: agentNodeId,
