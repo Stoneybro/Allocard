@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { TOKEN_SYMBOL } from "@/lib/chain";
 
 export function EmployeeSectionCards({
   smartAccountBalanceEth,
@@ -31,7 +32,7 @@ export function EmployeeSectionCards({
         <CardHeader>
           <CardDescription>Smart Account Balance</CardDescription>
           <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
-            {smartAccountBalanceEth} ETH
+            {smartAccountBalanceEth} {TOKEN_SYMBOL}
           </CardTitle>
           <CardAction>
             <Badge variant="outline" className="px-1 py-0">
@@ -48,7 +49,7 @@ export function EmployeeSectionCards({
         <CardHeader>
           <CardDescription>Remaining Delegated Balance</CardDescription>
           <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
-            {remainingEth} ETH
+            {remainingEth} {TOKEN_SYMBOL}
           </CardTitle>
           <CardAction>
             <Badge variant="outline" className="px-1 py-0">
@@ -57,7 +58,7 @@ export function EmployeeSectionCards({
           </CardAction>
         </CardHeader>
         <p className="px-4 text-[11px] text-muted-foreground">
-          Delegated ETH available to spend or assign to agents.
+          Delegated {TOKEN_SYMBOL} available to spend or assign to agents.
         </p>
       </Card>
 
@@ -65,7 +66,7 @@ export function EmployeeSectionCards({
         <CardHeader>
           <CardDescription>Approved delegated balance</CardDescription>
           <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
-            {approvedLimitEth} ETH
+            {approvedLimitEth} {TOKEN_SYMBOL}
           </CardTitle>
           <CardAction>
             <Badge variant="outline" className="px-1 py-0">
@@ -74,7 +75,7 @@ export function EmployeeSectionCards({
           </CardAction>
         </CardHeader>
         <p className="px-4 text-[11px] text-muted-foreground">
-          Total ETH delegated to you by the company.
+          Total {TOKEN_SYMBOL} delegated to you by the company.
         </p>
       </Card>
 
@@ -82,7 +83,7 @@ export function EmployeeSectionCards({
         <CardHeader>
           <CardDescription>Redelegated</CardDescription>
           <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
-            {redelegatedEth} ETH
+            {redelegatedEth} {TOKEN_SYMBOL}
           </CardTitle>
           <CardAction>
             <Badge variant="outline" className="px-1 py-0">
@@ -91,7 +92,7 @@ export function EmployeeSectionCards({
           </CardAction>
         </CardHeader>
         <p className="px-4 text-[11px] text-muted-foreground">
-          ETH you have delegated to AI agents.
+          {TOKEN_SYMBOL} you have delegated to AI agents.
         </p>
       </Card>
     </div>

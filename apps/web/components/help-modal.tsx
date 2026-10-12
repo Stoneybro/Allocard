@@ -72,7 +72,7 @@ export function HelpModal() {
                   <li>Switch to the employer window. The employee now appears in the sidebar.</li>
                   <li>Drag the employee from the sidebar onto the canvas.</li>
                   <li>Click <strong>Configure</strong> on the pending node.</li>
-                  <li>Set the spending limits (e.g., 0.1 ETH) and click <strong>Activate Delegation</strong>.</li>
+                  <li>Set the spending limits (e.g., 100 AUSD) and click <strong>Activate Delegation</strong>.</li>
                 </ol>
               </AccordionContent>
             </AccordionItem>
@@ -104,13 +104,13 @@ export function HelpModal() {
             </AccordionItem>
 
             <AccordionItem value="step-5">
-              <AccordionTrigger className="text-base font-semibold hover:no-underline">5. Agent: Autonomous Reimbursement</AccordionTrigger>
+              <AccordionTrigger className="text-base font-semibold hover:no-underline">5. Reimbursements</AccordionTrigger>
               <AccordionContent className="text-muted-foreground pt-2 pb-4">
                 <ol className="list-decimal pl-5 space-y-2.5">
-                  <li>On the employer dashboard, <strong>Activate</strong> the Reimbursement Agent.</li>
-                  <li>On the employee dashboard, click the Reimbursement Agent in the sidebar.</li>
+                  <li>On the employer dashboard, open <strong>Reimbursements</strong> and select <strong>Set up reimbursement budget</strong>. Set the limits and authorize the budget.</li>
+                  <li>On the employee dashboard, select <strong>New reimbursement claim</strong> in Reimbursements. No personal allowance or canvas setup is needed.</li>
                   <li>Upload a receipt and submit a claim.</li>
-                  <li>Venice Vision validates the receipt against company policy. If approved, the agent pays the employee directly.</li>
+                  <li>The receipt is checked against the claim, then the claim is assessed against company policy. Approved claims are paid within the authorized reimbursement budget. If setup is unfinished or payouts are paused, the dashboard explains what is needed.</li>
                 </ol>
               </AccordionContent>
             </AccordionItem>

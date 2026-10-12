@@ -2,123 +2,60 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getPimlicoGasPrice } from "@/lib/client";
 import { requireEmployeeCompany, requireSessionUser } from "@/lib/auth-guard";
-import { agents, delegations, claimRedemptions, delegationCaveats, users, companies } from "@/lib/db/schema";
-import { eq, and, sql } from "drizzle-orm";
+import { claimRedemptions, employeeProfiles, companies } from "@/lib/db/schema";
+import { loadReimbursementProgram } from "@/lib/reimbursements/server";
+import { reimbursementEmployeeMessage } from "@/lib/reimbursements/shared";
+import { TOKEN_SYMBOL } from "@/lib/chain";
+import { z } from "zod";
+import { eq, and } from "drizzle-orm";
 import { checkPolicy, verifyReceipt } from "@/lib/venice";
-import { createWalletClient, http, parseEther, type Hex, createPublicClient } from "viem";
+import { createWalletClient, http, parseEther, parseUnits, encodeFunctionData, type Hex, createPublicClient } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { chain } from "@/lib/chain";
-import {
-  getSmartAccountsEnvironment,
-  ScopeType,
-} from "@metamask/smart-accounts-kit";
+import { chain, AUSD_ADDRESS, AUSD_DECIMALS, ERC20_ABI } from "@/lib/chain";
+
 
 export async function POST(req: NextRequest) {
   try {
     const sessionUser = await requireSessionUser();
-    const body = await req.json();
-    const { claimDescription, amountEth, receiptBase64, companyId, employeeId, agentId } = body;
-
-    if (!companyId || !employeeId || !agentId || !receiptBase64) {
-      return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    const parsed = z.object({
+      companyId: z.string().uuid(),
+      employeeId: z.string().uuid(),
+      claimDescription: z.string().trim().min(1).max(4000),
+      amountEth: z.string().regex(/^\d+(\.\d{1,18})?$/),
+      receiptBase64: z.string().min(1).max(12_000_000),
+    }).safeParse(await req.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Provide a company, employee, receipt, business purpose and valid claim amount." }, { status: 400 });
     }
+    const { companyId, employeeId, claimDescription, amountEth, receiptBase64 } = parsed.data;
     if (employeeId !== sessionUser.id) {
       return NextResponse.json({ error: "You can only submit claims for your own employee account" }, { status: 403 });
     }
     await requireEmployeeCompany(sessionUser.id, companyId);
-    if (!claimDescription || !amountEth) {
-      return NextResponse.json({ error: "Claim description and amount are required" }, { status: 400 });
+
+    // Resolve payout authority on the server, independently of the agent catalog UI.
+    const { program, agent, delegation, caveats } = await loadReimbursementProgram(companyId);
+    if (program.status !== "ready" || !agent || !delegation?.signedDelegation) {
+      return NextResponse.json({
+        code: "REIMBURSEMENT_NOT_READY",
+        error: reimbursementEmployeeMessage(program.status),
+      }, { status: 409 });
     }
-
-    // 1. Get the Employee
-    const employee = await db.query.users.findFirst({
-      where: eq(users.id, sessionUser.id),
-    });
-
-    if (!employee || !employee.smartAccountAddress) {
-      return NextResponse.json({ error: "Employee smart account not found" }, { status: 400 });
-    }
-
-    // 2. Look up Company -> Agent delegation
-    const delegation = await db.query.delegations.findFirst({
-      where: and(
-        eq(delegations.delegatorId, companyId),
-        eq(delegations.delegatorType, "company"),
-        eq(delegations.delegateeId, agentId),
-        eq(delegations.delegateeType, "agent"),
-        eq(delegations.status, "active")
-      ),
-    });
-
-    if (!delegation?.signedDelegation) {
-      return NextResponse.json({ error: "No active delegation found for this agent" }, { status: 400 });
-    }
-
-    const [agent] = await db.select({ id: agents.id }).from(agents).where(and(
-      eq(agents.id, agentId),
-      eq(agents.isActive, true),
+    const agentId = agent.id;
+    const [employee] = await db.select().from(employeeProfiles).where(and(
+      eq(employeeProfiles.userId, sessionUser.id), eq(employeeProfiles.companyId, companyId),
     )).limit(1);
-    if (!agent) return NextResponse.json({ error: "Agent is not active" }, { status: 403 });
-
-    // Load caveats for policy check
-    const caveats = await db.query.delegationCaveats.findMany({
-      where: eq(delegationCaveats.delegationId, delegation.id),
-    });
-
-    const mappedCaveats = caveats.map(c => ({
-      ...c,
-      createdAt: c.createdAt.toISOString(),
-      caveatValue: c.caveatValue as any
-    }));
-
-    // ── Calculate remaining balance and enforce check ────────────────────────
-    const amountCaveat = mappedCaveats.find(
-      c => c.caveatType === "nativeTokenTransferAmount",
-    );
-    if (amountCaveat) {
-      const val = amountCaveat.caveatValue as any;
-      const wei = val.maxAmount || val.amount;
-      if (wei) {
-        const limitWei = BigInt(wei);
-
-        // Sum of previously approved claims for this employee + agent
-        const [claimResult] = await db
-          .select({
-            total: sql<string>`COALESCE(SUM(${claimRedemptions.amountEth}::numeric), 0)`,
-          })
-          .from(claimRedemptions)
-          .where(
-            and(
-              eq(claimRedemptions.employeeId, employeeId),
-              eq(claimRedemptions.agentId, agentId),
-            ),
-          );
-
-        const claimSpentWei = (() => {
-          try {
-            return claimResult?.total ? parseEther(claimResult.total) : 0n;
-          } catch {
-            return 0n;
-          }
-        })();
-
-        const remainingWei =
-          limitWei > claimSpentWei ? limitWei - claimSpentWei : 0n;
-
-        // Reject if the new claim exceeds remaining balance
-        const claimWei = parseEther(amountEth.replace(/[^0-9.]/g, ""));
-        if (claimWei > remainingWei) {
-          return NextResponse.json(
-            {
-              error: `Insufficient remaining balance. Remaining: ${(Number(remainingWei) / 1e18).toString()} ETH, requested: ${amountEth} ETH`,
-              veniceApproved: false,
-              veniceReasoning: "Claim exceeds remaining delegation balance.",
-            },
-            { status: 400 },
-          );
-        }
-      }
+    if (!employee?.smartAccountAddress) {
+      return NextResponse.json({ error: "Activate your employee account to receive reimbursement payments." }, { status: 409 });
     }
+    const claimWei = parseEther(amountEth);
+    if (claimWei <= 0n) {
+      return NextResponse.json({ error: "Claim amount must be greater than zero." }, { status: 400 });
+    }
+    if (program.remainingAmount !== null && claimWei > parseEther(program.remainingAmount)) {
+      return NextResponse.json({ error: "The claim exceeds the remaining reimbursement budget of " + program.remainingAmount + " " + TOKEN_SYMBOL + "." }, { status: 400 });
+    }
+    const mappedCaveats = caveats.map(c => ({ ...c, createdAt: c.createdAt.toISOString() }));
 
     // 3. Verify Receipt with Venice Vision (Stateless, no storage)
     let receiptUrl = null;
@@ -188,6 +125,12 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // The employer may have stopped payouts while the AI was evaluating the claim.
+    const current = await loadReimbursementProgram(companyId);
+    if (current.program.status !== "ready" || current.delegation?.id !== delegation.id) {
+      return NextResponse.json({ code: "REIMBURSEMENT_NOT_READY", error: "Reimbursement settings changed while this claim was being reviewed. Refresh the status before trying again." }, { status: 409 });
+    }
+
     // 5. On-chain Redemption
     const pkey = process.env.AGENTS_PRIVATE_KEY;
     
@@ -240,18 +183,41 @@ export async function POST(req: NextRequest) {
 
       // 5c. Send UserOp
       const env = getSmartAccountsEnvironment(chain.id);
+      const isErc20Delegation = Boolean(
+        (delegation.signedDelegation as any)?.caveats?.some(
+          (c: any) => c.enforcer?.toLowerCase() === env.caveatEnforcers.ERC20TransferAmountEnforcer?.toLowerCase()
+        )
+      );
+
+      const claimCall = isErc20Delegation
+        ? {
+            to: AUSD_ADDRESS,
+            value: 0n,
+            data: encodeFunctionData({
+              abi: ERC20_ABI,
+              functionName: "transfer",
+              args: [employee.smartAccountAddress as Hex, parseUnits(parsed.data.amountEth.replace(/[^0-9.]/g, ''), AUSD_DECIMALS)],
+            }),
+            permissionContext: [delegation.signedDelegation],
+            delegationManager: env.DelegationManager as Hex,
+          }
+        : {
+            to: employee.smartAccountAddress as Hex,
+            value: claimWei,
+            data: "0x" as Hex,
+            permissionContext: [delegation.signedDelegation],
+            delegationManager: env.DelegationManager as Hex,
+          };
+
       const userOpHash = await bundlerClient.sendUserOperation({
         account: sa as any,
-        calls: [{
-          to: employee.smartAccountAddress as Hex,
-          value: parseEther(amountEth.replace(/[^0-9.]/g, '')),
-          data: "0x" as Hex,
-          permissionContext: [delegation.signedDelegation],
-          delegationManager: env.DelegationManager as Hex,
-        }] as any
+        calls: [claimCall] as any
       });
 
       const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash });
+      if (!receipt.success || receipt.receipt.status !== "success") {
+        throw new Error("Reimbursement payment was not confirmed successfully.");
+      }
       txHash = receipt.receipt.transactionHash;
 
     } catch (err: any) {

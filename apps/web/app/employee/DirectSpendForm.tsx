@@ -68,7 +68,7 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
     try {
       parsedAmount = parseEther(amountEth);
     } catch {
-      setError("Invalid ETH amount");
+      setError(`Invalid ${TOKEN_SYMBOL} amount`);
       return;
     }
 

@@ -3,9 +3,9 @@ import { db } from "@/lib/db";
 import { requireEmployeeCompany, requireSessionUser } from "@/lib/auth-guard";
 import { delegations, agentBookings, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { createPublicClient, createWalletClient, http, parseEther, type Hex } from "viem";
+import { createPublicClient, createWalletClient, http, parseEther, parseUnits, encodeFunctionData, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { chain } from "@/lib/chain";
+import { chain, AUSD_ADDRESS, AUSD_DECIMALS, ERC20_ABI } from "@/lib/chain";
 import { getPimlicoGasPrice } from "@/lib/client";
 
 export async function POST(req: Request) {
@@ -130,15 +130,35 @@ export async function POST(req: Request) {
       // DelegationManager traces the chain and deducts from the company treasury
       const permissionContext = [delegation.signedDelegation, parentDelegation.signedDelegation];
 
+      const isErc20Delegation = Boolean(
+        (delegation.signedDelegation as any)?.caveats?.some(
+          (c: any) => c.enforcer?.toLowerCase() === env.caveatEnforcers.ERC20TransferAmountEnforcer?.toLowerCase()
+        )
+      );
+
+      const bookCall = isErc20Delegation
+        ? {
+            to: AUSD_ADDRESS,
+            value: 0n,
+            data: encodeFunctionData({
+              abi: ERC20_ABI,
+              functionName: "transfer",
+              args: [employee.smartAccountAddress as Hex, parseUnits(vendorChoice.estimatedCostEth.replace(/[^0-9.]/g, ''), AUSD_DECIMALS)],
+            }),
+            permissionContext,
+            delegationManager: env.DelegationManager as Hex,
+          }
+        : {
+            to: employee.smartAccountAddress as Hex,
+            value: totalWei,
+            data: "0x" as Hex,
+            permissionContext,
+            delegationManager: env.DelegationManager as Hex,
+          };
+
       const userOpHash = await bundlerClient.sendUserOperation({
         account: sa as any,
-        calls: [{
-          to: employee.smartAccountAddress as Hex,
-          value: totalWei,
-          data: "0x" as Hex,
-          permissionContext,
-          delegationManager: env.DelegationManager as Hex,
-        }] as any
+        calls: [bookCall] as any
       });
 
       const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash });

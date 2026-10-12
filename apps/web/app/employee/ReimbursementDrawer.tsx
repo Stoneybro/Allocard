@@ -10,6 +10,7 @@ import {
   DrawerFooter,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -24,10 +25,12 @@ import {
   CalendarIcon,
   DollarSignIcon,
   CoinsIcon,
-  BotIcon,
-  ShieldCheckIcon,
+  ReceiptTextIcon,
+  RefreshCwIcon,
 } from "lucide-react";
 import { toast } from "sonner";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { reimbursementEmployeeMessage, reimbursementStatusLabel, type ReimbursementProgram } from "@/lib/reimbursements/shared";
 import { parseUserOpError } from "@/lib/error-parser";
 import { getTxExplorerUrl, TOKEN_SYMBOL } from "@/lib/chain";
 
@@ -43,21 +46,31 @@ type ExtractionResult = {
 
 type DrawerStep = "upload" | "extracting" | "review" | "submitting" | "success" | "error";
 
-export function ReimbursementAgentDrawer({
+export function ReimbursementDrawer({
   isOpen,
   onOpenChange,
   companyId,
   employeeId,
-  agentId,
-  isEmployerActivated,
+  program,
+  accountReady,
+  onRefresh,
 }: {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   companyId: string;
   employeeId: string;
-  agentId: string;
-  isEmployerActivated: boolean;
+  program: ReimbursementProgram;
+  accountReady: boolean;
+  onRefresh: () => Promise<void>;
 }) {
+  const canSubmit = program.status === "ready" && accountReady;
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const refreshStatus = async () => {
+    setIsRefreshing(true);
+    try { await onRefresh(); }
+    catch { toast.error("Could not refresh reimbursement status. Please try again."); }
+    finally { setIsRefreshing(false); }
+  };
   const [step, setStep] = useState<DrawerStep>("upload");
   const [fileBase64, setFileBase64] = useState<string | null>(null);
   const [extraction, setExtraction] = useState<ExtractionResult | null>(null);
@@ -111,7 +124,7 @@ export function ReimbursementAgentDrawer({
   };
 
   const handleExtract = async () => {
-    if (!fileBase64) return;
+    if (!fileBase64 || !canSubmit) return;
     setStep("extracting");
     try {
       const res = await fetch("/api/agents/reimbursement/extract", {
@@ -123,16 +136,16 @@ export function ReimbursementAgentDrawer({
       if (!res.ok) throw new Error(parseUserOpError(data.error) || "Extraction failed");
       setExtraction(data.extraction);
       setReviewPurpose(data.extraction.suggestedPurpose);
-      setReviewAmountEth(data.extraction.estimatedEth);
+      setReviewAmountEth(TOKEN_SYMBOL === "AUSD" ? data.extraction.totalUsd : "");
       setStep("review");
-    } catch (err: any) {
+    } catch (err: unknown) {
       setErrorMessage(parseUserOpError(err));
       setStep("error");
     }
   };
 
   const handleSubmit = async () => {
-    if (!fileBase64 || !reviewPurpose || !reviewAmountEth) return;
+    if (!canSubmit || !fileBase64 || !reviewPurpose || !reviewAmountEth) return;
     setStep("submitting");
     try {
       const res = await fetch("/api/agents/reimbursement/claim", {
@@ -144,11 +157,11 @@ export function ReimbursementAgentDrawer({
           receiptBase64: fileBase64,
           companyId,
           employeeId,
-          agentId,
         }),
       });
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 409) await refreshStatus();
         const errorMsg = parseUserOpError(data.error) || "An error occurred";
         setErrorMessage(errorMsg);
         setStep("error");
@@ -159,6 +172,7 @@ export function ReimbursementAgentDrawer({
         setTxHash(data.txHash || null);
         setResultMessage(data.veniceReasoning || "Claim approved by AI.");
         setStep("success");
+        void refreshStatus();
         toast.success("Reimbursement Disbursed Successfully", {
           description: `${reviewAmountEth} ${TOKEN_SYMBOL} paid out to your account on Monad Testnet.`,
           action: data.txHash ? {
@@ -171,7 +185,7 @@ export function ReimbursementAgentDrawer({
         setStep("error");
         toast.error("Claim Rejected by Policy", { description: data.veniceReasoning });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       const errorMsg = parseUserOpError(err);
       setErrorMessage(errorMsg);
       setStep("error");
@@ -184,8 +198,8 @@ export function ReimbursementAgentDrawer({
       <DrawerContent>
         <DrawerHeader className="text-center sm:text-center">
           <DrawerTitle className="flex items-center justify-center gap-2">
-            <BotIcon className="w-5 h-5 text-primary" />
-            Reimbursement Agent
+            <ReceiptTextIcon className="size-5" />
+            Claim reimbursement
           </DrawerTitle>
           <DrawerDescription>
             Snap a photo of your receipt. The AI will extract the details and
@@ -194,22 +208,20 @@ export function ReimbursementAgentDrawer({
         </DrawerHeader>
 
         <div className="p-4 flex flex-col gap-4 max-w-lg mx-auto w-full overflow-y-auto max-h-[65vh] mb-4">
-          {/* ── STEP 0: Blocked / Not Activated ──────────────────────────── */}
-          {!isEmployerActivated && (
-            <div className="bg-muted/30 text-foreground p-6 rounded-md text-sm flex flex-col gap-3 items-center text-center border border-border mt-4">
-              <ShieldCheckIcon className="w-12 h-12 text-muted-foreground mb-1" />
-              <h3 className="font-semibold text-lg">Agent Not Configured</h3>
-              <p className="text-muted-foreground leading-relaxed max-w-sm">
-                Your employer has not activated the Reimbursement Agent yet. Please ask your employer to configure and delegate funds to this agent in their dashboard before you can use it.
-              </p>
-              <Button variant="outline" className="mt-4" onClick={() => onOpenChange(false)}>
-                Close
-              </Button>
-            </div>
+          {!canSubmit && step !== "success" && step !== "submitting" && (
+            <Alert className="border-border/80 bg-muted/20">
+              <ReceiptTextIcon className="size-4" />
+              <AlertTitle>{program.status === "ready" ? "Activate your account" : reimbursementStatusLabel(program.status)}</AlertTitle>
+              <AlertDescription>
+                {program.status === "ready"
+                  ? "Activate your employee account from the dashboard to receive reimbursement payments."
+                  : reimbursementEmployeeMessage(program.status)}
+              </AlertDescription>
+            </Alert>
           )}
 
           {/* ── STEP 1: Upload ────────────────────────────────────────────── */}
-          {step === "upload" && isEmployerActivated && (
+          {step === "upload" && canSubmit && (
             <div className="flex flex-col gap-4">
               {!fileBase64 ? (
                 <div className="flex flex-col gap-3">
@@ -219,18 +231,19 @@ export function ReimbursementAgentDrawer({
                       <p className="text-sm font-medium">Upload your receipt</p>
                       <p className="text-xs text-muted-foreground mt-1">JPG, PNG, or WEBP · No PDFs</p>
                     </div>
-                    <Label htmlFor="receipt-upload" className="cursor-pointer">
-                      <Button variant="outline" size="sm" className="pointer-events-none">
-                        Choose Image
-                      </Button>
-                      <Input
-                        id="receipt-upload"
-                        type="file"
-                        accept="image/jpeg, image/png, image/webp"
-                        onChange={handleFileChange}
-                        className="hidden"
-                      />
+                    <Label
+                      htmlFor="receipt-upload"
+                      className="inline-flex items-center justify-center rounded-md text-xs font-medium border border-input bg-background shadow-xs hover:bg-accent hover:text-accent-foreground h-8 px-3 py-1 cursor-pointer transition-colors"
+                    >
+                      Choose Image
                     </Label>
+                    <Input
+                      id="receipt-upload"
+                      type="file"
+                      accept="image/jpeg, image/png, image/webp"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
                   </div>
 
                   <Button
@@ -258,8 +271,8 @@ export function ReimbursementAgentDrawer({
                         Remove
                       </Button>
                     </div>
-                    <div className="bg-white p-3 flex items-center justify-center">
-                      <img src={fileBase64} alt="Receipt" className="max-h-64 object-contain rounded" />
+                    <div className="bg-muted/10 p-3 flex items-center justify-center border-t border-border/40">
+                      <img src={fileBase64} alt="Receipt" className="max-h-64 object-contain rounded-md" />
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground text-center">
@@ -271,7 +284,7 @@ export function ReimbursementAgentDrawer({
           )}
 
           {/* ── STEP 2: Extracting ───────────────────────────────────────── */}
-          {step === "extracting" && (
+          {step === "extracting" && canSubmit && (
             <div className="flex flex-col items-center justify-center py-10 gap-4 text-muted-foreground">
               <div className="relative">
                 <ScanIcon className="w-12 h-12 text-primary/30" />
@@ -281,36 +294,38 @@ export function ReimbursementAgentDrawer({
                   <LoaderCircleIcon className="w-4 h-4 animate-spin text-primary" />
                   <p className="font-medium text-foreground">Analyzing receipt...</p>
                 </div>
-                <p className="text-xs mt-1">Venice AI Vision is extracting details</p>
+                <p className="text-xs mt-1">Reading the merchant, date and receipt details</p>
               </div>
             </div>
           )}
 
           {/* ── STEP 3: Review ───────────────────────────────────────────── */}
-          {step === "review" && extraction && (
+          {step === "review" && extraction && canSubmit && (
             <div className="flex flex-col gap-4">
-              <div className="rounded-lg border bg-muted/10 p-3 flex flex-col gap-2 text-sm">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Extracted from Receipt</p>
-                <div className="flex items-center gap-2">
-                  <StoreIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <span className="font-medium">{extraction.merchant}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CalendarIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <span>{extraction.date}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <DollarSignIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <span>${extraction.totalUsd} USD</span>
-                </div>
-                {extraction.lineItems?.length > 0 && (
-                  <ul className="ml-5 mt-1 text-xs text-muted-foreground list-disc space-y-0.5">
-                    {extraction.lineItems.map((item, i) => (
-                      <li key={i}>{item}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
+              <Card className="bg-muted/20 border-border/70 shadow-xs">
+                <CardContent className="p-4 flex flex-col gap-2.5 text-sm">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Extracted from Receipt</p>
+                  <div className="flex items-center gap-2">
+                    <StoreIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <span className="font-semibold text-foreground">{extraction.merchant}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CalendarIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-muted-foreground">{extraction.date}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <DollarSignIcon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                    <span className="font-medium text-foreground">${extraction.totalUsd} USD</span>
+                  </div>
+                  {extraction.lineItems?.length > 0 && (
+                    <ul className="ml-5 mt-1 text-xs text-muted-foreground list-disc space-y-0.5">
+                      {extraction.lineItems.map((item, i) => (
+                        <li key={i}>{item}</li>
+                      ))}
+                    </ul>
+                  )}
+                </CardContent>
+              </Card>
 
               <div className="flex flex-col gap-2">
                 <Label htmlFor="review-purpose">Expense Description</Label>
@@ -327,7 +342,7 @@ export function ReimbursementAgentDrawer({
               <div className="flex flex-col gap-2">
                 <Label htmlFor="review-amount" className="flex items-center gap-1.5">
                   <CoinsIcon className="w-3.5 h-3.5" />
-                  Amount (ETH)
+                  Claim amount ({TOKEN_SYMBOL})
                 </Label>
                 <Input
                   id="review-amount"
@@ -337,7 +352,7 @@ export function ReimbursementAgentDrawer({
                   onChange={(e) => setReviewAmountEth(e.target.value)}
                   disabled={step !== "review"}
                 />
-                <p className="text-[10px] text-muted-foreground">Estimated from ${extraction.totalUsd} USD at 1 ETH = $3,000.</p>
+                <p className="text-[10px] text-muted-foreground">Review the amount before submitting. Reimbursements are paid in testnet {TOKEN_SYMBOL}.</p>
               </div>
             </div>
           )}
@@ -347,7 +362,7 @@ export function ReimbursementAgentDrawer({
             <div className="flex flex-col items-center justify-center py-10 gap-4 text-muted-foreground">
               <LoaderCircleIcon className="w-10 h-10 animate-spin text-primary" />
               <div className="text-center">
-                <p className="font-medium text-foreground">Agent is reviewing your claim...</p>
+                <p className="font-medium text-foreground">Reviewing your reimbursement claim...</p>
                 <p className="text-xs mt-1">Checking policy compliance and sending on-chain</p>
               </div>
             </div>
@@ -355,52 +370,66 @@ export function ReimbursementAgentDrawer({
 
           {/* ── STEP: Success ────────────────────────────────────────────── */}
           {step === "success" && (
-            <div className="bg-muted/30 text-foreground p-6 rounded-md text-sm flex flex-col gap-3 items-center text-center border border-border">
-              <CheckCircleIcon className="w-12 h-12 text-primary mb-1" />
-              <h3 className="font-semibold text-lg">Reimbursement Successful</h3>
-              <p className="text-muted-foreground leading-relaxed max-w-sm">
-                {resultMessage}
-                <br /><br />
-                The funds have been transferred directly to your smart account.
-              </p>
+            <Card className="border-border/80 bg-muted/20 text-foreground text-sm shadow-xs">
+              <CardContent className="p-6 flex flex-col gap-3 items-center text-center">
+                <CheckCircleIcon className="w-12 h-12 text-primary mb-1" />
+                <h3 className="font-semibold text-lg">Reimbursement Successful</h3>
+                <p className="text-muted-foreground leading-relaxed max-w-sm">
+                  {resultMessage}
+                  <br /><br />
+                  The funds have been transferred directly to your smart account.
+                </p>
 
-              {txHash && (
-                <div className="mt-4 w-full p-3 bg-card rounded-md border border-border text-xs text-left break-all shadow-sm">
-                  <span className="font-semibold text-foreground block mb-1">Transaction Hash:</span>
-                  <a
-                    href={getTxExplorerUrl(txHash)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-primary hover:underline font-mono"
-                  >
-                    {txHash}
-                  </a>
-                </div>
-              )}
+                {txHash && (
+                  <div className="mt-4 w-full p-3 bg-card rounded-md border border-border text-xs text-left break-all shadow-sm">
+                    <span className="font-semibold text-foreground block mb-1">Transaction Hash:</span>
+                    <a
+                      href={getTxExplorerUrl(txHash)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-primary hover:underline font-mono"
+                    >
+                      {txHash}
+                    </a>
+                  </div>
+                )}
 
-              <Button variant="outline" className="mt-4" onClick={() => onOpenChange(false)}>
-                Close Window
-              </Button>
-            </div>
+                <Button variant="outline" className="mt-4" onClick={() => onOpenChange(false)}>
+                  Close Window
+                </Button>
+              </CardContent>
+            </Card>
           )}
 
           {/* ── STEP: Error ──────────────────────────────────────────────── */}
-          {step === "error" && (
-            <div className="bg-muted/30 text-foreground p-6 rounded-md text-sm flex flex-col gap-3 items-center text-center border border-border">
-              <XCircleIcon className="w-12 h-12 text-muted-foreground mb-1" />
-              <h3 className="font-semibold text-lg">Claim Rejected</h3>
-              <p className="text-muted-foreground leading-relaxed max-w-sm break-all whitespace-pre-wrap w-full">
-                {errorMessage}
-              </p>
-              <Button variant="outline" className="mt-4" onClick={() => { setStep("upload"); setErrorMessage(null); setFileBase64(null); }}>
-                Try Again
-              </Button>
-            </div>
+          {step === "error" && canSubmit && (
+            <Card className="border-border/80 bg-muted/20 text-foreground text-sm shadow-xs">
+              <CardContent className="p-6 flex flex-col gap-3 items-center text-center">
+                <XCircleIcon className="w-12 h-12 text-muted-foreground mb-1" />
+                <h3 className="font-semibold text-lg">Could not complete your claim</h3>
+                <p className="text-muted-foreground leading-relaxed max-w-sm break-all whitespace-pre-wrap w-full">
+                  {errorMessage}
+                </p>
+                <Button variant="outline" className="mt-4" onClick={() => { setStep("upload"); setErrorMessage(null); setFileBase64(null); }}>
+                  Try Again
+                </Button>
+              </CardContent>
+            </Card>
           )}
         </div>
 
+        {!canSubmit && step !== "success" && step !== "submitting" && (
+          <DrawerFooter className="max-w-lg mx-auto w-full">
+            <Button variant="outline" onClick={() => void refreshStatus()} disabled={isRefreshing}>
+              <RefreshCwIcon className="size-4 mr-2" />
+              {isRefreshing ? "Refreshing…" : "Refresh status"}
+            </Button>
+            <Button variant="ghost" onClick={() => onOpenChange(false)}>Close</Button>
+          </DrawerFooter>
+        )}
+
         {/* ── Footer Buttons ───────────────────────────────────────────── */}
-        {isEmployerActivated && (
+        {canSubmit && (
           <DrawerFooter className="border-t pt-4 max-w-lg mx-auto w-full">
             {step === "upload" && (
               <Button onClick={handleExtract} disabled={!fileBase64}>

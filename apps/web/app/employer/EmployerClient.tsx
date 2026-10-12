@@ -22,12 +22,13 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { parseEther, formatEther, type Hex } from "viem";
-import { CHAIN_ID, TOKEN_SYMBOL, getAddressExplorerUrl } from "@/lib/chain";
+import { parseEther, formatEther, parseUnits, type Hex } from "viem";
+import { CHAIN_ID, TOKEN_SYMBOL, getAddressExplorerUrl, getTxExplorerUrl, AUSD_ADDRESS, AUSD_DECIMALS, ERC20_ABI } from "@/lib/chain";
 import {
   updateCompanyPolicy,
   activateDelegation,
   createAgentDelegation,
+  prepareReimbursementBudget,
   createEmployeeDelegation,
   addEmployeeByEmail,
   getCompanyDashboardState,
@@ -46,6 +47,8 @@ import {
 import { useAuth } from "@/components/AuthProvider";
 import { DashboardFlowCanvas } from "@/components/dashboard-flow-canvas";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { ReimbursementsCard } from "@/components/reimbursements-card";
+import { isReimbursementAgent } from "@/lib/reimbursements/shared";
 import { SectionCards } from "@/components/section-cards";
 import { SmartAccountActivationButton } from "@/components/smart-account-activation-button";
 import { Badge } from "@/components/ui/badge";
@@ -102,7 +105,7 @@ type CaveatForm = {
 };
 
 const emptyCaveatForm: CaveatForm = {
-  maxAmountEth: "0.01",
+  maxAmountEth: "",
   period: "none",
   periodAmountEth: "",
   perTransactionCapEth: "",
@@ -230,24 +233,12 @@ function buildSdkCaveats(form: CaveatForm) {
 
   if (form.period !== "none") {
     caveats.push({
-      type: "nativeTokenPeriodTransfer",
-      periodAmount: parseEther(form.periodAmountEth || form.maxAmountEth),
+      type: "erc20PeriodTransfer",
+      tokenAddress: AUSD_ADDRESS,
+      periodAmount: parseUnits(form.periodAmountEth || form.maxAmountEth, AUSD_DECIMALS),
       periodDuration: periodDurations[form.period],
       startDate: Math.floor(Date.now() / 1000),
     });
-  }
-
-  if (form.perTransactionCapEth.trim()) {
-    caveats.push({
-      type: "valueLte",
-      maxValue: parseEther(form.perTransactionCapEth),
-    });
-  }
-
-  const allowedTargets = splitAddresses(form.allowedTargets) as `0x${string}`[];
-
-  if (allowedTargets.length > 0) {
-    caveats.push({ type: "allowedTargets", targets: allowedTargets });
   }
 
   if (form.limitedCallsEnabled) {
@@ -452,38 +443,71 @@ export function EmployerClient({
     : "Smart account pending";
 
   const [ethBalance, setEthBalance] = useState<string | undefined>(undefined);
+  const [isToppingUp, setIsToppingUp] = useState(false);
+
+  const fetchBalance = useCallback(async () => {
+    if (!company?.smartAccountAddress) return;
+    try {
+      const { publicClient } = await import("@/lib/client");
+      const { formatUnits } = await import("viem");
+      const balance = await publicClient.readContract({
+        address: AUSD_ADDRESS,
+        abi: ERC20_ABI,
+        functionName: "balanceOf",
+        args: [company.smartAccountAddress as `0x${string}`],
+      });
+
+      const raw = formatUnits(balance, AUSD_DECIMALS);
+      const trimmed = raw.includes(".")
+        ? raw.replace(/(\.[0-9]{1,2}?)0*$/, "$1").replace(/\.$/, "")
+        : raw;
+      setEthBalance(trimmed || "0");
+    } catch (err) {
+      console.error("Failed to fetch AUSD balance", err);
+    }
+  }, [company?.smartAccountAddress]);
 
   useEffect(() => {
-    if (!company?.smartAccountAddress) return;
-    
     let isMounted = true;
-    const fetchBalance = async () => {
-      try {
-        const { publicClient } = await import("@/lib/client");
-        const balance = await publicClient.getBalance({ 
-          address: company.smartAccountAddress as `0x${string}` 
-        });
-        
-        if (isMounted) {
-          const { formatEther } = await import("viem");
-          const raw = formatEther(balance);
-          const trimmed = raw.includes(".")
-            ? raw.replace(/(\.[0-9]{1,4}?)0*$/, "$1").replace(/\.$/, "")
-            : raw;
-          setEthBalance(trimmed || "0");
-        }
-      } catch (err) {
-        console.error("Failed to fetch balance", err);
-      }
-    };
-    
     fetchBalance();
-    const interval = setInterval(fetchBalance, 15_000);
+    const interval = setInterval(() => {
+      if (isMounted) fetchBalance();
+    }, 15_000);
     return () => {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [company?.smartAccountAddress]);
+  }, [fetchBalance]);
+
+  const handleTopUpTreasury = useCallback(async () => {
+    if (!company?.smartAccountAddress) return;
+    setIsToppingUp(true);
+    try {
+      const res = await fetch("/api/faucet/seed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipient: company.smartAccountAddress }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to top up corporate treasury");
+      }
+      toast.success("10,000 AUSD Minted to Treasury", {
+        description: `Corporate Treasury Safe funded via Agora Testnet Faucet. Confirmed Balance: ${data.balanceAUSD} AUSD`,
+        action: data.txHash ? {
+          label: "View Explorer",
+          onClick: () => window.open(getTxExplorerUrl(data.txHash), "_blank"),
+        } : undefined,
+      });
+      await fetchBalance();
+    } catch (err: any) {
+      toast.error("Top Up Failed", {
+        description: err.message || "Failed to request funds from Agora faucet",
+      });
+    } finally {
+      setIsToppingUp(false);
+    }
+  }, [company?.smartAccountAddress, fetchBalance]);
 
   // Available balance = master balance minus the sum of all *other* active delegations' limits.
   const availableBalanceEth = useMemo(() => {
@@ -529,7 +553,7 @@ export function EmployerClient({
   // Extract the configured spending allowance and remaining balance for each delegation.
   const canvasDelegations = useMemo(() => {
     if (!dashboardState) return [];
-    return dashboardState.delegations.map((delegation) => {
+    return dashboardState.delegations.filter(d => !dashboardState.agents.some(a => a.id === d.delegateeId && isReimbursementAgent(a))).map((delegation) => {
       const allowanceCaveat = delegation.caveats.find(
         (c) => c.caveatType === "nativeTokenTransferAmount",
       );
@@ -582,6 +606,38 @@ export function EmployerClient({
     [dashboardState?.delegations],
   );
 
+  const isReimbursementBudget = Boolean(selectedDelegation && dashboardState?.agents.some(
+    agent => agent.id === selectedDelegation.delegateeId && isReimbursementAgent(agent),
+  ));
+
+  const handleOpenReimbursementBudget = () => {
+    if (!currentAuthAddress || !dashboardState) return;
+    const current = dashboardState.delegations.find(d => d.id === dashboardState.reimbursement.delegationId);
+    if (current && current.status !== "revoked") {
+      handleConfigureDelegation(current.id);
+      return;
+    }
+    startTransition(async () => {
+      try {
+        const { delegation, reimbursement } = await prepareReimbursementBudget(currentAuthAddress);
+        setDashboardState(prev => {
+          if (!prev) return prev;
+          const other = prev.delegations.filter(d => d.id !== delegation.id);
+          return {
+            ...prev,
+            delegations: [...other, delegation],
+            reimbursement,
+          };
+        });
+        setSelectedDelegationId(delegation.id);
+        setCaveatForm(formFromDelegation(delegation));
+        setFormErrors({});
+      } catch (caught) {
+        toast.error(caught instanceof Error ? caught.message : "Could not prepare reimbursement setup");
+      }
+    });
+  };
+
   const handleDropEmployee = useCallback(
     (input: {
       employeeId: string;
@@ -621,8 +677,8 @@ export function EmployerClient({
           delegationId,
         });
 
-        toast.success("Delegation Revoked", {
-          description: `Spending authority for ${targetName} has been revoked on Monad Testnet.`,
+        toast.success(isReimbursementAgent(agent) ? "Reimbursement payouts stopped" : "Delegation Revoked", {
+          description: isReimbursementAgent(agent) ? "New claims cannot be paid under this reimbursement budget. Set up a new budget to resume payouts." : `Spending authority for ${targetName} has been revoked on Monad Testnet.`,
           action: targetAddress ? {
             label: "View Explorer",
             onClick: () => window.open(getAddressExplorerUrl(targetAddress), "_blank"),
@@ -699,6 +755,9 @@ export function EmployerClient({
           }
         : currentState,
     );
+    setTimeout(() => {
+      void fetchBalance();
+    }, 1500);
   };
 
   const resolveDelegateAddress = (delegation: DelegationRow) => {
@@ -765,8 +824,9 @@ export function EmployerClient({
           from: company.smartAccountAddress as Hex,
           to: resolveDelegateAddress(selectedDelegation),
           scope: {
-            type: ScopeType.NativeTokenTransferAmount,
-            maxAmount: parseEther(caveatForm.maxAmountEth),
+            type: ScopeType.Erc20TransferAmount,
+            tokenAddress: AUSD_ADDRESS,
+            maxAmount: parseUnits(caveatForm.maxAmountEth, AUSD_DECIMALS),
           },
           caveats: sdkCaveats,
         });
@@ -794,8 +854,8 @@ export function EmployerClient({
         );
         setSelectedDelegationId(null);
 
-        toast.success("Delegation Activated", {
-          description: `Assigned ${caveatForm.maxAmountEth} ${TOKEN_SYMBOL} spending limit to ${targetName} on Monad Testnet`,
+        toast.success(isReimbursementBudget ? "Reimbursement budget authorized" : "Delegation Activated", {
+          description: isReimbursementBudget ? `Employees can now submit claims against the ${caveatForm.maxAmountEth} ${TOKEN_SYMBOL} reimbursement budget.` : `Assigned ${caveatForm.maxAmountEth} ${TOKEN_SYMBOL} spending limit to ${targetName} on Monad Testnet`,
           action: {
             label: "View Explorer",
             onClick: () => window.open(getAddressExplorerUrl(delegateAddress), "_blank"),
@@ -916,13 +976,7 @@ export function EmployerClient({
       }))}
       pendingEmployees={dashboardState.pendingEmployees}
       onInviteEmployeeByEmail={handleAddEmployeeByEmail}
-      agents={dashboardState.agents
-        .filter((agent) => agent.name === "Reimbursement Agent")
-        .map((agent) => ({
-          id: agent.id,
-          name: agent.name,
-          detail: agent.description ?? "Platform AI agent",
-        }))}
+      agents={[]}
       onAddEmployee={(employeeId) =>
         runDashboardMutation(() =>
           createEmployeeDelegation({
@@ -985,6 +1039,20 @@ export function EmployerClient({
           delegatedNativeEthAllowance={
             dashboardState.summary.delegatedNativeEthAllowance
           }
+          onTopUp={handleTopUpTreasury}
+          isToppingUp={isToppingUp}
+        />
+
+        <ReimbursementsCard
+          role="employer"
+          program={dashboardState.reimbursement}
+          accountReady={Boolean(company.smartAccountAddress)}
+          busy={isPending || isRefreshing}
+          onOpen={handleOpenReimbursementBudget}
+          onRefresh={() => startRefreshTransition(async () => {
+            try { updateDashboard(await getCompanyDashboardState(currentAuthAddress as string)); }
+            catch (caught) { toast.error(caught instanceof Error ? caught.message : "Could not refresh reimbursements"); }
+          })}
         />
 
         <Tabs defaultValue="canvas" className="w-full">
@@ -1013,7 +1081,7 @@ export function EmployerClient({
                 </Button>
               }
               employees={canvasEmployees}
-              agents={dashboardState.agents.map((agent) => ({
+              agents={dashboardState.agents.filter(agent => !isReimbursementAgent(agent)).map((agent) => ({
                 id: agent.id,
                 name: agent.name,
                 smartAccountAddress: agent.smartAccountAddress,
@@ -1083,11 +1151,13 @@ export function EmployerClient({
       >
         <DrawerContent>
           <DrawerHeader>
-            <DrawerTitle>Spending Limits & Rules</DrawerTitle>
+            <DrawerTitle>{isReimbursementBudget ? "Reimbursement budget & policy" : "Spending Limits & Rules"}</DrawerTitle>
             <DrawerDescription>
-              {selectedDelegation?.status === "active" 
-                ? "These rules are currently active and enforced on-chain."
-                : "Configure exactly what this delegatee is allowed to do with the company's funds."}
+              {isReimbursementBudget
+                ? "Authorize company funds for approved employee claims. To change an active budget, stop payouts and set up a new budget."
+                : selectedDelegation?.status === "active"
+                  ? "These rules are currently active and enforced on-chain."
+                  : "Configure exactly what this delegatee is allowed to do with the company's funds."}
             </DrawerDescription>
           </DrawerHeader>
           <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-4 py-2">
@@ -1104,10 +1174,10 @@ export function EmployerClient({
 
             {/* Section 1: Overall Spending Limits */}
             <div className="flex flex-col gap-4">
-              <h4 className="text-sm font-semibold text-foreground">1. Overall Spending Limits</h4>
+              <h4 className="text-sm font-semibold text-foreground">{isReimbursementBudget ? "1. Reimbursement budget" : "1. Overall Spending Limits"}</h4>
               
               <div className="flex flex-col gap-2">
-                <Label htmlFor="max-amount">Lifetime Spending Limit ({TOKEN_SYMBOL})</Label>
+                <Label htmlFor="max-amount">{isReimbursementBudget ? "Total reimbursement budget" : "Lifetime Spending Limit"} ({TOKEN_SYMBOL})</Label>
                 <Input
                   id="max-amount"
                   value={caveatForm.maxAmountEth}
@@ -1124,7 +1194,7 @@ export function EmployerClient({
                   <p className="text-[0.8rem] text-destructive">{formErrors.maxAmountEth}</p>
                 ) : (
                   <div className="text-[0.8rem] text-muted-foreground space-y-1">
-                    <p>The absolute maximum amount of {TOKEN_SYMBOL} this delegatee can spend in total over the lifetime of this delegation.</p>
+                    <p>{isReimbursementBudget ? "The total amount available for employee claims under this authorization." : <>The absolute maximum amount of {TOKEN_SYMBOL} this delegatee can spend in total over the lifetime of this delegation.</>}</p>
                     {availableBalanceEth !== null && selectedDelegation?.status !== "active" && (
                       <p>
                         Remaining available to delegate: <span className="font-semibold text-foreground">{Number(availableBalanceEth.toFixed(4))} {TOKEN_SYMBOL}</span>
@@ -1134,35 +1204,37 @@ export function EmployerClient({
                 )}
               </div>
 
-              <div className="flex flex-col gap-2 mt-2">
-                <Label>Recurring Allowance</Label>
-                <Select
-                  value={caveatForm.period}
-                  disabled={selectedDelegation?.status === "active"}
-                  onValueChange={(period) =>
-                    setCaveatForm((form) => ({
-                      ...form,
-                      period: period as CaveatForm["period"],
-                    }))
-                  }
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem value="none">None</SelectItem>
-                      <SelectItem value="hourly">Hourly</SelectItem>
-                      <SelectItem value="daily">Daily</SelectItem>
-                      <SelectItem value="weekly">Weekly</SelectItem>
-                      <SelectItem value="monthly">Monthly</SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-                <p className="text-[0.8rem] text-muted-foreground">Automatically reset their spending limit on a recurring schedule.</p>
-              </div>
+              {!isReimbursementBudget && (
+                <div className="flex flex-col gap-2 mt-2">
+                  <Label>Recurring Allowance</Label>
+                  <Select
+                    value={caveatForm.period}
+                    disabled={selectedDelegation?.status === "active"}
+                    onValueChange={(period) =>
+                      setCaveatForm((form) => ({
+                        ...form,
+                        period: period as CaveatForm["period"],
+                      }))
+                    }
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem value="none">None</SelectItem>
+                        <SelectItem value="hourly">Hourly</SelectItem>
+                        <SelectItem value="daily">Daily</SelectItem>
+                        <SelectItem value="weekly">Weekly</SelectItem>
+                        <SelectItem value="monthly">Monthly</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[0.8rem] text-muted-foreground">Automatically reset their spending limit on a recurring schedule.</p>
+                </div>
+              )}
 
-              {caveatForm.period !== "none" && (
+              {!isReimbursementBudget && caveatForm.period !== "none" && (
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="period-amount">Allowance per Period ({TOKEN_SYMBOL})</Label>
                   <Input
@@ -1213,74 +1285,78 @@ export function EmployerClient({
                 )}
               </div>
 
-              <div className="flex flex-col gap-2 mt-2">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="limited-calls-enabled"
-                    checked={caveatForm.limitedCallsEnabled}
-                    disabled={selectedDelegation?.status === "active"}
-                    onCheckedChange={(checked) =>
-                      setCaveatForm((form) => ({
-                        ...form,
-                        limitedCallsEnabled: checked === true,
-                      }))
-                    }
-                  />
-                  <Label htmlFor="limited-calls-enabled">Limit Total Transactions</Label>
-                </div>
-                {caveatForm.limitedCallsEnabled && (
-                  <>
-                    <Input
-                      value={caveatForm.limitedCalls}
+              {!isReimbursementBudget && (
+                <div className="flex flex-col gap-2 mt-2">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="limited-calls-enabled"
+                      checked={caveatForm.limitedCallsEnabled}
                       disabled={selectedDelegation?.status === "active"}
-                      onChange={(event) =>
+                      onCheckedChange={(checked) =>
                         setCaveatForm((form) => ({
                           ...form,
-                          limitedCalls: event.target.value,
+                          limitedCallsEnabled: checked === true,
                         }))
                       }
-                      className={cn("mt-1", formErrors.limitedCalls ? "border-destructive" : "")}
                     />
-                    {formErrors.limitedCalls ? (
-                      <p className="text-[0.8rem] text-destructive">{formErrors.limitedCalls}</p>
-                    ) : (
-                      <p className="text-[0.8rem] text-muted-foreground">Restrict the delegatee to a specific number of total transactions.</p>
-                    )}
-                  </>
-                )}
-              </div>
+                    <Label htmlFor="limited-calls-enabled">Limit Total Transactions</Label>
+                  </div>
+                  {caveatForm.limitedCallsEnabled && (
+                    <>
+                      <Input
+                        value={caveatForm.limitedCalls}
+                        disabled={selectedDelegation?.status === "active"}
+                        onChange={(event) =>
+                          setCaveatForm((form) => ({
+                            ...form,
+                            limitedCalls: event.target.value,
+                          }))
+                        }
+                        className={cn("mt-1", formErrors.limitedCalls ? "border-destructive" : "")}
+                      />
+                      {formErrors.limitedCalls ? (
+                        <p className="text-[0.8rem] text-destructive">{formErrors.limitedCalls}</p>
+                      ) : (
+                        <p className="text-[0.8rem] text-muted-foreground">Restrict the delegatee to a specific number of total transactions.</p>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
             </div>
 
-            <Separator />
+            {!isReimbursementBudget && <Separator />}
 
             {/* Section 3: Target & Address Restrictions */}
-            <div className="flex flex-col gap-4">
-              <h4 className="text-sm font-semibold text-foreground">3. Address Whitelist</h4>
-              
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="targets">Permitted Addresses</Label>
-                <Input
-                  id="targets"
-                  value={caveatForm.allowedTargets}
-                  className={formErrors.allowedTargets ? "border-destructive" : ""}
-                  disabled={selectedDelegation?.status === "active"}
-                  onChange={(event) =>
-                    setCaveatForm((form) => ({
-                      ...form,
-                      allowedTargets: event.target.value,
-                    }))
-                  }
-                  placeholder="One address per line or comma-separated"
-                />
-                {formErrors.allowedTargets ? (
-                  <p className="text-[0.8rem] text-destructive">{formErrors.allowedTargets}</p>
-                ) : formErrors.allowedTargetsWarning ? (
-                  <p className="text-[0.8rem] text-amber-500">{formErrors.allowedTargetsWarning}</p>
-                ) : (
-                  <p className="text-[0.8rem] text-muted-foreground">Only allow sends to these addresses. Leave blank to allow any destination (less secure).</p>
-                )}
+            {!isReimbursementBudget && (
+              <div className="flex flex-col gap-4">
+                <h4 className="text-sm font-semibold text-foreground">3. Address Whitelist</h4>
+                
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="targets">Permitted Addresses</Label>
+                  <Input
+                    id="targets"
+                    value={caveatForm.allowedTargets}
+                    className={formErrors.allowedTargets ? "border-destructive" : ""}
+                    disabled={selectedDelegation?.status === "active"}
+                    onChange={(event) =>
+                      setCaveatForm((form) => ({
+                        ...form,
+                        allowedTargets: event.target.value,
+                      }))
+                    }
+                    placeholder="One address per line or comma-separated"
+                  />
+                  {formErrors.allowedTargets ? (
+                    <p className="text-[0.8rem] text-destructive">{formErrors.allowedTargets}</p>
+                  ) : formErrors.allowedTargetsWarning ? (
+                    <p className="text-[0.8rem] text-amber-500">{formErrors.allowedTargetsWarning}</p>
+                  ) : (
+                    <p className="text-[0.8rem] text-muted-foreground">Only allow sends to these addresses. Leave blank to allow any destination (less secure).</p>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             <Separator />
 
@@ -1289,7 +1365,7 @@ export function EmployerClient({
               <div className="flex flex-col gap-4">
                 <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
                   <BotIcon className="h-4 w-4 text-chart-5" />
-                  4. AI Policy Prompt
+                  {isReimbursementBudget ? "3. Reimbursement Policy Rules" : "4. AI Policy Prompt"}
                 </h4>
                 
                 <div className="flex flex-col gap-2">
@@ -1307,7 +1383,7 @@ export function EmployerClient({
                     placeholder="e.g. Do not reimburse alcohol. Limit meals to $50. Flights must be economy."
                     className="min-h-[100px] resize-none"
                   />
-                  <p className="text-[0.8rem] text-muted-foreground">These rules will be fed to the AI Agent to evaluate claims. The hard on-chain limits above still apply as a security net.</p>
+                  <p className="text-[0.8rem] text-muted-foreground">These additional rules are used with your company policy to assess expenses. The authorized payment limits still apply.</p>
                 </div>
               </div>
             )}
@@ -1320,16 +1396,17 @@ export function EmployerClient({
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button variant="destructive" disabled={isPending}>
-                      <BanIcon data-icon="inline-start" />
-                      Revoke delegation
+                      <BanIcon className="size-4 mr-2" />
+                      {isReimbursementBudget ? "Stop reimbursement payouts" : "Revoke delegation"}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
                       <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        This will permanently revoke this active delegation on Monad Testnet.
-                        All child AI agents under this delegation will also lose spending authority immediately.
+                        {isReimbursementBudget
+                          ? "This stops new reimbursement payouts under the current budget. Previous payments stay in your activity log. Authorize a new budget to resume payouts."
+                          : "This will permanently revoke this active delegation on Monad Testnet. All child AI agents under this delegation will also lose spending authority immediately."}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -1342,7 +1419,7 @@ export function EmployerClient({
                         }}
                         className="bg-red-600 text-white hover:bg-red-700"
                       >
-                        Yes, revoke delegation
+                        {isReimbursementBudget ? "Stop payouts" : "Yes, revoke delegation"}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -1350,11 +1427,11 @@ export function EmployerClient({
               ) : selectedDelegation?.status === "pending_config" ? (
                 <Button onClick={handleActivateDelegation} disabled={isPending}>
                   {isPending ? (
-                    <LoaderCircleIcon data-icon="inline-start" className="animate-spin" />
+                    <LoaderCircleIcon className="size-4 mr-2 animate-spin" />
                   ) : (
-                    <ShieldCheckIcon data-icon="inline-start" />
+                    <ShieldCheckIcon className="size-4 mr-2" />
                   )}
-                  Activate delegation
+                  {isReimbursementBudget ? "Authorize reimbursement budget" : "Activate delegation"}
                 </Button>
               ) : null}
             </DrawerFooter>

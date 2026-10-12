@@ -253,9 +253,9 @@ export function LandingPageClient({
               <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#999] mb-4 text-center">Every corporate card feature, enforced on-chain</p>
               <div className="rounded-xl border border-[#eaeaea] overflow-hidden">
                 {[
-                  { feature: "Per-user spending limit", impl: "nativeTokenTransferAmount — lifetime ETH cap" },
+                  { feature: "Per-user spending limit", impl: "nativeTokenTransferAmount — lifetime AUSD cap" },
                   { feature: "Monthly allowance reset", impl: "nativeTokenPeriodTransfer — resets on a schedule" },
-                  { feature: "Per-transaction cap", impl: "valueLte — maximum ETH per transaction" },
+                  { feature: "Per-transaction cap", impl: "valueLte — maximum AUSD per transaction" },
                   { feature: "Merchant restrictions", impl: "allowedTargets — whitelist of recipient addresses" },
                   { feature: "Card cancellation", impl: "Delegation revocation — instant, cascades to sub-delegations" },
                   { feature: "Virtual cards for agents", impl: "Agent delegations — scoped and revocable" },
@@ -358,7 +358,7 @@ export function LandingPageClient({
                   pattern: "Employee redelegates → Agent executes",
                   title: "Books travel within the delegated budget.",
                   body: "Submit a destination and dates. Venice proposes an itinerary within the caveat limits. Approve, and the agent pays.",
-                  venice: "Reads the request, caveat limits, and policy. Returns an itinerary with estimated ETH cost.",
+                  venice: "Reads the request, caveat limits, and policy. Returns an itinerary with estimated AUSD cost.",
                 },
                 {
                   tag: "Procurement Agent",
@@ -371,7 +371,7 @@ export function LandingPageClient({
                   tag: "Reimbursement Agent",
                   pattern: "Company delegates → Agent pays employee",
                   title: "Pays employees back for out-of-pocket expenses.",
-                  body: "Submit a description, amount, and optional receipt. Venice checks the claim. ETH transfers to the employee's wallet if it passes.",
+                  body: "Submit a description, amount, and optional receipt. Venice checks the claim. AUSD transfers to the employee's wallet if it passes.",
                   venice: "Vision model reads the receipt. Text model checks the claim against company policy.",
                 },
               ].map(({ tag, pattern, title, body, venice }) => (

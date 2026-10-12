@@ -3,9 +3,9 @@ import { db } from "@/lib/db";
 import { requireEmployeeCompany, requireSessionUser } from "@/lib/auth-guard";
 import { delegations, agentBookings, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
-import { createPublicClient, createWalletClient, http, parseEther, type Hex } from "viem";
+import { createPublicClient, createWalletClient, http, parseEther, parseUnits, encodeFunctionData, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { chain } from "@/lib/chain";
+import { chain, AUSD_ADDRESS, AUSD_DECIMALS, ERC20_ABI } from "@/lib/chain";
 import { getPimlicoGasPrice } from "@/lib/client";
 
 export async function POST(req: Request) {
@@ -133,17 +133,37 @@ export async function POST(req: Request) {
       
       const totalWei = parseEther(travelPlan.estimatedCostEth.replace(/[^0-9.]/g, ''));
       const splitWei = totalWei / BigInt(targets.length);
+      const isErc20Delegation = Boolean(
+        (delegation.signedDelegation as any)?.caveats?.some(
+          (c: any) => c.enforcer?.toLowerCase() === env.caveatEnforcers.ERC20TransferAmountEnforcer?.toLowerCase()
+        )
+      );
+
+      const totalUnits = parseUnits(travelPlan.estimatedCostEth.replace(/[^0-9.]/g, ''), AUSD_DECIMALS);
+      const splitUnits = totalUnits / BigInt(targets.length);
 
       // Chain: [employee→agent (inner), company→employee (outer)]
       const permissionContext = [delegation.signedDelegation, parentDelegation.signedDelegation];
 
-      const calls = targets.map((target: string) => ({
-        to: employee.smartAccountAddress as Hex,
-        value: splitWei,
-        data: "0x" as Hex,
-        permissionContext,
-        delegationManager: env.DelegationManager as Hex,
-      }));
+      const calls = isErc20Delegation
+        ? targets.map((target: string) => ({
+            to: AUSD_ADDRESS,
+            value: 0n,
+            data: encodeFunctionData({
+              abi: ERC20_ABI,
+              functionName: "transfer",
+              args: [employee.smartAccountAddress as Hex, splitUnits],
+            }),
+            permissionContext,
+            delegationManager: env.DelegationManager as Hex,
+          }))
+        : targets.map((target: string) => ({
+            to: employee.smartAccountAddress as Hex,
+            value: splitWei,
+            data: "0x" as Hex,
+            permissionContext,
+            delegationManager: env.DelegationManager as Hex,
+          }));
 
       const userOpHash = await bundlerClient.sendUserOperation({
         account: sa as any,

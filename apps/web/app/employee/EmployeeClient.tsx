@@ -20,7 +20,7 @@ import {
   BanIcon,
   ShieldAlertIcon,
 } from "lucide-react";
-import { formatEther, parseEther, type Hex } from "viem";
+import { formatEther, parseEther, parseUnits, encodeFunctionData, type Hex } from "viem";
 import { toast } from "sonner";
 import {
   createAgentRedelegation,
@@ -41,7 +41,9 @@ import { useAuth } from "@/components/AuthProvider";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { EmployeeSectionCards } from "@/components/employee-section-cards";
 import { EmployeeFlowCanvas } from "@/components/employee-flow-canvas";
-import { ReimbursementAgentDrawer } from "./ReimbursementAgentDrawer";
+import { ReimbursementDrawer } from "./ReimbursementDrawer";
+import { ReimbursementsCard } from "@/components/reimbursements-card";
+import { isReimbursementAgent } from "@/lib/reimbursements/shared";
 import { TravelAgentDrawer } from "./TravelAgentDrawer";
 import { ProcurementAgentDrawer } from "./ProcurementAgentDrawer";
 import { SmartAccountActivationButton } from "@/components/smart-account-activation-button";
@@ -87,7 +89,7 @@ import { publicClient, getPimlicoGasPrice } from "@/lib/client";
 import { cn } from "@/lib/utils";
 import { formatWalletAddress, generateEmployeeReferenceId } from "@/lib/wallet";
 import { useWalletClient, useSwitchChain, useBalance } from "wagmi";
-import { chain, CHAIN_ID, TOKEN_SYMBOL, getAddressExplorerUrl } from "@/lib/chain";
+import { chain, CHAIN_ID, TOKEN_SYMBOL, getAddressExplorerUrl, getTxExplorerUrl, AUSD_ADDRESS, AUSD_DECIMALS, ERC20_ABI } from "@/lib/chain";
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -229,20 +231,12 @@ function buildSdkCaveats(form: CaveatForm) {
 
   if (form.period !== "none") {
     caveats.push({
-      type: "nativeTokenPeriodTransfer",
-      periodAmount: parseEther(form.periodAmountEth || form.maxAmountEth),
+      type: "erc20PeriodTransfer",
+      tokenAddress: AUSD_ADDRESS,
+      periodAmount: parseUnits(form.periodAmountEth || form.maxAmountEth, AUSD_DECIMALS),
       periodDuration: periodDurations[form.period],
       startDate: Math.floor(Date.now() / 1000),
     });
-  }
-
-  if (form.perTransactionCapEth.trim()) {
-    caveats.push({ type: "valueLte", maxValue: parseEther(form.perTransactionCapEth) });
-  }
-
-  const allowedTargets = splitAddresses(form.allowedTargets) as `0x${string}`[];
-  if (allowedTargets.length > 0) {
-    caveats.push({ type: "allowedTargets", targets: allowedTargets });
   }
 
   if (form.limitedCallsEnabled) {
@@ -370,7 +364,7 @@ export function EmployeeClient({
   const { switchChainAsync } = useSwitchChain();
   const [error, setError] = useState<string | null>(null);
   const [selectedDelegationId, setSelectedDelegationId] = useState<string | null>(null);
-  const [caveatForm, setCaveatForm] = useState<CaveatForm>(buildEmptyCaveatForm("0.01"));
+  const [caveatForm, setCaveatForm] = useState<CaveatForm>(buildEmptyCaveatForm(""));
   const [formErrors, setFormErrors] = useState<FormErrors>({});
 
   const [smartAccountBalanceEth, setSmartAccountBalanceEth] = useState<string>("0");
@@ -383,15 +377,18 @@ export function EmployeeClient({
     const fetchBalance = async () => {
       try {
         const { publicClient } = await import("@/lib/client");
-        const balance = await publicClient.getBalance({ 
-          address: address as `0x${string}` 
+        const { formatUnits } = await import("viem");
+        const balance = await publicClient.readContract({ 
+          address: AUSD_ADDRESS,
+          abi: ERC20_ABI,
+          functionName: "balanceOf",
+          args: [address as `0x${string}`],
         });
         
         if (isMounted) {
-          const { formatEther } = await import("viem");
-          const s = formatEther(balance);
+          const s = formatUnits(balance, AUSD_DECIMALS);
           const trimmed = s.includes(".")
-            ? s.replace(/(\.\d*?[1-9])0+$/, "$1").replace(/\.0+$/, "")
+            ? s.replace(/(\.[0-9]{1,2}?)0*$/, "$1").replace(/\.$/, "")
             : s;
           setSmartAccountBalanceEth(trimmed || "0");
         }
@@ -494,13 +491,13 @@ export function EmployeeClient({
   const parentMaxEth = useMemo(() => {
     try {
       const inbound = dashboardState?.inboundDelegation;
-      if (!inbound) return "0.01";
+      if (!inbound) return "0";
       const caveat = inbound.caveats.find((c) => c.caveatType === "nativeTokenTransferAmount");
-      if (!caveat) return "0.01";
+      if (!caveat) return "0";
       const val = caveat.caveatValue as Record<string, unknown>;
       const wei = BigInt(String(val.maxAmount ?? val.amount ?? "0"));
       return weiToEthInput(wei.toString());
-    } catch { return "0.01"; }
+    } catch { return "0"; }
   }, [dashboardState?.inboundDelegation]);
 
   const availableMaxEth = useMemo(() => {
@@ -531,7 +528,7 @@ export function EmployeeClient({
   // Platform agents come from dashboardState.agents (populated by getEmployeeDashboardState).
   const sidebarAgents = useMemo(
     () =>
-      (dashboardState?.agents ?? []).map((agent) => ({
+      (dashboardState?.agents ?? []).filter(agent => !isReimbursementAgent(agent)).map((agent) => ({
         id: agent.id,
         name: agent.name,
         detail: agent.description ?? "Platform AI agent",
@@ -601,7 +598,7 @@ export function EmployeeClient({
       setError(null);
 
       const selectedAgent = dashboardState.agents.find(a => a.id === agentId);
-      if (selectedAgent?.name === "Reimbursement Agent") {
+      if (isReimbursementAgent(selectedAgent)) {
         setIsReimbursementDrawerOpen(true);
         return;
       }
@@ -671,7 +668,7 @@ export function EmployeeClient({
           setIsProcurementAgentDrawerOpen(true);
           return;
         }
-        if (agent?.name === "Reimbursement Agent") {
+        if (isReimbursementAgent(agent)) {
           setIsReimbursementDrawerOpen(true);
           return;
         }
@@ -783,8 +780,9 @@ export function EmployeeClient({
           to: agentSmartAccountAddress,
           parentDelegation: parentSignedDelegation as any,
           scope: {
-            type: ScopeType.NativeTokenTransferAmount,
-            maxAmount: parseEther(caveatForm.maxAmountEth),
+            type: ScopeType.Erc20TransferAmount,
+            tokenAddress: AUSD_ADDRESS,
+            maxAmount: parseUnits(caveatForm.maxAmountEth, AUSD_DECIMALS),
           },
           caveats: sdkCaveats,
         });
@@ -877,18 +875,40 @@ export function EmployeeClient({
       ? [dashboardState.inboundDelegation.signedDelegation] 
       : undefined;
 
+    const isErc20Delegation = Boolean(
+      (dashboardState?.inboundDelegation?.signedDelegation as any)?.caveats?.some(
+        (c: any) => c.enforcer?.toLowerCase() === env.caveatEnforcers.ERC20TransferAmountEnforcer?.toLowerCase()
+      )
+    );
+
+    const spendCall = isErc20Delegation
+      ? {
+          to: AUSD_ADDRESS,
+          value: 0n,
+          data: encodeFunctionData({
+            abi: ERC20_ABI,
+            functionName: "transfer",
+            args: [details.toAddress as Hex, parseUnits(details.amountEth, AUSD_DECIMALS)],
+          }),
+          ...(permissionContext ? {
+            permissionContext,
+            delegationManager: env.DelegationManager as Hex,
+          } : {})
+        }
+      : {
+          to: details.toAddress as Hex,
+          value: parseEther(details.amountEth),
+          data: "0x",
+          ...(permissionContext ? {
+            permissionContext,
+            delegationManager: env.DelegationManager as Hex,
+          } : {})
+        };
+
     // Send Transaction via Bundler / viem
     const userOpHash = await bundlerClient.sendUserOperation({
       account: smartAccount as any,
-      calls: [{
-        to: details.toAddress as Hex,
-        value: parseEther(details.amountEth),
-        data: "0x",
-        ...(permissionContext ? {
-          permissionContext,
-          delegationManager: env.DelegationManager as Hex,
-        } : {})
-      }] as any
+      calls: [spendCall] as any
     });
 
     const receipt = await bundlerClient.waitForUserOperationReceipt({ hash: userOpHash });
@@ -976,12 +996,17 @@ export function EmployeeClient({
       },
     });
 
+    const parsedAmount = parseUnits(details.amountEth, AUSD_DECIMALS);
     const userOpHash = await bundlerClient.sendUserOperation({
       account: smartAccount as any,
       calls: [{
-        to: details.toAddress as `0x${string}`,
-        value: parseEther(details.amountEth),
-        data: "0x",
+        to: AUSD_ADDRESS,
+        value: 0n,
+        data: encodeFunctionData({
+          abi: ERC20_ABI,
+          functionName: "transfer",
+          args: [details.toAddress as `0x${string}`, parsedAmount],
+        }),
       }] as any
     });
 
@@ -1127,6 +1152,21 @@ export function EmployeeClient({
           approvedLimitEth={summary.approvedLimitEth}
           redelegatedEth={summary.redelegatedEth}
           remainingEth={formatEthTrimmed(remainingWei)}
+        />
+
+        <ReimbursementsCard
+          role="employee"
+          program={dashboardState.reimbursement}
+          accountReady={Boolean(employee.smartAccountAddress)}
+          busy={isPending}
+          onOpen={() => {
+            setIsReimbursementDrawerOpen(true);
+            void refreshDashboard().catch(() => toast.error("Could not refresh reimbursement status"));
+          }}
+          onRefresh={() => startTransition(async () => {
+            try { await refreshDashboard(); }
+            catch { toast.error("Could not refresh reimbursement status"); }
+          })}
         />
 
         {/* Tabs for Canvas and Direct Spend */}
@@ -1470,15 +1510,14 @@ export function EmployeeClient({
       </Drawer>
 
       {dashboardState && (
-        <ReimbursementAgentDrawer
+        <ReimbursementDrawer
           isOpen={isReimbursementDrawerOpen}
           onOpenChange={setIsReimbursementDrawerOpen}
           companyId={dashboardState.company.id}
           employeeId={dashboardState.employee.id}
-          agentId={dashboardState.agents.find(a => a.name === "Reimbursement Agent")?.id || ""}
-          isEmployerActivated={dashboardState.activeCompanyAgentIds.includes(
-            dashboardState.agents.find(a => a.name === "Reimbursement Agent")?.id || ""
-          )}
+          program={dashboardState.reimbursement}
+          accountReady={Boolean(dashboardState.employee.smartAccountAddress)}
+          onRefresh={refreshDashboard}
         />
       )}
       

@@ -43,6 +43,7 @@ import {
 import { cn } from "@/lib/utils";
 import { formatWalletAddress } from "@/lib/wallet";
 import { layoutTree } from "@/lib/layoutTree";
+import { TOKEN_SYMBOL } from "@/lib/chain";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -571,7 +572,7 @@ export function DashboardFlowCanvas({
           title: company.name,
           subtitle: "Company smart account",
           address: company.smartAccountAddress ?? undefined,
-          balance: company.ethBalance !== undefined ? `${company.ethBalance} ETH` : undefined,
+          balance: company.ethBalance !== undefined ? `${company.ethBalance} ${TOKEN_SYMBOL}` : undefined,
           balanceLabel: "Balance",
           status: "root",
           kind: "master",
@@ -602,7 +603,7 @@ export function DashboardFlowCanvas({
           address: employee.smartAccountAddress ?? undefined,
           balance:
             delegation.status === "active" && delegation.allowance !== undefined
-              ? `${delegation.allowance} ETH`
+              ? `${delegation.allowance} ${TOKEN_SYMBOL}`
               : undefined,
           balanceLabel: delegation.status === "active" ? "Spending limit" : undefined,
           status: delegation.status,
@@ -637,7 +638,7 @@ export function DashboardFlowCanvas({
             address: agent.smartAccountAddress ?? undefined,
             balance:
               delegation.status === "active" && delegation.remainingEth
-                ? `${delegation.remainingEth} ETH`
+                ? `${delegation.remainingEth} ${TOKEN_SYMBOL}`
                 : undefined,
             balanceLabel: delegation.status === "active" ? "Remaining Bal" : undefined,
             status: delegation.status,

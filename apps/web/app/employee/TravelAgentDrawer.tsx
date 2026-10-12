@@ -228,7 +228,7 @@ export function TravelAgentDrawer({
               </div>
               <div className="flex justify-between items-center border-t pt-4">
                 <p className="font-semibold text-muted-foreground">Estimated Total</p>
-                <p className="font-bold text-lg">{travelPlan.estimatedCostEth} ETH</p>
+                <p className="font-bold text-lg">{travelPlan.estimatedCostEth} {TOKEN_SYMBOL}</p>
               </div>
             </div>
           ) : status === "success" ? (

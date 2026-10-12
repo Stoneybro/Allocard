@@ -130,6 +130,22 @@ export function SmartAccountActivationButton({
           smartAccountAddress: smartAccount.address,
         });
 
+        // Automatically seed newly deployed Safe with 10,000 AUSD from Agora faucet
+        try {
+          const seedRes = await fetch("/api/faucet/seed", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ recipient: smartAccount.address }),
+          });
+          if (seedRes.ok) {
+            toast.success("Treasury Seeded with $10,000 AUSD", {
+              description: "10,000 Agora USD deposited to your company Safe from the testnet faucet.",
+            });
+          }
+        } catch (seedErr) {
+          console.warn("Auto-seed notice:", seedErr);
+        }
+
         onActivated?.(result);
       } catch (caughtError) {
         const message =

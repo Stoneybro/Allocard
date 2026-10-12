@@ -3,9 +3,12 @@ import {
   ShieldCheckIcon,
   UsersRoundIcon,
   WalletIcon,
+  PlusCircleIcon,
+  Loader2,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardAction,
@@ -13,17 +16,22 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { TOKEN_SYMBOL } from "@/lib/chain";
 
 export function SectionCards({
   employeeCount,
   smartAccountBalance,
   activeDelegationCount,
   delegatedNativeEthAllowance,
+  onTopUp,
+  isToppingUp,
 }: {
   employeeCount: number;
   smartAccountBalance: string;
   activeDelegationCount: number;
   delegatedNativeEthAllowance: string;
+  onTopUp?: () => void;
+  isToppingUp?: boolean;
 }) {
   return (
     <div className="grid grid-cols-1 gap-4 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card *:data-[slot=card]:shadow-xs lg:grid-cols-4 dark:*:data-[slot=card]:bg-card">
@@ -46,24 +54,41 @@ export function SectionCards({
 
       <Card size="sm" className="@container/card">
         <CardHeader>
-          <CardDescription>Smart Account Balance</CardDescription>
+          <CardDescription>Treasury Balance</CardDescription>
           <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
-            {smartAccountBalance} ETH
+            {smartAccountBalance} {TOKEN_SYMBOL}
           </CardTitle>
           <CardAction>
-            <Badge variant="outline" className="px-1 py-0">
-              <WalletIcon className="h-3.5 w-3.5" />
-            </Badge>
+            {onTopUp ? (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-6 text-[11px] gap-1 px-2 border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10 cursor-pointer"
+                onClick={onTopUp}
+                disabled={isToppingUp}
+              >
+                {isToppingUp ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <PlusCircleIcon className="h-3 w-3" />
+                )}
+                <span>+10k {TOKEN_SYMBOL}</span>
+              </Button>
+            ) : (
+              <Badge variant="outline" className="px-1 py-0">
+                <WalletIcon className="h-3.5 w-3.5" />
+              </Badge>
+            )}
           </CardAction>
         </CardHeader>
         <p className="px-4 text-[11px] text-muted-foreground">
-          Current balance of the company smart account.
+          Corporate treasury balance on Monad Testnet.
         </p>
       </Card>
 
       <Card size="sm" className="@container/card">
         <CardHeader>
-          <CardDescription>Active delegations</CardDescription>
+          <CardDescription>Active Delegations</CardDescription>
           <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
             {activeDelegationCount}
           </CardTitle>
@@ -74,15 +99,15 @@ export function SectionCards({
           </CardAction>
         </CardHeader>
         <p className="px-4 text-[11px] text-muted-foreground">
-          Total employees and AI agents with active delegations.
+          Employees and AI agents with active allowances.
         </p>
       </Card>
 
       <Card size="sm" className="@container/card">
         <CardHeader>
-          <CardDescription>Delegated ETH</CardDescription>
+          <CardDescription>Budgeted {TOKEN_SYMBOL}</CardDescription>
           <CardTitle className="text-xl font-semibold tabular-nums @[250px]/card:text-2xl">
-            {delegatedNativeEthAllowance} ETH
+            {delegatedNativeEthAllowance} {TOKEN_SYMBOL}
           </CardTitle>
           <CardAction>
             <Badge variant="outline" className="px-1 py-0">
@@ -91,7 +116,7 @@ export function SectionCards({
           </CardAction>
         </CardHeader>
         <p className="px-4 text-[11px] text-muted-foreground">
-          Amount delegated to employees and agents.
+          Total amount budgeted to employees and agents.
         </p>
       </Card>
     </div>

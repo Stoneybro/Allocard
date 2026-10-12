@@ -20,13 +20,13 @@ import {
   CheckIcon,
   CopyIcon,
   PlaneIcon,
-  ReceiptIcon,
   Settings2Icon,
   ShoppingCartIcon,
   UserRoundIcon,
 } from "lucide-react";
 
 import type { EmployeeDashboardState } from "@/app/actions/identity";
+import { isReimbursementAgent } from "@/lib/reimbursements/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,6 +38,7 @@ import {
 import { cn } from "@/lib/utils";
 import { formatWalletAddress, generateEmployeeReferenceId } from "@/lib/wallet";
 import { layoutTree } from "@/lib/layoutTree";
+import { TOKEN_SYMBOL } from "@/lib/chain";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -120,7 +121,6 @@ function CopyAddressButton({ address, dark }: { address?: string; dark?: boolean
 function agentActionLabel(agentTitle: string): { label: string; Icon: React.ElementType } {
   if (agentTitle === "Travel Agent") return { label: "Book Trip", Icon: PlaneIcon };
   if (agentTitle === "Procurement Agent") return { label: "Procure", Icon: ShoppingCartIcon };
-  if (agentTitle === "Reimbursement Agent") return { label: "Claim", Icon: ReceiptIcon };
   return { label: "Open", Icon: BotIcon };
 }
 
@@ -347,7 +347,7 @@ export function EmployeeFlowCanvas({
           title: generateEmployeeReferenceId(employee.walletAddress),
           subtitle: `Delegated by ${company.name}`,
           address: employee.smartAccountAddress ?? undefined,
-          balance: inboundDelegation ? `${approvedLimitEth} ETH` : undefined,
+          balance: inboundDelegation ? `${approvedLimitEth} ${TOKEN_SYMBOL}` : undefined,
           balanceLabel: "Approved limit",
           status: "root",
           kind: "self",
@@ -360,6 +360,7 @@ export function EmployeeFlowCanvas({
     outboundDelegations.forEach((delegation) => {
       const agentNodeId = `agent:${delegation.id}`;
       const agent = delegation.delegateeId ? agentById.get(delegation.delegateeId) : undefined;
+      if (isReimbursementAgent(agent)) return;
 
       nextNodes.push({
         id: agentNodeId,
@@ -373,7 +374,7 @@ export function EmployeeFlowCanvas({
           address: agent?.smartAccountAddress ?? undefined,
           balance:
             delegation.status === "active" && delegation.remainingEth
-              ? `${delegation.remainingEth} ETH`
+              ? `${delegation.remainingEth} ${TOKEN_SYMBOL}`
               : undefined,
           balanceLabel: delegation.status === "active" ? "Remaining Bal" : undefined,
           status: delegation.status,

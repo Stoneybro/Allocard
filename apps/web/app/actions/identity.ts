@@ -24,6 +24,9 @@ import {
 import { withRetry } from "@/lib/db/withRetry";
 import { requireSession } from "@/lib/auth-guard";
 import { getSessionIdentity } from "@/lib/session";
+import { loadReimbursementProgram } from "@/lib/reimbursements/server";
+import { isReimbursementAgent, type ReimbursementProgram } from "@/lib/reimbursements/shared";
+import { TOKEN_SYMBOL } from "@/lib/chain";
 
 
 // ── Module-level caches (serverless-safe: each cold start resets) ───────────
@@ -159,6 +162,7 @@ export type CompanyDashboardState = {
   delegations: CompanyDelegation[];
   /** Company-wide expense policy — the single source of truth for Venice AI checks. */
   companyPolicy: string | null;
+  reimbursement: ReimbursementProgram;
   summary: {
     employeeCount: number;
     /** Number of active company → agent delegations (not total agent count). */
@@ -373,7 +377,7 @@ function parsePositiveEthToWei(value: string, fieldName: string) {
   const trimmed = value.trim();
 
   if (!/^\d+(\.\d{1,18})?$/.test(trimmed)) {
-    throw new Error(`${fieldName} must be a positive ETH amount`);
+    throw new Error(`${fieldName} must be a positive ${TOKEN_SYMBOL} amount`);
   }
 
   const [whole, fractional = ""] = trimmed.split(".");
@@ -1039,6 +1043,54 @@ export async function createAgentDelegation(input: {
   return getCompanyDashboardState(input.walletAddress);
 }
 
+/** Prepare the built-in reimbursement budget without adding a canvas node. */
+export async function prepareReimbursementBudget(walletAddress: string): Promise<{
+  delegation: CompanyDelegation;
+  reimbursement: ReimbursementProgram;
+}> {
+  await validateSessionWallet(walletAddress);
+  const profile = await getEmployerProfileOrThrow(walletAddress);
+  const { agent, delegation: existingDelegation, program } = await loadReimbursementProgram(profile.company.id);
+  if (!agent) throw new Error("Reimbursements are temporarily unavailable. Check the service configuration.");
+
+  let targetDelegation = existingDelegation && existingDelegation.status !== "revoked" ? existingDelegation : null;
+
+  if (!targetDelegation) {
+    const [inserted] = await db
+      .insert(delegations)
+      .values({
+        delegatorType: "company",
+        delegatorId: profile.company.id,
+        delegateeType: "agent",
+        delegateeId: agent.id,
+        canvasPositionX: 0,
+        canvasPositionY: 0,
+      })
+      .returning();
+    targetDelegation = inserted;
+  }
+
+  const caveats = await db
+    .select()
+    .from(delegationCaveats)
+    .where(eq(delegationCaveats.delegationId, targetDelegation.id));
+
+  const companyDelegation = toCompanyDelegation(
+    targetDelegation,
+    caveats.map(toCompanyDelegationCaveat),
+  );
+
+  const updatedProgram: ReimbursementProgram = {
+    ...program,
+    delegationId: targetDelegation.id,
+    status: targetDelegation.status === "active" && Boolean(targetDelegation.signedDelegation)
+      ? "ready"
+      : "pending",
+  };
+
+  return { delegation: companyDelegation, reimbursement: updatedProgram };
+}
+
 export async function updateDelegationPosition(input: {
   walletAddress: string;
   delegationId: string;
@@ -1493,6 +1545,7 @@ export async function getCompanyDashboardState(
     companyPolicy: company.companyPolicy,
     agents: platformAgents,
     delegations: delegationsWithCaveats,
+    reimbursement: (await loadReimbursementProgram(company.id)).program,
     summary: {
       employeeCount: companyEmployees.length,
       activeAgentCount: activeAgentDelegationCount,
@@ -1523,6 +1576,7 @@ export type EmployeeDashboardState = {
   agents: PlatformAgent[];
   /** Company-wide expense policy — passed through to Venice AI checks. */
   companyPolicy: string | null;
+  reimbursement: ReimbursementProgram;
   summary: {
     /** ETH limit approved by the company (from the inbound delegation caveats). */
     approvedLimitEth: string;
@@ -1776,6 +1830,7 @@ export async function getEmployeeDashboardState(
     outboundDelegations,
     agents: platformAgents,
     activeCompanyAgentIds,
+    reimbursement: (await loadReimbursementProgram(company.id)).program,
     summary: {
       approvedLimitEth: formatEthAllowance(approvedLimitWei),
       redelegatedEth: formatEthAllowance(redelegatedWei),
@@ -1828,7 +1883,7 @@ function validateChildCaveats(
     const childMaxWei = parsePositiveEthToWei(childCaveats.maxAmountEth, "Maximum amount");
     if (childMaxWei > parentMaxWei) {
       throw new Error(
-        `Spending limit (${formatEthAllowance(childMaxWei)} ETH) cannot exceed the parent delegation limit (${formatEthAllowance(parentMaxWei)} ETH).`,
+        `Spending limit (${formatEthAllowance(childMaxWei)} ${TOKEN_SYMBOL}) cannot exceed the parent delegation limit (${formatEthAllowance(parentMaxWei)} ${TOKEN_SYMBOL}).`,
       );
     }
   }
@@ -1849,7 +1904,7 @@ function validateChildCaveats(
       );
       if (childPeriodWei > parentPeriodWei) {
         throw new Error(
-          `Period allowance (${formatEthAllowance(childPeriodWei)} ETH) cannot exceed the parent period limit (${formatEthAllowance(parentPeriodWei)} ETH).`,
+          `Period allowance (${formatEthAllowance(childPeriodWei)} ${TOKEN_SYMBOL}) cannot exceed the parent period limit (${formatEthAllowance(parentPeriodWei)} ${TOKEN_SYMBOL}).`,
         );
       }
 
@@ -1879,7 +1934,7 @@ function validateChildCaveats(
       );
       if (childCapWei > parentCapWei) {
         throw new Error(
-          `Per-transaction cap (${formatEthAllowance(childCapWei)} ETH) cannot exceed the parent cap (${formatEthAllowance(parentCapWei)} ETH).`,
+          `Per-transaction cap (${formatEthAllowance(childCapWei)} ${TOKEN_SYMBOL}) cannot exceed the parent cap (${formatEthAllowance(parentCapWei)} ${TOKEN_SYMBOL}).`,
         );
       }
     }
@@ -2022,6 +2077,10 @@ export async function createAgentRedelegation(input: {
 
   if (!agent) {
     throw new Error("Agent not found");
+  }
+
+  if (isReimbursementAgent(agent)) {
+    throw new Error("Reimbursements use the company budget. Open Reimbursements to submit a claim.");
   }
 
   // Verify active inbound delegation exists (employee must have received authority)

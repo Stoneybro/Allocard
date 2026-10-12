@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useAuth } from "@/components/AuthProvider";
 import type { WorkspaceOption } from "@/app/actions/identity";
+import { isReimbursementAgent } from "@/lib/reimbursements/shared";
 import {
   BotIcon,
   CheckIcon,
@@ -10,7 +11,7 @@ import {
   LogOutIcon,
   MoreVerticalIcon,
   RefreshCwIcon,
-  SparklesIcon,
+  ReceiptTextIcon,
   UserPlusIcon,
   UserRoundIcon,
   WalletIcon,
@@ -288,8 +289,9 @@ function CanvasSection({
   onSelectAgent?: (agentId: string) => void;
   role?: "employer" | "employee";
 }) {
-  const displayAgents = agents.length > 0 ? agents : PLACEHOLDER_AGENTS;
-  const hasLiveAgents = agents.length > 0;
+  const spendingAgents = agents.filter(agent => !isReimbursementAgent(agent));
+  const displayAgents = spendingAgents.length > 0 ? spendingAgents : PLACEHOLDER_AGENTS;
+  const hasLiveAgents = spendingAgents.length > 0;
 
   return (
     <SidebarGroup className="flex flex-col gap-0 pt-2">
@@ -298,7 +300,7 @@ function CanvasSection({
         {role !== "employee" && (
           <Alert className="py-2 px-3 bg-muted/50">
             <AlertDescription className="text-[11px] text-muted-foreground leading-snug">
-              Drag and drop any employee or AI agent to the canvas to configure and activate a new delegation.
+              Drag an employee to the canvas to configure their spending allowance.
             </AlertDescription>
           </Alert>
         )}
@@ -400,67 +402,20 @@ function CanvasSection({
           </div>
         )}
 
-        {/* ── AI Agents ─────────────────────────────────────────────────── */}
-        {role === "employee" ? (
-          <>
-            {/* System AI Agents */}
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center justify-between px-1 mb-1">
-                <span className="flex items-center gap-1.5 text-[11px] font-medium text-foreground/70">
-                  <SparklesIcon className="size-3" />
-                  System AI Agent
-                </span>
-              </div>
-              <Alert className="py-2 px-3 bg-muted/50 mb-1">
-                <AlertDescription className="text-[11px] text-muted-foreground leading-snug">
-                  Click to open the reimbursement agent. Note: this agent cannot be dragged to the canvas.
-                </AlertDescription>
-              </Alert>
-              <div className="relative">
-                <div className="max-h-[9.5rem] overflow-y-auto rounded-md">
-                  <SidebarMenu>
-                    {displayAgents.filter(a => a.name === "Reimbursement Agent" || a.name.toLowerCase().includes("reimbursement")).map((agent) => (
-                      <SidebarMenuItem key={agent.id}>
-                        <HoverCard>
-                          <HoverCardTrigger asChild>
-                            <SidebarMenuButton
-                              id={`agent-${agent.id}`}
-                              tooltip={agent.isPlaceholder ? agent.detail : `Click to open ${agent.name}`}
-                              draggable={false}
-                              className={`h-auto py-2 ${
-                                agent.isPlaceholder
-                                  ? "cursor-default select-none opacity-50"
-                                  : "cursor-pointer"
-                              }`}
-                              onClick={
-                                !agent.isPlaceholder && onSelectAgent
-                                  ? () => onSelectAgent(agent.id)
-                                  : undefined
-                              }
-                            >
-                              <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-foreground/70">
-                                <BotIcon className="size-3" />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-[13px] font-medium leading-none">{agent.name}</p>
-                                <p className="mt-0.5 truncate text-[10px] text-muted-foreground">{agent.detail}</p>
-                              </div>
-                            </SidebarMenuButton>
-                          </HoverCardTrigger>
-                          <HoverCardContent side="right" align="start" className="w-64 z-[100]">
-                            <div className="flex flex-col gap-1.5">
-                              <h4 className="text-sm font-semibold leading-none">{agent.name}</h4>
-                              <p className="text-xs text-muted-foreground leading-relaxed">{agent.detail}</p>
-                            </div>
-                          </HoverCardContent>
-                        </HoverCard>
-                      </SidebarMenuItem>
-                    ))}
-                  </SidebarMenu>
-                </div>
-              </div>
-            </div>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton asChild tooltip="Reimbursements">
+              <a href="#reimbursements">
+                <ReceiptTextIcon />
+                <span>Reimbursements</span>
+              </a>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
 
+        {/* Spending assistants are separate from the built-in reimbursement feature. */}
+        {role === "employee" && (
+          <>
             {/* Your AI Agents */}
             <div className="flex flex-col gap-1 mt-2">
               <div className="flex items-center justify-between px-1 mb-1">
@@ -480,7 +435,7 @@ function CanvasSection({
               <div className="relative">
                 <div className="max-h-[9.5rem] overflow-y-auto rounded-md">
                   <SidebarMenu>
-                    {displayAgents.filter(a => a.name !== "Reimbursement Agent" && !a.name.toLowerCase().includes("reimbursement")).map((agent) => (
+                    {displayAgents.map((agent) => (
                       <SidebarMenuItem key={agent.id}>
                         <HoverCard>
                           <HoverCardTrigger asChild>
@@ -533,82 +488,6 @@ function CanvasSection({
               </div>
             </div>
           </>
-        ) : (
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between px-1">
-              <span className="flex items-center gap-1.5 text-[11px] font-medium text-foreground/70">
-                <SparklesIcon className="size-3" />
-                AI Agents
-              </span>
-              {!hasLiveAgents && (
-                <Badge variant="outline" className="h-4 px-1.5 text-[10px]">
-                  Coming soon
-                </Badge>
-              )}
-            </div>
-
-            <div className="relative">
-              <div className="max-h-[9.5rem] overflow-y-auto rounded-md">
-                <SidebarMenu>
-                  {displayAgents.map((agent) => (
-                    <SidebarMenuItem key={agent.id}>
-                      <HoverCard>
-                        <HoverCardTrigger asChild>
-                          <SidebarMenuButton
-                            id={`agent-${agent.id}`}
-                            tooltip={agent.isPlaceholder ? agent.detail : `Drag to canvas: ${agent.name}`}
-                            draggable={!agent.isPlaceholder}
-                            className={`h-auto py-2 ${
-                              agent.isPlaceholder
-                                ? "cursor-default select-none opacity-50"
-                                : "cursor-grab active:cursor-grabbing"
-                            }`}
-                            onDragStart={
-                              !agent.isPlaceholder
-                                ? (event) => {
-                                    event.dataTransfer.setData(
-                                      "application/allocard-agent-id",
-                                      agent.id,
-                                    );
-                                    event.dataTransfer.effectAllowed = "copy";
-                                  }
-                                : undefined
-                            }
-                          >
-                            <div className="flex size-6 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-foreground/70">
-                              <BotIcon className="size-3" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-[13px] font-medium leading-none">
-                                {agent.name}
-                              </p>
-                              <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
-                                {agent.detail}
-                              </p>
-                            </div>
-                          </SidebarMenuButton>
-                        </HoverCardTrigger>
-                        <HoverCardContent side="right" align="start" className="w-64 z-[100]">
-                          <div className="flex flex-col gap-1.5">
-                            <h4 className="text-sm font-semibold leading-none">{agent.name}</h4>
-                            <p className="text-xs text-muted-foreground leading-relaxed">{agent.detail}</p>
-                          </div>
-                        </HoverCardContent>
-                      </HoverCard>
-                      {agent.isPlaceholder && (
-                        <SidebarMenuBadge className="text-[9px] text-muted-foreground/40">
-                          planned
-                        </SidebarMenuBadge>
-                      )}
-                    </SidebarMenuItem>
-                  ))}
-                </SidebarMenu>
-              </div>
-              {displayAgents.length > 3 && (
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 rounded-b-md bg-gradient-to-t from-sidebar to-transparent" />
-              )}
-            </div>
-          </div>
         )}
       </SidebarGroupContent>
     </SidebarGroup>

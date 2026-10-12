@@ -21,7 +21,7 @@ Allocard replicates this system with improvements. Using MetaMask's delegation f
 
 Allocard takes it a step further with the use of MetaMask's redelegation. We empower employees with AI agents (powered by Venice AI and smart accounts) built for specific expenses like travel and procurement. Employees can choose an agent that fits their expense need and redelegate the funds they received from the company to that agent to sort out the expense (e.g., the agent automatically books a flight).
 
-Finally, Allocard has a fallback reimbursement agent that allows employees to get refunded if they paid for any expenses out of their own pockets. The company delegates funds to the agent's smart account, and the employee uploads their receipt. Venice AI uses its image-capable models to extract information from the receipt, and if it matches the company's policy, the employee gets refunded.
+Reimbursements are a built-in company feature with a permanent section on both dashboards. Employers authorize a shared reimbursement budget directly from that section; employees upload receipts and submit claims without adding an agent to either canvas or receiving a personal spending allowance. AI checks the receipt and claim, and the backend pays approved claims within the authorized budget. Missing setup, paused payouts, exhausted budgets and unavailable service have explicit status messages.
 
 Using MetaMask Smart Account ERC-7710 delegation, redelegation features, and Venice AI, Allocard replicates and improves on the current state of corporate expense card systems.
 
@@ -183,7 +183,7 @@ Venice reads all three together and returns a pass or reject decision with writt
 
 The agents below each call Venice at a specific point in their flow. The model used, the inputs it receives, and the decision it makes differ for each one.
 
-### Reimbursement Agent
+### Reimbursements
 
 Not every business expense can be paid in advance. Sometimes an employee pays out of their own pocket first and claims it back later. Traditional corporate card platforms handle this with a manual reimbursement flow: the employee submits a receipt, a finance team reviews it, and the company pays them back over days or weeks.
 
@@ -191,7 +191,7 @@ Allocard automates this entirely. The company creates a delegation directly to t
 
 How it works:
 
-1. The employee opens the Reimbursement Agent drawer and submits a claim: a description of the expense, the ETH amount, and an optional receipt image.
+1. The employer opens **Reimbursements → Set up reimbursement budget**, sets payment limits and authorizes the budget. Existing reimbursement delegations are reused automatically. The employee then opens **New reimbursement claim**, uploads a required receipt and reviews the claim details.
 2. If a receipt is uploaded, `openai-gpt-4o-2024-11-20` scans the image and extracts the merchant name, total amount, and date.
 3. `openai-gpt-4o-2024-11-20` reads the extracted receipt data alongside the claim description, the on-chain caveat limits, the company's expense policy, and any agent-specific rules. It returns a pass or reject decision with written reasoning.
 4. If the claim passes, the agent's backend signer redeems the company-to-agent delegation on-chain and transfers ETH directly to the employee's wallet. No finance team involved. No delay.
@@ -266,7 +266,7 @@ The root node is the employee's own smart account. It shows the employee's appro
 **What the employee can do from the canvas:**
 - Drag an agent from the sidebar and drop it onto the canvas to start a new redelegation
 - Click **Configure** on a pending agent node to set child caveats
-- Click the action button on an active agent node to open that agent's drawer (e.g. **Book Trip** for the Travel Agent, **Claim** for the Reimbursement Agent, **Procure** for the Procurement Agent)
+- Click the action button on an active agent node to open that agent's drawer (e.g. **Book Trip** for the Travel Agent, **Procure** for the Procurement Agent)
 - Click **Revoke** on any active agent node to revoke that redelegation
 
 The employee cannot see the employer's full company tree. They only see their own account and the agents they have delegated to.
@@ -337,8 +337,8 @@ The employer can now see the agent node branching from the employee node on thei
 ### Step 7: Company to Agent (Reimbursements)
 
 1. Switch back to the employer dashboard.
-2. Activate the **Reimbursement Agent** to give it a direct delegation from the company.
-3. Switch to the employee dashboard and open the Reimbursement Agent from the sidebar.
+2. In the permanent **Reimbursements** section, select **Set up reimbursement budget**, configure limits and authorize the budget. No canvas node is needed.
+3. Switch to the employee dashboard and select **New reimbursement claim** under **Reimbursements**. If setup is incomplete, use **View reimbursement status** and refresh after the employer finishes setup.
 4. Upload a receipt and submit a reimbursement claim.
 5. Venice AI validates the receipt data against company policy. If approved, the agent executes the payment automatically to the employee's wallet.
 

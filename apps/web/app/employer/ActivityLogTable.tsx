@@ -12,7 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Loader2, ExternalLink } from "lucide-react";
 import { getActivityLog, ActivityLogItem } from "@/app/actions/activity";
-import { getTxExplorerUrl } from "@/lib/chain";
+import { getTxExplorerUrl, TOKEN_SYMBOL } from "@/lib/chain";
 
 export function ActivityLogTable({ companyId }: { companyId: string }) {
   const [log, setLog] = useState<ActivityLogItem[]>([]);
@@ -78,7 +78,7 @@ export function ActivityLogTable({ companyId }: { companyId: string }) {
               <TableCell>
                 <Badge variant="outline">{item.type}</Badge>
               </TableCell>
-              <TableCell>{item.amountEth} ETH</TableCell>
+              <TableCell>{item.amountEth} {TOKEN_SYMBOL}</TableCell>
               <TableCell className="max-w-xs truncate" title={item.purpose}>
                 {item.purpose}
               </TableCell>

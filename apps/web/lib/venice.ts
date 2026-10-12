@@ -17,6 +17,7 @@
  */
 
 import type { CompanyDelegationCaveat } from "@/app/actions/identity";
+import { TOKEN_SYMBOL } from "@/lib/chain";
 
 const VENICE_BASE_URL = "https://api.venice.ai/api/v1";
 const TEXT_MODEL = "openai-gpt-4o-2024-11-20";
@@ -173,13 +174,13 @@ function caveatSummary(caveats: CompanyDelegationCaveat[]): string {
     if (c.caveatType === "nativeTokenTransferAmount") {
       const wei = BigInt(String(val.maxAmount ?? val.amount ?? "0"));
       const eth = (Number(wei) / 1e18).toFixed(6);
-      lines.push(`- Spend limit: ${eth} ETH maximum per delegation`);
+      lines.push(`- Spend limit: ${eth} ${TOKEN_SYMBOL} maximum per delegation`);
     }
     if (c.caveatType === "nativeTokenPeriodTransfer") {
       const wei = BigInt(String(val.maxAmount ?? val.amount ?? "0"));
       const eth = (Number(wei) / 1e18).toFixed(6);
       const period = String(val.period ?? "period");
-      lines.push(`- Period limit: ${eth} ETH per ${period}`);
+      lines.push(`- Period limit: ${eth} ${TOKEN_SYMBOL} per ${period}`);
     }
     if (c.caveatType === "allowedTargets") {
       const targets = Array.isArray(val.targets) ? (val.targets as string[]).join(", ") : String(val.targets ?? "");
@@ -188,7 +189,7 @@ function caveatSummary(caveats: CompanyDelegationCaveat[]): string {
     if (c.caveatType === "valueLte") {
       const wei = BigInt(String(val.maxValue ?? val.valueWei ?? "0"));
       const eth = (Number(wei) / 1e18).toFixed(6);
-      lines.push(`- Per-transaction cap: ${eth} ETH`);
+      lines.push(`- Per-transaction cap: ${eth} ${TOKEN_SYMBOL}`);
     }
     if (c.caveatType === "limitedCalls") {
       lines.push(`- Transaction call limit: ${String(val.limit ?? val.maxCalls ?? "1")}`);
@@ -309,7 +310,7 @@ IMPORTANT: When comparing numeric limits and amounts, evaluate them mathematical
 
 Employee reimbursement claim:
 - Description: ${input.claimDescription}
-- Amount requested: ${input.amountEth} ETH
+- Amount requested: ${input.amountEth} ${TOKEN_SYMBOL}
 
 Does this claim comply with the policy and limits? Respond in JSON.`;
 
@@ -336,16 +337,6 @@ Does this claim comply with the policy and limits? Respond in JSON.`;
   } catch (err) {
     console.error("[venice] checkPolicy error:", err);
     
-    // Hackathon fallback: If Venice is overloaded, simulate success so the demo isn't blocked
-    if (err instanceof Error && err.message.includes("429")) {
-      console.warn("[venice] Model overloaded (429). Using simulated fallback for demo.");
-      return {
-        approved: true,
-        reasoning: "Your claim has successfully passed the company policy check and the requested amount is within your allowed delegation limits.",
-        confidence: 0.9,
-        prompt: userPrompt,
-      };
-    }
 
     return {
       approved: false,
@@ -384,7 +375,7 @@ If the spend violates policy or lacks business context, set approved to false an
 
 Employee intended spend:
 - Purpose: ${input.purpose}
-- Amount: ${input.amountEth} ETH
+- Amount: ${input.amountEth} ${TOKEN_SYMBOL}
 
 Does this intended spend comply with the policy and limits? Respond in JSON.`;
 
@@ -446,13 +437,13 @@ export async function verifyReceipt(input: {
   const systemPrompt = `You are a receipt verification assistant for Allocard corporate spend management.
 Examine the receipt image and verify whether it matches the stated claim.
 Extract the total amount, merchant name, and date if visible.
-IMPORTANT: When comparing amounts, evaluate them mathematically as numbers. Do NOT reject claims just because of formatting differences, currency symbols, or a different number of decimal places (e.g., 0.0001 ETH is exactly equal to 0.000100 ETH).
+IMPORTANT: When comparing amounts, evaluate them mathematically as numbers. Do NOT reject claims just because of formatting differences, currency symbols, or a different number of decimal places (e.g., 100 ${TOKEN_SYMBOL} is exactly equal to 100.00 ${TOKEN_SYMBOL}).
 Return JSON with: verified (boolean), reasoning (string), confidence (number 0-1), extractedAmount (string), extractedMerchant (string), extractedDate (string).`;
 
   const userMessage = {
     role: "user",
     content: [
-      { type: "text", text: `Claim details:\n- Description: ${input.claimDescription}\n- Amount: ${input.amountEth} ETH\n\nPlease verify this receipt matches the claim.` },
+      { type: "text", text: `Claim details:\n- Description: ${input.claimDescription}\n- Amount: ${input.amountEth} ${TOKEN_SYMBOL}\n\nPlease verify this receipt matches the claim.` },
       { type: "image_url", image_url: { url: dataUri } },
     ],
   };
@@ -473,17 +464,6 @@ Return JSON with: verified (boolean), reasoning (string), confidence (number 0-1
   } catch (err) {
     console.error("[venice] verifyReceipt error:", err);
     
-    // Hackathon fallback: If Venice is overloaded, simulate success so the demo isn't blocked
-    if (err instanceof Error && err.message.includes("429")) {
-      console.warn("[venice] Model overloaded (429). Using simulated fallback for demo.");
-      return {
-        verified: true,
-        reasoning: "Your claim has successfully passed the company policy check and the requested amount is within your allowed delegation limits.",
-        confidence: 0.9,
-        extractedAmount: input.amountEth,
-        extractedMerchant: "Simulated Merchant",
-      };
-    }
 
     return {
       verified: false,
@@ -514,7 +494,7 @@ Analyze the receipt image and extract the following fields:
 - merchant: The name of the store, restaurant, or vendor
 - date: The date of the purchase (format: YYYY-MM-DD or best guess)
 - totalUsd: The final total amount in USD as a plain decimal string (e.g. "12.50"). If the currency is not USD, convert to USD.
-- estimatedEth: Convert the USD total to ETH assuming 1 ETH = 3000 USD. Return as a decimal string with up to 6 decimal places (e.g. "0.004167").
+- estimatedEth: Convert the USD total to ${TOKEN_SYMBOL} assuming 1 ${TOKEN_SYMBOL} = 1.00 USD (Agora digital dollar stablecoin). Return as a decimal string with up to 2 decimal places (e.g. "12.50").
 - suggestedPurpose: A literal and factual description of what was actually purchased based ONLY on the items in the receipt (e.g. "Playstation 5 and games", "Coffee and pastries for client meetings"). Do NOT invent or hallucinate a corporate business purpose if it is not explicitly stated.
 - lineItems: An array of item descriptions from the receipt (max 5 items, omit tax/tip lines).
 - confidence: A number 0-1 representing how confident you are in the extraction.
@@ -567,12 +547,12 @@ Return a structured JSON travel plan.`;
   const userPrompt = `Travel request:
 - Destination: ${input.destination}
 - Approximate dates: ${input.departureDateApprox} to ${input.returnDateApprox}
-- Remaining Budget: ${input.budgetEth} ETH
+- Remaining Budget: ${input.budgetEth} ${TOKEN_SYMBOL}
 ${input.employeeDescription ? `- Notes: ${input.employeeDescription}` : ""}
 
 ${policy}
 
-Select the best flight and hotel options that fit within the remaining budget and policy. You MUST reject (approved=false) if the total estimated cost exceeds the remaining budget. Estimate total cost in ETH (1 ETH ≈ $3000 for pricing reference). Return JSON.`;
+Select the best flight and hotel options that fit within the remaining budget and policy. You MUST reject (approved=false) if the total estimated cost exceeds the remaining budget. Estimate total cost in ${TOKEN_SYMBOL} (1 ${TOKEN_SYMBOL} = $1.00 USD for pricing reference). Return JSON.`;
 
   const fallback: TravelPlan = {
     approved: false,
@@ -639,7 +619,7 @@ Return structured JSON with your vendor recommendation.`;
   const userPrompt = `Procurement request:
 - Tool category: ${input.toolCategory}
 - Team size: ${input.teamSize} people
-- Remaining Budget: ${input.budgetEth} ETH per month
+- Remaining Budget: ${input.budgetEth} ${TOKEN_SYMBOL} per month
 ${input.additionalRequirements ? `- Requirements: ${input.additionalRequirements}` : ""}
 
 Existing tools already subscribed to:
@@ -647,7 +627,7 @@ ${existingToolsList}
 
 ${policy}
 
-Research the best vendor options. Check for duplicates. Select the best value option that fits within the remaining budget and policy. You MUST reject (approved=false) if the estimated monthly cost exceeds the remaining budget. Estimate monthly cost in ETH (1 ETH ≈ $3000). Return JSON.`;
+Research the best vendor options. Check for duplicates. Select the best value option that fits within the remaining budget and policy. You MUST reject (approved=false) if the estimated monthly cost exceeds the remaining budget. Estimate monthly cost in ${TOKEN_SYMBOL} (1 ${TOKEN_SYMBOL} = $1.00 USD). Return JSON.`;
 
   const fallback: VendorChoice = {
     approved: false,

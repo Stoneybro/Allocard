@@ -214,7 +214,7 @@ export function ProcurementAgentDrawer({
               </div>
               <div className="flex justify-between items-center border-t pt-4">
                 <p className="font-semibold text-muted-foreground">Estimated Monthly Cost</p>
-                <p className="font-bold text-lg">{vendorChoice.estimatedCostEth} ETH</p>
+                <p className="font-bold text-lg">{vendorChoice.estimatedCostEth} {TOKEN_SYMBOL}</p>
               </div>
             </div>
           ) : status === "success" ? (
