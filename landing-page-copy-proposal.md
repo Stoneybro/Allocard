@@ -38,7 +38,7 @@ To ensure strict compliance with the Product & Consumer Track criteria, all tech
 | Technical Mechanism | Consumer & Product Term |
 | :--- | :--- |
 | ERC-7710 Redelegation | Smart Spending Permissions / Delegated Authority |
-| ERC-4337 Account Abstraction | Company Smart Account / Corporate Treasury Vault |
+| ERC-4337 Account Abstraction | Company Smart Account / Corporate Treasury Account |
 | On-Chain Caveats (nativeTokenTransferAmount, valueLte) | Spending Limits, Per-Transaction Caps, Recurring Allowances |
 | Privy Embedded Wallets | 1-Click Google & Email Sign-In |
 | Gas Sponsorship / Paymaster | Zero Transaction Fees / Built-in Processing |
@@ -73,7 +73,7 @@ To ensure strict compliance with the Product & Consumer Track criteria, all tech
 - **Main Headline:**
   # Corporate cards without the corporate risk.
 - **Supporting Paragraph:**
-  Give your team the freedom to pay for business expenses without ever handing over company funds in advance. Allocard lets you authorize exact spending permissions while 100% of your treasury remains securely in your company vault.
+  Give your team the freedom to pay for business expenses without ever handing over company funds in advance. Allocard lets you authorize exact spending permissions while 100% of your treasury remains securely in your company account.
 - **Primary Action Button:** Sign in with Google
 - **Secondary Action Button:** View on GitHub
 - **Micro-copy below buttons:**

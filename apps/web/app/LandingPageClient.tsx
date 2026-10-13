@@ -115,7 +115,9 @@ export function LandingPageClient({
   const isBusy = isRouting;
 
   return (
-    <div className="min-h-screen bg-white text-[#111] font-sans antialiased overflow-y-auto">
+    <div className="landing landing-restored min-h-screen font-sans antialiased">
+
+      <a className="landing-skip" href="#main">Skip to content</a>
 
       {/* ── Nav ── */}
       <nav className="fixed top-0 inset-x-0 z-50 border-b border-[#eaeaea] bg-white/80 backdrop-blur-xl">
@@ -149,7 +151,7 @@ export function LandingPageClient({
         </div>
       </nav>
 
-      <main className="pt-14">
+      <main id="main" className="pt-14">
 
         {/* ── Hero ── */}
         <section id="hero" className="max-w-6xl mx-auto px-6 pt-24 pb-16 flex flex-col items-center text-center">
@@ -162,7 +164,7 @@ export function LandingPageClient({
           </h1>
 
           <p className="max-w-xl text-base sm:text-lg text-[#666] leading-relaxed mb-10">
-            Give your team the freedom to pay for business expenses without ever handing over company funds in advance. Allocard lets you authorize exact spending permissions while 100% of your treasury remains securely in your company vault.
+            Give your team the freedom to pay for business expenses without ever handing over company funds in advance. Allocard lets you authorize exact spending permissions while 100% of your treasury remains securely in your company account.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -196,8 +198,8 @@ export function LandingPageClient({
             <Image
               src="/Allocardmodelcard.png"
               alt="Allocard model card"
-              width={1200}
-              height={525}
+              width={1774}
+              height={887}
               className="w-full h-auto"
               priority
             />
