@@ -1,252 +1,228 @@
 # Allocard Landing Page Copy Proposal
 
-Status: Proposed copy for review. Designed to fit the existing layout in LandingPageClient.tsx without altering component structure or design.
+**Track:** Product & Consumer Track (Monad Metropolis)  
+**Tone:** Clean, authoritative, consumer-grade fintech.  
+**Style Guidelines:** Zero technical jargon (no crypto acronyms or blockchain plumbing in user copy), zero em-dashes, alternating white and black section hierarchy.
 
 ---
 
-## Navigation
+## Executive Summary & Visual Direction
+
+This proposal rewrites the Allocard landing page copy specifically for the **Product and Consumer Track**. 
+
+In consumer fintech, enterprise buyers and team leads do not care about ERC numbers, bundlers, or account abstraction protocols. They care about three tangible business realities:
+1. **Never sending company money upfront** to employee accounts or risky prepaid cards.
+2. **Absolute real-time control and instant revocation** over every dollar spent.
+3. **Zero manual bureaucracy** through automated AI receipt auditing and global payments.
+
+### Alternating Section Rhythm (White to Obsidian)
+To give the landing page a premier consumer finish like Apple, Linear, and Stripe, the layout alternates between crisp gallery white and deep obsidian black:
+
+```
+[ Hero Section ]                White Background (#ffffff)   - Clean, bright, model card showcase
+[ Trust & Value Strip ]         Obsidian Dark (#0c0c0c)     - High contrast credibility metrics
+[ The Problem ]                 Gallery White (#ffffff)     - Editorial clarity on corporate card flaws
+[ The Solution: Authority ]     Obsidian Dark (#0c0c0c)     - Bold contrast explaining zero pre-funding
+[ The 4 Universal Spend Rails ] Gallery White (#ffffff)     - Interactive feature cards & AI workflows
+[ The Delegation Canvas ]       Obsidian Dark (#0c0c0c)     - Dark cockpit feel for visual oversight
+[ Enterprise Sovereignty ]      Gallery White (#ffffff)     - Non-custodial security vs legacy banks
+[ Final Call to Action ]        Obsidian Dark (#0c0c0c)     - Focused, high-converting conclusion
+```
+
+---
+
+## Terminology Translation Reference
+
+To ensure strict compliance with the Product & Consumer Track criteria, all technical mechanisms are translated into intuitive product language:
+
+| Technical Mechanism | Consumer & Product Term |
+| :--- | :--- |
+| ERC-7710 Redelegation | Smart Spending Permissions / Delegated Authority |
+| ERC-4337 Account Abstraction | Company Smart Account / Corporate Treasury Vault |
+| On-Chain Caveats (nativeTokenTransferAmount, valueLte) | Spending Limits, Per-Transaction Caps, Recurring Allowances |
+| Privy Embedded Wallets | 1-Click Google & Email Sign-In |
+| Gas Sponsorship / Paymaster | Zero Transaction Fees / Built-in Processing |
+| Monad Testnet Execution | Instant Sub-Second Settlement |
+| Autonomous Agent Sub-delegation | Automated Purchasing Assistants |
+| Token Transfer (AUSD) | Corporate Dollars / Digital Dollar (1:1 USD) |
+
+---
+
+## Section-by-Section Copy Breakdown
+
+### 1. Navigation Bar
+*Pinned top navigation with glassmorphism blur.*
 
 - **Logo:** Allocard
-- **Links:** Problem · How it Works · Agents · Canvas · GitHub
-- **CTA Button:** Sign in
+- **Menu Links:**
+  - The Problem
+  - How It Works
+  - Spend Rails
+  - Live Canvas
+  - GitHub
+- **Action Button:** Sign in
+- **Behavior:** When logged in, automatically updates to "Go to Dashboard".
 
 ---
 
-## Hero Section
+### 2. Hero Section
+**Theme:** Crisp Gallery White (`#ffffff`)  
+**Visual Asset:** Model card image (`/Allocardmodelcard.png`) in a clean bordered frame.
 
-### Tag
-Monad Metropolis Hackathon · Alpha Release
+- **Eyebrow Badge:** Monad Metropolis · Product & Consumer Track
+- **Main Headline:**
+  # Corporate cards without the corporate risk.
+- **Supporting Paragraph:**
+  Give your team the freedom to pay for business expenses without ever handing over company funds in advance. Allocard lets you authorize exact spending permissions while 100% of your treasury remains securely in your company vault.
+- **Primary Action Button:** Sign in with Google
+- **Secondary Action Button:** View on GitHub
+- **Micro-copy below buttons:**
+  Free to start. Built for teams of 2 to 20,000. No seed phrases or crypto setup needed.
+- **Hero Image Container:**
+  Displays the high-resolution Allocard corporate card visual (`/Allocardmodelcard.png`) with soft drop shadows and clean borders.
 
-### Headline
-# Revolutionizing Corporate Expense Cards.
+---
 
-### Subtitle
-Build your own in-house corporate card system without relying on third-party providers. Let employees spend company funds without sending money to them in advance, and keep absolute control over how people and AI agents use your budget.
+### 3. Value & Security Strip
+**Theme:** Deep Obsidian Dark (`#0c0c0c`) with light gray badges.  
+*First contrast shift, creating a bold, premium break.*
 
-### Buttons
-- **Primary Button:** Sign in
+Five horizontal pill badges highlighting consumer peace of mind:
+1. **Zero Money Sent Upfront** (Funds stay in corporate custody until spend)
+2. **Instant 1-Click Revocation** (Cancel any employee or assistant limit immediately)
+3. **1-Click Google & Email Sign-In** (No wallets or seed phrases required)
+4. **Automated AI Receipt Auditing** (Receipts verified and matched in seconds)
+5. **Instant Global Settlements** (Zero wire fees, sub-second international transfers)
+
+---
+
+### 4. Problem Section: The Hidden Trap of Traditional Cards
+**Theme:** Crisp Gallery White (`#ffffff`)
+
+- **Eyebrow:** The Problem
+- **Headline:**
+  ### You only discover spend violations after your money is already gone.
+- **Lead Description:**
+  Traditional corporate cards from banks and fintech providers force you to choose between two bad options: handing employees broad credit lines or pre-funding cards with cash. In both cases, you lose custody, and rules are only enforced during end-of-month accounting audits.
+
+#### Three Problem Comparison Cards:
+1. **Card 1: Prepaid cards bleed cash upfront**
+   You have to transfer company funds into cards before employees can buy anything. That capital sits idle outside your control and cannot be deployed elsewhere.
+2. **Card 2: Credit limits invite surprise overspends**
+   Broad credit lines trust employees not to overspend. When an unauthorized charge or accidental software renewal happens, you only find out when the credit card bill arrives weeks later.
+3. **Card 3: External providers hold you hostage**
+   Legacy card providers charge heavy foreign exchange spreads, take days to process international wires, and can freeze your corporate account at their discretion.
+
+---
+
+### 5. How It Works: Permission Over Disbursement
+**Theme:** Deep Obsidian Dark (`#0c0c0c`)  
+*Second contrast shift to emphasize Allocard's core technological breakthrough.*
+
+- **Eyebrow:** The Core Innovation
+- **Headline:**
+  ### Authorization, not disbursement.
+- **Lead Description:**
+  Allocard completely changes how corporate funds move. Instead of sending money to an employee or card, your company keeps all funds in its primary corporate treasury. You simply grant authorized permissions that dictate exactly what can be bought, up to what amount, and on what schedule. Funds only leave your company account at the exact second a verified purchase occurs.
+
+#### Complete Spending Controls (Comparison Table / Feature List):
+- **Lifetime Spending Limits:** Set a hard ceiling on what an employee can spend over their tenure.
+- **Recurring Allowances:** Automatically reset departmental budgets weekly, monthly, or quarterly.
+- **Per-Transaction Caps:** Prevent any single checkout from exceeding approved policy limits.
+- **Approved Vendor Whitelists:** Restrict spending authority exclusively to verified vendors and service providers.
+- **Instant Revocation:** Freeze or cancel any spending permission with a single click. No phone calls to banks.
+- **Multi-Assistant Permissions:** Delegate micro-budgets to automated AI assistants that purchase software on your behalf.
+
+---
+
+### 6. The Four Universal Spend Rails
+**Theme:** Crisp Gallery White (`#ffffff`)  
+*Walks the user through how employees actually use Allocard day to day.*
+
+- **Eyebrow:** Universal Spending Rails
+- **Headline:**
+  ### Every way modern companies spend, unified in one system.
+- **Lead Description:**
+  Whether paying a local vendor, reimbursing a lunch, paying an overseas contractor, or letting an AI assistant purchase cloud servers, Allocard covers every corporate spending workflow.
+
+#### The 4 Interactive Cards:
+
+1. **Rail 1: Instant AI Reimbursements**
+   *Pattern: Employee snaps receipt · AI verifies · Instant automated payout*  
+   **Headline:** No more waiting weeks for expense reports.  
+   **Description:** Employees upload a photo of their out-of-pocket receipt. Built-in vision AI reads the merchant, totals, and line items, verifies them against your natural language company policy, and disburses the exact reimbursement in seconds.  
+   **AI Engine:** Powered by Alibaba Cloud Qwen Vision and Qwen 3.8 Max for instant policy reasoning.
+
+2. **Rail 2: Global Contractor Invoices (Agora Remittance)**
+   *Pattern: Overseas invoice · Zero wire fees · Sub-second international settlement*  
+   **Headline:** Pay global talent without $45 bank wire fees.  
+   **Description:** Settle contractor invoices across borders instantly using the Agora Digital Dollar (AUSD). Eliminates multi-day correspondent bank delays and expensive foreign transaction spreads.  
+   **Settlement:** Settles in under one second with verified invoice matching.
+
+3. **Rail 3: Automated Purchasing Assistants (DevOps Procurement)**
+   *Pattern: Scoped sub-budget · AI finds best deal · Executes checkout*  
+   **Headline:** Let AI assistants find and buy tools for your team.  
+   **Description:** Employees can assign a small portion of their authorized budget to intelligent software assistants. For example, our DevOps Procurement Agent compares cloud infrastructure and dedicated RPC plans across providers and purchases the best plan autonomously within its exact cap.  
+   **Safeguard:** Impossible for the assistant to spend a penny beyond its designated ceiling.
+
+4. **Rail 4: Direct Corporate Spend & Virtual Cards**
+   *Pattern: Direct vendor checkout · Coming soon: Physical and virtual VISA cards*  
+   **Headline:** Settle invoices directly, anywhere cards are accepted.  
+   **Description:** Employees can pay approved vendors directly from their authorized balance with optional receipt verification. Coming soon to mainnet: virtual and physical corporate VISA cards powered by MercuryOS, allowing your team to swipe at any retail counter or online checkout globally.
+
+---
+
+### 7. Visual Governance: The Live Spend Canvas
+**Theme:** Deep Obsidian Dark (`#0c0c0c`)  
+**Visual Asset:** Canvas screenshot (`/delegationCanvas.png`) with clean dark container and glowing node accents.
+
+- **Eyebrow:** Real-Time Governance
+- **Headline:**
+  ### Your entire company spend flow, visual and live.
+- **Lead Description:**
+  Forget rigid spreadsheets and fragmented accounting portals. Allocard provides a live visual canvas that maps every authorized dollar across your organization in real time.
+
+#### Visual Canvas Highlights:
+- **Treasury at the Center:** See your primary corporate account balance and all active spending branches at a glance.
+- **Team to Assistant Mapping:** Watch authorized allowances flow from your company to employees, and from employees to their automated purchasing assistants.
+- **Cascading Safety:** Revoking an employee's permission instantly terminates every assistant and micro-budget attached to them in one click.
+
+---
+
+### 8. Enterprise Sovereignty: Why Allocard is Superior
+**Theme:** Crisp Gallery White (`#ffffff`)
+
+- **Eyebrow:** Built In-House
+- **Headline:**
+  ### An in-house financial system you truly own.
+- **Lead Description:**
+  Allocard gives you the capabilities of a high-end corporate card provider without making you dependent on one.
+
+#### Three Core Advantages:
+1. **Zero Custody Risk:** Allocard never holds your funds. Everything runs directly on your company's own smart account. We cannot freeze your balance or alter your rules.
+2. **Private & Non-Intrusive AI:** Your internal company expense policies and receipts are evaluated privately with zero data retention.
+3. **Complete Transparent Audit Trail:** Every single authorization, adjustment, and payment is permanently logged with tamper-proof mathematical certainty.
+
+---
+
+### 9. Closing Call to Action
+**Theme:** Deep Obsidian Dark (`#0c0c0c`)
+
+- **Eyebrow:** Ready in two minutes. No hardware or bank setup needed.
+- **Headline:**
+  ## Take total control of your company spend today.
+- **Description:**
+  Sign in with your Google account, create your company workspace, and issue your first spending permission in under sixty seconds.
+- **Primary Button:** Sign in with Google
 - **Secondary Button:** View on GitHub
-
-### Note Below Buttons
-Alpha release on Monad Testnet with test funds. Sign in with Google or email.
-
-### Image
-Existing image: `/Allocardmodelcard.png`
+- **Footer Text:**
+  Allocard · Product & Consumer Track · Built on Monad with Agora Digital Dollar and Alibaba Cloud Qwen AI.
 
 ---
 
-## Technology and Security Strip
-
-Five badges matching the horizontal strip:
-
-1. Monad Network
-2. Smart Account Security
-3. Zero Pre-Funded Balances
-4. Private AI Policy Checks
-5. Google and Email Sign-In
-
----
-
-## Problem Section
-
-### Eyebrow
-The Problem
-
-### Headline
-### Spend violations are found after the money is gone.
-
-### Main Text
-Traditional corporate cards rely on outside banks and card issuers that require pre-funding accounts or setting broad credit lines. Employees and AI tools get access to far more money than any single purchase needs. If someone overspends or violates policy, managers only find out days later during monthly audits.
-
-### Three Problem Cards
-
-1. **Cards are pre-funded**  
-   Money is transferred or credited before the purchase happens, leaving company funds exposed if a card is lost or misused.
-
-2. **AI tools have no built-in spending limits**  
-   Handing a corporate card or wallet to an AI agent is usually a blank check. If the agent makes a mistake, nothing stops the purchase from going through.
-
-3. **You depend on third-party card providers**  
-   External card platforms manage your spending rules inside their private systems. You rely on them to enforce limits, hold your funds, and resolve disputes after issues occur.
-
----
-
-## How It Works Section
-
-### Eyebrow
-How Allocard Works
-
-### Headline
-### Delegation, not pre-loading.
-
-### Main Text
-Allocard lets you run your own in-house corporate card system. Your company keeps all funds in a single master account. Instead of wiring money to employees, you give them permission to spend up to clear limits you define. Every purchase is verified on the spot before any money leaves your account. If a transaction breaks a rule, it gets stopped immediately.
-
-### Feature Comparison Table
-
-| Corporate Card Feature | How Allocard Enforces It |
-| :--- | :--- |
-| Per-user spending limit | Lifetime budget cap set on the permission |
-| Monthly allowance reset | Spending balance that resets automatically on a calendar schedule |
-| Per-transaction cap | Maximum amount allowed for any single purchase |
-| Merchant restrictions | Approved list of recipient addresses |
-| Instant card cancellation | Revoking permission cuts off access immediately, including downstream agents |
-| Virtual cards for AI agents | Scoped permissions created for specific tasks without funding separate wallets |
-
-### Three Spending Modes
-
-1. **Company → Employee → Agent**  
-   *Redelegation: The agent buys on your behalf.*  
-   An employee passes a slice of their approved budget to an AI agent to handle travel or software purchases. The agent can only spend within that slice, and the company never sends money upfront.
-
-2. **Company → Agent → Employee**  
-   *Reimbursements: The agent pays you back.*  
-   The company authorizes a shared reimbursement budget for the agent. When an employee uploads a receipt, the agent checks the claim against company policy and sends reimbursement directly to the employee.
-
-3. **Company → Employee (Direct)**  
-   *Direct spend: Everyday company purchases.*  
-   The employee uses their permission directly to pay an approved vendor. The AI checks company expense rules before the transaction clears.
-
----
-
-## Qwen 3.8 Max AI Section
-
-### Eyebrow
-Qwen 3.8 Max AI
-
-### Headline
-### Policy checks before every transaction.
-
-### Left Column Text
-Every agent purchase passes through Qwen 3.8 Max before execution. The AI reviews the purchase against company guidelines, budget limits, and task rules. It returns an immediate approval or rejection with a clear explanation.
-
-The AI checks company policy while the account rules check the numbers. Neither can override the other. Decisions are evaluated in real time with private, zero-retention execution.
-
-### Right Column: Three Policy Checks
-
-1. **Hard Account Limits**  
-   Total budget, per-purchase caps, and approved vendor addresses.
-
-2. **Company Expense Policy**  
-   Plain-language rules you write, like hotel star ratings or software categories.
-
-3. **Task-Specific Limits**  
-   Extra boundaries added when passing a budget to an agent, like a limit on flight prices.
-
----
-
-## Agents Section
-
-### Eyebrow
-Agent System
-
-### Headline
-### Three agents. Every expense workflow covered.
-
-### Main Text
-Each agent operates with its own account and only within the permission it receives. They execute purchases independently, so you never have to wire funds to an agent or approve routine receipts manually.
-
-### Three Agent Cards
-
-1. **Travel Agent**  
-   *Pattern: Employee passes budget → Agent executes*  
-   **Books travel within your approved budget.**  
-   Enter your trip details. The agent creates an itinerary that fits your company policy and budget limits. Once approved, the agent completes the payment.  
-   *Policy check:* Reviews dates, hotel rates, and ticket classes against company travel rules.
-
-2. **Procurement Agent**  
-   *Pattern: Employee passes budget → Agent executes*  
-   **Buys software tools and checks for duplicates first.**  
-   Submit a tool request and team size. The agent checks whether your team already pays for a similar tool, selects the right tier, and buys the subscription.  
-   *Policy check:* Flags duplicate software subscriptions and enforces seat budget caps.
-
-3. **Reimbursement Agent**  
-   *Pattern: Company sets budget → Agent pays employee*  
-   **Pays employees back for out-of-pocket expenses.**  
-   Submit a receipt and a short explanation. The agent scans the receipt, verifies that the expense fits company rules, and transfers the money back to the employee right away.  
-   *Policy check:* Reads the receipt details with image models and matches the claim to company policy.
-
----
-
-## Delegation Canvas Section
-
-### Eyebrow
-Delegation Canvas
-
-### Headline
-### The full spending authority tree, at a glance.
-
-### Main Text
-See every active spending permission across your company in a visual tree. The company sits at the root, employees branch off it, and AI agents branch from employees. You have absolute control on the fly: adjust any limit in real time, or remove an employee to revoke access for all their connected agents instantly.
-
-### Image
-Existing image: `/delegationCanvas.png`
-
-### Three Canvas Highlights
-
-1. **Employer View**  
-   See everyone who holds spending permissions and edit their limits on the fly.
-
-2. **Employee View**  
-   Check your available budget and see which AI agents you have authorized.
-
-3. **Cascading Cutoff**  
-   Removing a team member revokes access for all their connected agents at the same time.
-
----
-
-## Tech Stack Section
-
-### Eyebrow
-Tech Stack
-
-### Headline
-### What it runs on.
-
-### Main Text
-Built with modern web tools, smart account standards, and private AI. Running live on the Monad test network.
-
-### Six Tech Cards
-
-1. **Next.js 15 and React 19**  
-   Application framework
-
-2. **Smart Account Delegation**  
-   Permission controls and automatic limit verification
-
-3. **Privy**  
-   Email and Google sign-in with embedded accounts
-
-4. **Neon and Drizzle**  
-   Postgres database and ORM
-
-5. **React Flow**  
-   Interactive visual spending tree
-
-6. **Monad Testnet**  
-   High-performance EVM network
-
----
-
-## Closing Call to Action
-
-### Eyebrow
-Interactive Prototype
-
-### Headline
-### See it run on Monad Testnet.
-
-### Main Text
-Sign in with Google or email. Issue a spending permission, pass a small budget to an AI agent, and watch purchases settle under rules you control.
-
-### Buttons
-- **Primary Button:** Sign in
-- **Secondary Button:** View on GitHub
-
----
-
-## Footer
-
-- **Brand:** Allocard
-- **Description:** Monad Metropolis Hackathon. Consumer Products and Payments Track. Running on Monad Testnet.
-- **Link:** GitHub
+## Technical Implementation Plan for LandingPageClient.tsx
+
+When applying this proposal to `LandingPageClient.tsx`:
+1. **Alternating Background Classes:** Apply `bg-white text-[#111]` to light sections, and `bg-[#0a0a0a] text-white border-y border-white/10` to dark sections.
+2. **Preserve Component Logic:** Retain all existing login flows, `handleConnect`, `useLogin`, routing states, image paths (`/Allocardmodelcard.png`, `/delegationCanvas.png`), and anchor IDs (`#problem`, `#how-it-works`, `#agents`, `#canvas`).
+3. **Contrast-Adaptive UI Elements:** Ensure buttons, badges, and cards automatically adapt their borders and hover states based on whether they reside in a light or dark container.
