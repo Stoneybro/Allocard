@@ -121,8 +121,12 @@ function CopyAddressButton({ address, dark }: { address?: string; dark?: boolean
 }
 
 function agentActionLabel(agentTitle: string): { label: string; Icon: React.ElementType } {
-  if (agentTitle === "DevOps Procurement Agent" || agentTitle === "Procurement Agent") {
-    return { label: "Procure Infra", Icon: CpuIcon };
+  if (
+    agentTitle === "Cloud & Tooling Agent" ||
+    agentTitle === "DevOps Procurement Agent" ||
+    agentTitle === "Procurement Agent"
+  ) {
+    return { label: "Procure Tooling", Icon: CpuIcon };
   }
   return { label: "Open", Icon: BotIcon };
 }

@@ -1,13 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { useLogin } from "@privy-io/react-auth";
 import { getWalletProfile } from "@/app/actions/identity";
+import { ArrowRight, Loader2 } from "lucide-react";
 import Image from "next/image";
 
-function routeForStatus(status: "new" | "picker" | "employer" | "employee") {
+function routeForStatus(status?: "new" | "picker" | "employer" | "employee" | null) {
   if (status === "employer") return "/employer";
   if (status === "employee") return "/employee";
   return "/onboarding";
@@ -22,81 +23,106 @@ export function LandingPageClient({
 } = {}) {
   const router = useRouter();
   const auth = useAuth();
-  const [isRouting, startRouting] = useTransition();
-  const [signingInTarget, setSigningInTarget] = useState<"nav" | "hero" | null>(null);
+  const [phase, setPhase] = useState<"idle" | "signing_in" | "routing">("idle");
+  const [activeTarget, setActiveTarget] = useState<"nav" | "hero">("hero");
+  const isFreshSignInRef = useRef(false);
   const pendingClickRef = useRef(false);
+  const isNavigatingRef = useRef(false);
 
   const isAuthenticated = Boolean(
     initialWalletAddress || auth.status === "authenticated"
   );
 
-  // Clear any legacy stuck flag from sessionStorage immediately
+  // Prefetch dashboard routes so assets are immediately available in browser cache
+  useEffect(() => {
+    router.prefetch("/employer");
+    router.prefetch("/employee");
+    router.prefetch("/onboarding");
+  }, [router]);
+
+  // Clean any legacy sessionStorage keys
   useEffect(() => {
     if (typeof window !== "undefined") {
       sessionStorage.removeItem("allocard_user_logging_in");
     }
   }, []);
 
-  const navigateToDashboard = useCallback(() => {
-    startRouting(async () => {
-      try {
-        const address = auth.status === "authenticated" ? auth.address : initialWalletAddress;
-        if (auth.status === "authenticated") {
-          await auth.establishSession();
-        }
-        if (address) {
-          const profile = await getWalletProfile(address);
-          router.push(routeForStatus(profile.status));
-          return;
-        }
-      } catch {
-        // fallback
-      }
+  const navigateToDashboard = useCallback(
+    (target: "nav" | "hero" = "hero") => {
+      if (isNavigatingRef.current) return;
+      isNavigatingRef.current = true;
+      setActiveTarget(target);
+      setPhase("routing");
+
+      // Fast-path: if initialProfileStatus was already verified by server, navigate immediately!
       if (initialProfileStatus) {
-        router.push(routeForStatus(initialProfileStatus));
+        const destination = routeForStatus(initialProfileStatus);
+        window.location.assign(destination);
         return;
       }
-      router.push("/onboarding");
-    });
-  }, [auth, initialWalletAddress, initialProfileStatus, router]);
+
+      // Dynamic path for fresh logins or newly created accounts
+      void (async () => {
+        try {
+          const address = auth.status === "authenticated" ? auth.address : initialWalletAddress;
+          if (auth.status === "authenticated") {
+            await auth.establishSession();
+          }
+          if (address) {
+            const profile = await getWalletProfile(address);
+            const destination = routeForStatus(profile.status);
+            window.location.assign(destination);
+            return;
+          }
+        } catch (err) {
+          console.warn("Dashboard routing error, falling back to onboarding:", err);
+        }
+        window.location.assign("/onboarding");
+      })();
+    },
+    [auth, initialWalletAddress, initialProfileStatus]
+  );
 
   const { login } = useLogin({
     onComplete: () => {
+      // Fresh sign-in successfully completed in Privy
+      isFreshSignInRef.current = true;
       if (auth.status === "authenticated") {
-        setSigningInTarget(null);
-        navigateToDashboard();
+        navigateToDashboard(activeTarget);
       }
     },
     onError: () => {
-      setSigningInTarget(null);
+      isFreshSignInRef.current = false;
       pendingClickRef.current = false;
+      isNavigatingRef.current = false;
+      setPhase("idle");
     },
   });
 
-  // When a user initiates sign in, auto-route as soon as their wallet & session are ready.
-  // Existing authenticated users who simply visit the landing page do NOT auto-route.
+  // Automatically route only when a user actively performs a fresh login.
+  // Existing users simply viewing or refreshing the landing page NEVER auto-route.
   useEffect(() => {
-    if (!signingInTarget) return;
+    if (!isFreshSignInRef.current) return;
 
     if (auth.status === "authenticated") {
-      setSigningInTarget(null);
-      pendingClickRef.current = false;
-      navigateToDashboard();
+      navigateToDashboard(activeTarget);
     } else if (auth.status === "unauthenticated" && pendingClickRef.current) {
       pendingClickRef.current = false;
       login();
     }
-  }, [signingInTarget, auth.status, login, navigateToDashboard]);
+  }, [auth.status, activeTarget, login, navigateToDashboard]);
 
   const handleConnect = (target: "nav" | "hero" = "hero") => {
-    if (isRouting || signingInTarget) return;
+    if (phase !== "idle") return;
 
     if (isAuthenticated) {
-      navigateToDashboard();
+      navigateToDashboard(target);
       return;
     }
 
-    setSigningInTarget(target);
+    isFreshSignInRef.current = true;
+    setActiveTarget(target);
+    setPhase("signing_in");
 
     if (auth.status === "unauthenticated") {
       login();
@@ -108,23 +134,63 @@ export function LandingPageClient({
     }
   };
 
-  const isNavSigningIn = signingInTarget === "nav";
-  const isHeroSigningIn = signingInTarget === "hero";
-  const isBusy = isRouting || Boolean(signingInTarget);
+  const isBusy = phase !== "idle";
 
-  const navButtonLabel = (() => {
-    if (isRouting && isNavSigningIn) return "Opening…";
-    if (isNavSigningIn) return "Signing in…";
-    if (isAuthenticated) return "Dashboard";
-    return "Sign in";
-  })();
+  const renderNavButtonContent = () => {
+    if (phase === "routing" && activeTarget === "nav") {
+      return (
+        <span className="inline-flex items-center gap-1.5">
+          <Loader2 className="size-3.5 animate-spin" />
+          <span>Opening…</span>
+        </span>
+      );
+    }
+    if (phase === "signing_in" && activeTarget === "nav") {
+      return (
+        <span className="inline-flex items-center gap-1.5">
+          <Loader2 className="size-3.5 animate-spin" />
+          <span>Signing in…</span>
+        </span>
+      );
+    }
+    if (isAuthenticated) {
+      return <span>Dashboard</span>;
+    }
+    return <span>Sign in</span>;
+  };
 
-  const heroButtonLabel = (() => {
-    if (isRouting && isHeroSigningIn) return "Opening dashboard…";
-    if (isHeroSigningIn) return "Signing in…";
-    if (isAuthenticated) return "Go to Dashboard";
-    return "Get Started";
-  })();
+  const renderHeroButtonContent = () => {
+    if (phase === "routing") {
+      return (
+        <span className="inline-flex items-center justify-center gap-2">
+          <Loader2 className="size-4 animate-spin text-white" />
+          <span>Going to dashboard…</span>
+        </span>
+      );
+    }
+    if (phase === "signing_in") {
+      return (
+        <span className="inline-flex items-center justify-center gap-2">
+          <Loader2 className="size-4 animate-spin text-white" />
+          <span>Signing in…</span>
+        </span>
+      );
+    }
+    if (isAuthenticated) {
+      return (
+        <span className="inline-flex items-center justify-center gap-2">
+          <span>Go to Dashboard</span>
+          <ArrowRight className="size-4" />
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center justify-center gap-2">
+        <span>Get Started</span>
+        <ArrowRight className="size-4" />
+      </span>
+    );
+  };
 
   return (
     <div className="landing landing-restored min-h-screen font-sans antialiased">
@@ -156,13 +222,13 @@ export function LandingPageClient({
             id="nav-cta"
             onClick={() => handleConnect("nav")}
             disabled={isBusy}
-            className={`h-8 px-4 rounded-md text-sm font-medium transition-colors disabled:opacity-40 cursor-pointer ${
+            className={`h-8 px-4 rounded-md text-sm font-medium transition-colors disabled:opacity-50 cursor-pointer ${
               isAuthenticated
                 ? "bg-[#111] text-white hover:bg-[#333]"
                 : "border border-[#eaeaea] bg-white text-[#111] hover:bg-[#f7f7f7] hover:border-[#ccc]"
             }`}
           >
-            {navButtonLabel}
+            {renderNavButtonContent()}
           </button>
         </div>
       </nav>
@@ -188,9 +254,9 @@ export function LandingPageClient({
               id="hero-try-demo"
               onClick={() => handleConnect("hero")}
               disabled={isBusy}
-              className="h-10 px-6 rounded-md bg-[#111] text-white text-sm font-medium hover:bg-[#333] transition-colors disabled:opacity-40 cursor-pointer shadow-xs"
+              className="h-10 px-6 rounded-md bg-[#111] text-white text-sm font-medium hover:bg-[#333] transition-colors disabled:opacity-60 cursor-pointer shadow-xs min-w-[170px]"
             >
-              {heroButtonLabel}
+              {renderHeroButtonContent()}
             </button>
             <a
               id="hero-view-github"
@@ -341,10 +407,10 @@ export function LandingPageClient({
                   engine: "Settles in under one second with automated invoice item verification.",
                 },
                 {
-                  tag: "Automated Purchasing Assistants",
-                  pattern: "Scoped micro-budget · AI finds deal · Executes checkout",
+                  tag: "Cloud & Tooling Agent",
+                  pattern: "Scoped micro-budget · AI scours plans · Autonomous procurement",
                   title: "Let AI assistants find and buy tools for your team.",
-                  body: "Employees can assign a small portion of their authorized budget to intelligent software assistants. For example, our DevOps Procurement Agent compares cloud infrastructure and dedicated RPC plans across providers and purchases the best plan autonomously within its exact cap.",
+                  body: "Employees can assign a small portion of their authorized budget to intelligent software assistants. For example, our Cloud & Tooling Agent compares cloud infrastructure and dedicated RPC plans across providers and purchases the best plan autonomously within its exact cap.",
                   engine: "Safeguarded by mathematical limits: impossible for the assistant to spend beyond its ceiling.",
                 },
                 {
@@ -480,9 +546,9 @@ export function LandingPageClient({
                 id="closing-try-demo"
                 onClick={() => handleConnect("hero")}
                 disabled={isBusy}
-                className="h-10 px-6 rounded-md bg-[#111] text-white text-sm font-medium hover:bg-[#333] transition-colors disabled:opacity-40 cursor-pointer shadow-xs"
+                className="h-10 px-6 rounded-md bg-[#111] text-white text-sm font-medium hover:bg-[#333] transition-colors disabled:opacity-60 cursor-pointer shadow-xs min-w-[170px]"
               >
-                {heroButtonLabel}
+                {renderHeroButtonContent()}
               </button>
               <a
                 id="closing-view-github"

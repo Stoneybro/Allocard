@@ -79,28 +79,27 @@
   - Switch to the **Employee Dashboard** (`/employee`).
   - Show the top cards: Approved Limit (200 AUSD), Delegated to Agents (50 AUSD), Remaining Available (150 AUSD).
   - Scroll down to the main tabs: click on the **"Autonomous AI Agents"** tab.
-  - Point out the **DevOps Procurement Agent** card showing status *"Authorized on Monad"* with its 50 AUSD sub-allowance.
-  - Click **"Launch Agent"**.
-  - The **DevOps Procurement Agent Drawer** opens up:
-    - Click the category filter pill: **"RPC Nodes"**.
-    - Click the **Chainstack** merchant card.
-    - Select the **Developer Plan (15 AUSD)**.
-    - In the project context field, type: *"Dedicated RPC endpoint for Monad testnet deployment."*
-    - Click the button: **"Approve & Procure Developer Plan (15 AUSD)"**.
+  - Point out the **Cloud & Tooling Agent** card showing status *"Authorized on Monad"* with its sub-allowance.
+  - Click **"Procure Tooling"**.
+  - The **Cloud & Tooling Agent Drawer** opens up:
+    - Click a quick preset pill (e.g. *"Dedicated Monad RPC"*) or type: *"Dedicated Monad RPC with WebSocket support for our frontend under $100 AUSD."*
+    - Click **"Scour Ecosystem & Compare Plans"**.
+    - Watch the agent evaluate Chainstack, Crouton Digital, Ack3 AI, and Envio, then present the optimal plan (**Chainstack Developer Monad Node @ 50 AUSD**) with clear technical reasoning and alternatives compared.
+    - Click the button: **"Approve & Procure Developer Monad Node (50 AUSD)"**.
     - Watch the button state change to: *"Executing On-Chain Purchase on Monad..."* with a live spinner.
-    - Success screen appears: green checkmark, *"Infrastructure Successfully Procured!"*, provisioned API Endpoint credential displayed with copy button, and a live link to the Monad Explorer transaction.
+    - Success screen appears: checkmark, *"Infrastructure Successfully Procured!"*, provisioned API Endpoint credential displayed with copy button, and a live link to the Monad Explorer transaction.
 - **Voiceover:**
-  > "Here is something no traditional corporate card can do: empowering autonomous AI agents.
+  > "Here is something no traditional corporate card can do: empowering autonomous AI agents to procure tools for your team.
   > 
-  > On the Employee Dashboard, we switch to the Autonomous AI Agents tab. Here is our DevOps Procurement Agent. We granted it a fifty dollar sub-allowance from our budget.
+  > On the Employee Dashboard, we have our Cloud & Tooling Agent. We granted it a spending sub-allowance from our budget.
   > 
-  > Let us click Launch Agent. Say our engineering team needs a dedicated RPC node. In the drawer, we filter by RPC Nodes, choose Chainstack, pick the Developer Plan for fifteen dollars, and add our project note.
+  > Let us click Procure Tooling. Say our engineering team needs a dedicated RPC node with WebSocket streaming. We simply tell the agent what we need or click a preset.
   > 
-  > Now we click Approve and Procure.
+  > The agent scours live Monad ecosystem sponsors—comparing Chainstack, Crouton, Ack3, and Envio—and recommends the best plan for our price with transparent technical reasoning.
   > 
-  > The agent checks our company policy, validates the merchant address, and executes the purchase on Monad. In just two seconds, the infrastructure is paid for directly from the company treasury, and our live API credentials appear right on screen.
+  > When we click Approve and Procure, the agent executes the purchase on Monad. In just two seconds, the infrastructure is paid for directly from the company treasury, and our live API credentials appear right on screen.
   > 
-  > The agent can never spend more than its fifty dollar cap, and if it attempts an unauthorized purchase, the blockchain rejects it automatically."
+  > The agent can never spend more than its assigned cap, and if it attempts an unauthorized purchase, the blockchain rejects it automatically."
 
 ---
 

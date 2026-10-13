@@ -45,6 +45,7 @@ import {
 } from "@/components/auth-state";
 import { useAuth } from "@/components/AuthProvider";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { type SidebarAgent } from "@/components/app-sidebar";
 import { EmployeeSectionCards } from "@/components/employee-section-cards";
 import { ReimbursementDrawer } from "./ReimbursementDrawer";
 import { ReimbursementsCard } from "@/components/reimbursements-card";
@@ -95,7 +96,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { DirectSpendForm } from "./DirectSpendForm";
 import { createHybridSmartAccount } from "@/lib/smartAccount";
@@ -502,25 +502,68 @@ export function EmployeeClient({
   // EmployeeDashboardState, but the sidebar will use company agents once Phase 6
   // adds the catalog. For now we pass an empty array (placeholder agents show).
   // Platform agents come from dashboardState.agents (populated by getEmployeeDashboardState).
-  const sidebarAgents = useMemo(
-    () =>
-      (dashboardState?.agents ?? [])
-        .filter(agent => !isReimbursementAgent(agent) && !isAgoraAgent(agent))
-        .map((agent) => ({
+  const sidebarAgents = useMemo((): SidebarAgent[] => {
+    if (!dashboardState) return [];
+
+    // 1. Live platform agents from database (excluding built-in dashboard card services)
+    const liveAgents: SidebarAgent[] = (dashboardState.agents ?? [])
+      .filter((agent) => !isReimbursementAgent(agent) && !isAgoraAgent(agent))
+      .map((agent) => {
+        const delegation = dashboardState.outboundDelegations.find(
+          (d) => d.delegateeId === agent.id && d.status !== "revoked"
+        );
+        const isActive = delegation?.status === "active";
+
+        return {
           id: agent.id,
           name: agent.name,
           detail: agent.description ?? "Platform AI agent",
-        })),
-    [dashboardState?.agents],
-  );
+          isPlaceholder: false,
+          status: isActive ? "active" : "ready",
+        };
+      });
 
-  const platformAgents = useMemo(
-    () =>
-      (dashboardState?.agents ?? []).filter(
-        (agent) => !isReimbursementAgent(agent) && !isAgoraAgent(agent),
-      ),
-    [dashboardState?.agents],
-  );
+    // 2. Inactive / Catalog Preview Agents
+    const inactiveAgents: SidebarAgent[] = [
+      {
+        id: "placeholder-travel-concierge",
+        name: "Travel Concierge",
+        detail: "Autonomous corporate flight & hotel booking",
+        isPlaceholder: true,
+        status: "coming_soon",
+      },
+      {
+        id: "placeholder-saas-subscription",
+        name: "SaaS Subscription Agent",
+        detail: "License seats & API quota renewals",
+        isPlaceholder: true,
+        status: "coming_soon",
+      },
+      {
+        id: "placeholder-expense-reviewer",
+        name: "Expense Reviewer",
+        detail: "Flags out-of-policy spend automatically",
+        isPlaceholder: true,
+        status: "coming_soon",
+      },
+      {
+        id: "placeholder-budget-guard",
+        name: "Budget Guard",
+        detail: "Enforces period budgets across delegations",
+        isPlaceholder: true,
+        status: "coming_soon",
+      },
+      {
+        id: "placeholder-approval-bot",
+        name: "Approval Bot",
+        detail: "Routes high-value spend to the right approver",
+        isPlaceholder: true,
+        status: "coming_soon",
+      },
+    ];
+
+    return [...liveAgents, ...inactiveAgents];
+  }, [dashboardState]);
 
   // ── Handlers ───────────────────────────────────────────────────────────────
 
@@ -586,7 +629,11 @@ export function EmployeeClient({
       // For active agent delegations, open the agent-specific drawer
       if (delegation?.status === "active" && delegation.delegateeId) {
         const agent = dashboardState?.agents.find(a => a.id === delegation.delegateeId);
-        if (agent?.name === "DevOps Procurement Agent" || agent?.name === "Procurement Agent") {
+        if (
+          agent?.name === "Cloud & Tooling Agent" ||
+          agent?.name === "DevOps Procurement Agent" ||
+          agent?.name === "Procurement Agent"
+        ) {
           if (!dashboardState?.inboundDelegation || dashboardState.inboundDelegation.status !== "active") {
             toast.warning("No Spending Allowance Delegated", {
               description:
@@ -1139,284 +1186,15 @@ export function EmployeeClient({
           />
         </div>
 
-        {/* Main Workspaces: Autonomous Agents & Direct Spend */}
-        <Tabs defaultValue="agents" className="w-full">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-            <TabsList className="bg-muted/60 p-1 border border-border/60">
-              <TabsTrigger value="agents" className="gap-2 text-xs">
-                <BotIcon className="size-3.5" />
-                Autonomous AI Agents
-                {platformAgents.length > 0 && (
-                  <Badge variant="secondary" className="ml-1 px-1.5 py-0 text-[10px] font-mono">
-                    {platformAgents.length}
-                  </Badge>
-                )}
-              </TabsTrigger>
-              <TabsTrigger value="direct-spend" className="gap-2 text-xs">
-                <ShieldCheckIcon className="size-3.5" />
-                Direct Corporate Spend
-              </TabsTrigger>
-            </TabsList>
-
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => void refreshDashboard()}
-              disabled={isPending}
-              className="text-xs h-8"
-            >
-              {isPending ? "Refreshing..." : "Refresh"}
-            </Button>
-          </div>
-
-          <TabsContent value="agents" className="mt-0 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">Assigned AI Agents & Spending Tools</h3>
-                <p className="text-xs text-muted-foreground">
-                  Autonomous agents authorized to spend within your strict delegation rules.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {platformAgents.map((agent) => {
-                const delegation = dashboardState.outboundDelegations.find(
-                  (d) => d.delegateeId === agent.id && d.status !== "revoked"
-                );
-                const limitCaveat = delegation?.caveats.find(
-                  (c) => c.caveatType === "nativeTokenTransferAmount"
-                );
-                const limitAmountEth = limitCaveat
-                  ? formatEthTrimmed(
-                      BigInt(
-                        String(
-                          (limitCaveat.caveatValue as any)?.maxAmount ??
-                            (limitCaveat.caveatValue as any)?.amount ??
-                            "0"
-                        )
-                      )
-                    )
-                  : "0";
-
-                const isDevOps =
-                  agent.name.toLowerCase().includes("devops") ||
-                  agent.name.toLowerCase().includes("procurement");
-
-                return (
-                  <Card key={agent.id} className="border-border/80 bg-card shadow-xs flex flex-col justify-between">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2.5">
-                          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border/80 bg-muted/60 text-foreground">
-                            <BotIcon className="size-4" />
-                          </div>
-                          <div>
-                            <CardTitle className="text-sm font-semibold text-foreground">
-                              {agent.name}
-                            </CardTitle>
-                            <CardDescription className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                              {agent.description || "Autonomous platform agent"}
-                            </CardDescription>
-                          </div>
-                        </div>
-                        <Badge
-                          variant={
-                            delegation?.status === "active"
-                              ? "secondary"
-                              : delegation?.status === "pending_config"
-                                ? "outline"
-                                : "outline"
-                          }
-                          className={cn(
-                            "text-[10px] font-mono shrink-0",
-                            !delegation && "text-muted-foreground border-dashed"
-                          )}
-                        >
-                          {delegation?.status === "active"
-                            ? "Active"
-                            : delegation?.status === "pending_config"
-                              ? "Pending Rules"
-                              : "Unallocated"}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-
-                    <CardContent className="pb-4 flex flex-col gap-3">
-                      <div className="rounded-md border border-border/60 bg-muted/30 p-2.5 text-xs flex flex-col gap-1.5 font-mono">
-                        <div className="flex items-center justify-between text-muted-foreground">
-                          <span className="font-sans">Assigned Allowance:</span>
-                          <span className="font-semibold text-foreground">
-                            {delegation?.status === "active" ? `${limitAmountEth} ${TOKEN_SYMBOL}` : `0 ${TOKEN_SYMBOL}`}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-muted-foreground">
-                          <span className="font-sans">Status:</span>
-                          <span className="text-[11px] text-foreground">
-                            {delegation?.status === "active"
-                              ? "Authorized on Monad"
-                              : delegation?.status === "pending_config"
-                                ? "Awaiting Rule Setup"
-                                : "No Budget Assigned"}
-                          </span>
-                        </div>
-                      </div>
-                    </CardContent>
-
-                    <CardFooter className="pt-0 flex items-center gap-2 border-t border-border/40 pt-3">
-                      {delegation?.status === "active" ? (
-                        <>
-                          {isDevOps && (
-                            <Button
-                              size="sm"
-                              className="flex-1 text-xs"
-                              onClick={() => {
-                                setActiveProcurementDelegationId(delegation.id);
-                                setIsProcurementAgentDrawerOpen(true);
-                              }}
-                            >
-                              Launch Agent
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className={cn("text-xs", !isDevOps && "flex-1")}
-                            onClick={() => handleConfigureDelegation(delegation.id)}
-                          >
-                            Rules
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                className="text-xs text-muted-foreground hover:text-destructive px-2"
-                              >
-                                <BanIcon className="size-3.5" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Revoke Agent Spending Authority?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This will revoke spending permissions for {agent.name}. The agent will no longer be able to execute purchases.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleRevokeDelegation(delegation.id)}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                >
-                                  Revoke Authority
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </>
-                      ) : delegation?.status === "pending_config" ? (
-                        <Button
-                          size="sm"
-                          className="w-full text-xs"
-                          onClick={() => handleConfigureDelegation(delegation.id)}
-                        >
-                          Configure Spending Rules
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full text-xs"
-                          onClick={() => handleSelectAgent(agent.id)}
-                        >
-                          Allocate Spending Budget
-                        </Button>
-                      )}
-                    </CardFooter>
-                  </Card>
-                );
-              })}
-
-              {/* Catalog Preview Agents (Coming Soon) */}
-              <Card className="border-dashed border-border/70 bg-muted/15 shadow-none flex flex-col justify-between opacity-80">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/30 text-muted-foreground">
-                        <PlaneIcon className="size-4" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-sm font-semibold text-foreground/80">
-                          Travel Concierge Agent
-                        </CardTitle>
-                        <CardDescription className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                          Autonomous corporate flight & hotel booking
-                        </CardDescription>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground border-border/70">
-                      Coming Soon
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="pb-4">
-                  <div className="rounded-md border border-dashed border-border/60 bg-muted/20 p-2.5 text-xs text-muted-foreground">
-                    Automates corporate travel arrangements with automatic per-diem policy compliance and receipt ledger integration.
-                  </div>
-                </CardContent>
-                <CardFooter className="pt-0 border-t border-border/40 pt-3">
-                  <Button size="sm" variant="ghost" disabled className="w-full text-xs text-muted-foreground cursor-not-allowed">
-                    In Development
-                  </Button>
-                </CardFooter>
-              </Card>
-
-              <Card className="border-dashed border-border/70 bg-muted/15 shadow-none flex flex-col justify-between opacity-80">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/30 text-muted-foreground">
-                        <ShoppingCartIcon className="size-4" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-sm font-semibold text-foreground/80">
-                          SaaS Subscription Agent
-                        </CardTitle>
-                        <CardDescription className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                          License seats & API quota renewals
-                        </CardDescription>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="text-[10px] font-mono text-muted-foreground border-border/70">
-                      Coming Soon
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="pb-4">
-                  <div className="rounded-md border border-dashed border-border/60 bg-muted/20 p-2.5 text-xs text-muted-foreground">
-                    Monitors monthly SaaS tool renewals, detects unused team seats, and caps recurring vendor charges.
-                  </div>
-                </CardContent>
-                <CardFooter className="pt-0 border-t border-border/40 pt-3">
-                  <Button size="sm" variant="ghost" disabled className="w-full text-xs text-muted-foreground cursor-not-allowed">
-                    In Development
-                  </Button>
-                </CardFooter>
-              </Card>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="direct-spend" className="mt-0">
-            <DirectSpendForm 
-              delegationId={dashboardState.inboundDelegation?.id || ""} 
-              remainingBalanceEth={formatEthTrimmed(remainingWei)}
-              onExecute={handleExecuteSpend}
-              onVerifyReceipt={handleVerifyReceipt}
-            />
-          </TabsContent>
-        </Tabs>
+        {/* Direct Spend Workspace */}
+        <div className="w-full">
+          <DirectSpendForm 
+            delegationId={dashboardState.inboundDelegation?.id || ""} 
+            remainingBalanceEth={formatEthTrimmed(remainingWei)}
+            onExecute={handleExecuteSpend}
+            onVerifyReceipt={handleVerifyReceipt}
+          />
+        </div>
       </div>
 
       {/* ── Caveat Configuration Drawer (Tasks 5 & 6) ──────────────────────── */}
@@ -1738,7 +1516,10 @@ export function EmployeeClient({
           company={dashboardState.company}
           agentId={
             dashboardState.agents.find(
-              (a) => a.name === "DevOps Procurement Agent" || a.name === "Procurement Agent",
+              (a) =>
+                a.name === "Cloud & Tooling Agent" ||
+                a.name === "DevOps Procurement Agent" ||
+                a.name === "Procurement Agent",
             )?.id || ""
           }
           delegationId={activeProcurementDelegationId}

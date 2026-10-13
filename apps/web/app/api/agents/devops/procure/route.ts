@@ -198,7 +198,7 @@ export async function POST(req: Request) {
       amountEth: plan.priceAusd.toString(),
       txHash: txHash || "pending",
       venicePrompt: `Procure ${merchant.name} - ${plan.name} for ${plan.priceAusd} AUSD`,
-      veniceReasoning: `Approved under Engineering & DevOps budget delegation. Verified merchant ${merchant.name}.`,
+      veniceReasoning: `Approved under Cloud & Tooling budget delegation. Verified merchant ${merchant.name}.`,
       veniceConfidence: 1.0,
     });
 

@@ -590,3 +590,223 @@ Research the best vendor options. Check for duplicates. Select the best value op
     return { ...fallback, reasoning: `Vendor research failed: ${err instanceof Error ? err.message : String(err)}` };
   }
 }
+
+// ---------------------------------------------------------------------------
+// 5. researchDevOpsProcurement — Scour Monad Ecosystem Sponsors for best plan
+// ---------------------------------------------------------------------------
+
+export type DevOpsRecommendation = {
+  approved: boolean;
+  recommendedMerchantId: string;
+  recommendedPlanId: string;
+  headline: string;
+  reasoning: string;
+  alternativesCompared: Array<{
+    merchantName: string;
+    planName: string;
+    priceAusd: number;
+    reasonNotChosen: string;
+  }>;
+  confidence: number;
+  estimatedPriceAusd: number;
+  prompt: string;
+};
+
+export async function researchDevOpsProcurement(input: {
+  prompt: string;
+  budgetAusd: number;
+  targetBudgetAusd?: number | null;
+  caveats?: CompanyDelegationCaveat[];
+  companyPolicy?: string | null;
+}): Promise<DevOpsRecommendation> {
+  const { SPONSOR_MERCHANTS, getSponsorMerchant, getPlan } = await import("@/lib/merchants");
+
+  const catalogSummary = SPONSOR_MERCHANTS.map((m) => ({
+    id: m.id,
+    name: m.name,
+    category: m.category,
+    categoryLabel: m.categoryLabel,
+    tagline: m.tagline,
+    plans: m.plans.map((p) => ({
+      id: p.id,
+      name: p.name,
+      priceAusd: p.priceAusd,
+      cadence: p.cadence,
+      description: p.description,
+      features: p.features,
+    })),
+  }));
+
+  const userReq = input.prompt.trim() || "Dedicated Monad RPC endpoint with high throughput";
+  const effectiveMax = input.targetBudgetAusd && input.targetBudgetAusd > 0
+    ? Math.min(input.targetBudgetAusd, input.budgetAusd)
+    : input.budgetAusd;
+
+  // Robust deterministic fallback
+  const fallback = (): DevOpsRecommendation => {
+    const lower = userReq.toLowerCase();
+    let bestMerchantId = "chainstack";
+    let bestPlanId = "chainstack-dev";
+    let headline = "Recommended: Chainstack Developer Monad Node";
+    let reasoning = "Matches your Monad RPC requirements with WebSocket streaming and high reliability within your budget allowance.";
+    const alternatives: Array<{ merchantName: string; planName: string; priceAusd: number; reasonNotChosen: string }> = [];
+
+    if (lower.includes("security") || lower.includes("audit") || lower.includes("reentrancy") || lower.includes("vulnerability") || lower.includes("scan")) {
+      if (effectiveMax >= 250 && (lower.includes("full") || lower.includes("comprehensive") || lower.includes("deep"))) {
+        bestMerchantId = "ack3";
+        bestPlanId = "ack3-full-audit";
+        headline = "Recommended: Ack3 Comprehensive Security Audit";
+        reasoning = "Provides deep static analysis, formal bytecode verification, and compliance certification for mission-critical deployments.";
+        alternatives.push({
+          merchantName: "Ack3 AI",
+          planName: "Automated Vulnerability Scan",
+          priceAusd: 100,
+          reasonNotChosen: "Standard scan does not include full repository fuzzing and manual review certification.",
+        });
+      } else {
+        bestMerchantId = "ack3";
+        bestPlanId = "ack3-vuln-scan";
+        headline = "Recommended: Ack3 Automated Vulnerability Scan";
+        reasoning = "Performs automated pre-deployment security scanning and delegation caveat checks within your budget.";
+        alternatives.push({
+          merchantName: "Ack3 AI",
+          planName: "Comprehensive Pre-Mainnet Audit",
+          priceAusd: 250,
+          reasonNotChosen: "Higher price point exceeds your target budget allocation.",
+        });
+      }
+    } else if (lower.includes("index") || lower.includes("graphql") || lower.includes("hypersync") || lower.includes("event") || lower.includes("subgraph")) {
+      bestMerchantId = "envio";
+      bestPlanId = "envio-hypersync";
+      headline = "Recommended: Envio HyperSync Starter Cluster";
+      reasoning = "Indexes Monad blocks and contract events up to 1000x faster than standard RPCs with a dedicated GraphQL endpoint.";
+      alternatives.push({
+        merchantName: "Chainstack",
+        planName: "Developer Monad Node",
+        priceAusd: 50,
+        reasonNotChosen: "Standard RPC node does not provide automated event schema querying or custom GraphQL APIs.",
+      });
+    } else if (lower.includes("throughput") || lower.includes("bot") || lower.includes("streaming") || lower.includes("peering") || lower.includes("unlimited")) {
+      if (effectiveMax >= 120) {
+        bestMerchantId = "crouton";
+        bestPlanId = "crouton-highspeed";
+        headline = "Recommended: Crouton Digital High-Throughput RPC Stream";
+        reasoning = "Direct P2P peering and sub-50ms latency stream designed specifically for automated trading pipelines and high-volume requests.";
+        alternatives.push({
+          merchantName: "Chainstack",
+          planName: "Developer Monad Node",
+          priceAusd: 50,
+          reasonNotChosen: "Standard node has a 50 RPS burst cap, which may bottleneck high-frequency streaming.",
+        });
+      } else {
+        bestMerchantId = "chainstack";
+        bestPlanId = "chainstack-dev";
+        headline = "Recommended: Chainstack Developer Monad Node";
+        reasoning = "Solid entrypoint with 500K daily requests and WebSocket support fitting cleanly under your budget limit.";
+      }
+    } else {
+      if (effectiveMax >= 150 && (lower.includes("pro") || lower.includes("production") || lower.includes("dedicated"))) {
+        bestMerchantId = "chainstack";
+        bestPlanId = "chainstack-pro";
+        headline = "Recommended: Chainstack Pro Dedicated RPC";
+        reasoning = "Dedicated compute unit with zero rate limits and priority Monad mempool routing.";
+        alternatives.push({
+          merchantName: "Chainstack",
+          planName: "Developer Monad Node",
+          priceAusd: 50,
+          reasonNotChosen: "Shared burst cap limits potential production scale.",
+        });
+      } else {
+        bestMerchantId = "chainstack";
+        bestPlanId = "chainstack-dev";
+        headline = "Recommended: Chainstack Developer Monad Node";
+        reasoning = "Best value option offering 500K daily requests, WebSocket streaming, and sub-second block streaming.";
+        alternatives.push({
+          merchantName: "Crouton Digital",
+          planName: "High-Throughput RPC Stream",
+          priceAusd: 120,
+          reasonNotChosen: "Priced higher than required for standard testing and development workloads.",
+        });
+      }
+    }
+
+    const planObj = getPlan(bestMerchantId, bestPlanId);
+    return {
+      approved: true,
+      recommendedMerchantId: bestMerchantId,
+      recommendedPlanId: bestPlanId,
+      headline,
+      reasoning,
+      alternativesCompared: alternatives,
+      confidence: 0.92,
+      estimatedPriceAusd: planObj?.priceAusd || 50,
+      prompt: userReq,
+    };
+  };
+
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    return fallback();
+  }
+
+  const systemPrompt = `You are the Allocard Autonomous Cloud & Tooling Agent on Monad.
+Your task is to analyze an engineering team's cloud infrastructure, RPC, security, or developer tooling requirements and scour the available Monad ecosystem sponsors (Chainstack, Crouton Digital, Ack3 AI, Envio) to recommend the best plan for their technical needs and budget.
+
+Available Sponsor Catalog:
+${JSON.stringify(catalogSummary, null, 2)}
+
+Budget Constraints:
+- Remaining Delegated Allowance: ${input.budgetAusd} AUSD
+- Target Price: ${input.targetBudgetAusd ? `${input.targetBudgetAusd} AUSD` : "Flexible within allowance"}
+
+Rules:
+1. The selected plan's priceAusd MUST NOT exceed the remaining delegated allowance (${input.budgetAusd} AUSD).
+2. If target price is specified, prioritize options closest to or below target price while fulfilling requirements.
+3. Select the best matching merchant and plan.
+4. Give a concise headline (e.g. "Recommended: Chainstack Developer Monad Node ($50 AUSD)").
+5. Provide detailed technical reasoning explaining why this plan satisfies the user's requirements.
+6. Compare 1-2 alternatives that were considered and explain why they were not selected (alternativesCompared).
+7. Return ONLY valid JSON matching this schema:
+{
+  "approved": boolean,
+  "recommendedMerchantId": string,
+  "recommendedPlanId": string,
+  "headline": string,
+  "reasoning": string,
+  "alternativesCompared": [
+    {
+      "merchantName": string,
+      "planName": string,
+      "priceAusd": number,
+      "reasonNotChosen": string
+    }
+  ],
+  "confidence": number,
+  "estimatedPriceAusd": number
+}`;
+
+  try {
+    const result = await qwenChat<Omit<DevOpsRecommendation, "prompt">>({
+      model: TEXT_MODEL,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Engineering Request: ${userReq}` },
+      ],
+    });
+
+    // Validate that merchant and plan actually exist in our catalog
+    const verifiedPlan = getPlan(result.recommendedMerchantId, result.recommendedPlanId);
+    if (!verifiedPlan) {
+      return fallback();
+    }
+
+    return {
+      ...result,
+      prompt: userReq,
+      estimatedPriceAusd: verifiedPlan.priceAusd,
+    };
+  } catch (err) {
+    console.error("[qwen] researchDevOpsProcurement error, using fallback:", err);
+    return fallback();
+  }
+}

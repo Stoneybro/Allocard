@@ -84,6 +84,7 @@ export type SidebarAgent = {
   name: string;
   detail: string;
   isPlaceholder?: boolean;
+  status?: "active" | "ready" | "coming_soon";
 };
 
 // ---------------------------------------------------------------------------
@@ -92,22 +93,39 @@ export type SidebarAgent = {
 
 const PLACEHOLDER_AGENTS: SidebarAgent[] = [
   {
+    id: "placeholder-travel-concierge",
+    name: "Travel Concierge",
+    detail: "Autonomous corporate flight & hotel booking",
+    isPlaceholder: true,
+    status: "coming_soon",
+  },
+  {
+    id: "placeholder-saas-subscription",
+    name: "SaaS Subscription Agent",
+    detail: "License seats & API quota renewals",
+    isPlaceholder: true,
+    status: "coming_soon",
+  },
+  {
     id: "placeholder-expense-reviewer",
     name: "Expense Reviewer",
     detail: "Flags out-of-policy spend automatically",
     isPlaceholder: true,
+    status: "coming_soon",
   },
   {
     id: "placeholder-budget-guard",
     name: "Budget Guard",
     detail: "Enforces period budgets across delegations",
     isPlaceholder: true,
+    status: "coming_soon",
   },
   {
     id: "placeholder-approval-bot",
     name: "Approval Bot",
     detail: "Routes high-value spend to the right approver",
     isPlaceholder: true,
+    status: "coming_soon",
   },
 ];
 
@@ -291,9 +309,8 @@ function CanvasSection({
   onSelectAgent?: (agentId: string) => void;
   role?: "employer" | "employee";
 }) {
-  const spendingAgents = agents.filter(agent => !isReimbursementAgent(agent) && !isAgoraAgent(agent));
-  const displayAgents = spendingAgents.length > 0 ? spendingAgents : PLACEHOLDER_AGENTS;
-  const hasLiveAgents = spendingAgents.length > 0;
+  const displayAgents = agents.length > 0 ? agents : PLACEHOLDER_AGENTS;
+  const hasLiveAgents = displayAgents.some((a) => !a.isPlaceholder);
 
   return (
     <SidebarGroup className="flex flex-col gap-0 pt-2">
@@ -420,47 +437,30 @@ function CanvasSection({
                 </AlertDescription>
               </Alert>
               <div className="relative">
-                <div className="max-h-[14rem] overflow-y-auto space-y-1.5 pr-0.5">
+                <div className="max-h-[22rem] overflow-y-auto space-y-1.5 pr-0.5">
                   {displayAgents.map((agent) => (
                     <HoverCard key={agent.id}>
                       <HoverCardTrigger asChild>
                         <div
                           id={`agent-${agent.id}`}
-                          draggable={!agent.isPlaceholder}
                           onClick={
                             !agent.isPlaceholder && onSelectAgent
                               ? () => onSelectAgent(agent.id)
                               : undefined
                           }
-                          onDragStart={
-                            !agent.isPlaceholder
-                              ? (event) => {
-                                  event.dataTransfer.setData(
-                                    "application/allocard-agent-id",
-                                    agent.id,
-                                  );
-                                  event.dataTransfer.effectAllowed = "copy";
-                                }
-                              : undefined
-                          }
                           className={`group relative flex items-center gap-2 rounded-lg border p-2 shadow-2xs transition-all duration-150 select-none ${
                             agent.isPlaceholder
-                              ? "border-dashed border-border/50 bg-muted/20 opacity-55 cursor-default"
-                              : "border-border/80 bg-card/80 hover:border-primary/50 hover:bg-accent/60 hover:shadow-xs cursor-grab active:cursor-grabbing"
+                              ? "border-dashed border-border/50 bg-muted/20 opacity-60 cursor-default"
+                              : "border-border/80 bg-card/80 hover:border-primary/50 hover:bg-accent/60 hover:shadow-xs cursor-pointer active:scale-[0.99]"
                           }`}
                         >
-                          {!agent.isPlaceholder ? (
-                            <div className="flex items-center text-muted-foreground/35 group-hover:text-muted-foreground transition-colors">
-                              <GripVertical className="size-3.5" />
-                            </div>
-                          ) : (
-                            <div className="w-1" />
-                          )}
                           <div
                             className={`flex size-7 shrink-0 items-center justify-center rounded-md border transition-colors ${
                               agent.isPlaceholder
                                 ? "border-border/50 bg-muted/40 text-muted-foreground/50"
-                                : "border-border bg-muted/80 text-foreground/80 group-hover:border-primary/40 group-hover:bg-primary/10 group-hover:text-primary"
+                                : agent.status === "active"
+                                  ? "border-primary/30 bg-primary/10 text-primary"
+                                  : "border-border bg-muted/80 text-foreground/80 group-hover:border-primary/40 group-hover:bg-primary/10 group-hover:text-primary"
                             }`}
                           >
                             <BotIcon className="size-3.5" />
@@ -477,10 +477,14 @@ function CanvasSection({
                             <Badge variant="outline" className="h-4 px-1 text-[9px] text-muted-foreground/60 border-border/60">
                               planned
                             </Badge>
+                          ) : agent.status === "active" ? (
+                            <Badge variant="secondary" className="h-4 px-1.5 text-[9px] font-mono">
+                              active
+                            </Badge>
                           ) : (
-                            <div className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground/40 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
-                              <PlusIcon className="size-3.5" />
-                            </div>
+                            <Badge variant="outline" className="h-4 px-1.5 text-[9px] font-mono text-muted-foreground">
+                              ready
+                            </Badge>
                           )}
                         </div>
                       </HoverCardTrigger>
@@ -493,7 +497,7 @@ function CanvasSection({
                           <p className="text-xs text-muted-foreground leading-relaxed">{agent.detail}</p>
                           {!agent.isPlaceholder && (
                             <p className="text-[10px] text-primary/80 font-medium pt-1 border-t border-border/50">
-                              Drag or click to add delegation to canvas
+                              Click to configure rules or open agent drawer
                             </p>
                           )}
                         </div>

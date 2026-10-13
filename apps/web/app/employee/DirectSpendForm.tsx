@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { parseUserOpError } from "@/lib/error-parser";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle, CheckCircle2, Loader2, UploadCloud, ShieldAlert } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, UploadCloud, ShieldAlert, ShieldCheck } from "lucide-react";
 import { parseEther } from "viem";
 import { getTxExplorerUrl, TOKEN_SYMBOL } from "@/lib/chain";
 import { toast } from "sonner";
@@ -180,12 +180,12 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
               </Alert>
             )}
 
-            {/* Audit & Flagging Policy Threat Banner */}
+            {/* Onchain Caveat Enforcement & Compliance Note */}
             <Alert className="border-border/80 bg-muted/40 py-2.5">
-              <ShieldAlert className="h-4 w-4 text-foreground" />
-              <AlertTitle className="text-xs font-semibold text-foreground">Post-Spend Compliance Audit</AlertTitle>
+              <ShieldCheck className="h-4 w-4 text-foreground" />
+              <AlertTitle className="text-xs font-semibold text-foreground">Enforced Onchain Caveats</AlertTitle>
               <AlertDescription className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                Receipt upload is optional, but all transactions are logged on-chain. Expenses without matching receipts or violating company guidelines are automatically flagged for employer review.
+                Payments are cryptographically restricted by your company&apos;s onchain caveats (per-transaction caps, period allowances, and recipient restrictions). Any transfer exceeding these limits reverts automatically on Monad. Receipt upload is optional for automated AI compliance verification.
               </AlertDescription>
             </Alert>
 

@@ -94,10 +94,10 @@ export function HelpModal() {
               <AccordionTrigger className="text-base font-semibold hover:no-underline">4. Employee: Redelegate to an Agent</AccordionTrigger>
               <AccordionContent className="text-muted-foreground pt-2 pb-4">
                 <ol className="list-decimal pl-5 space-y-2.5">
-                  <li>Drag the <strong>DevOps Procurement Agent</strong> from the sidebar to the canvas.</li>
+                  <li>Click the <strong>Cloud & Tooling Agent</strong> from the sidebar to assign a spending allowance.</li>
                   <li>Click <strong>Configure</strong> and set child spending limits in AUSD.</li>
                   <li>Click <strong>Sign and Activate Delegation</strong>.</li>
-                  <li>Click <strong>Procure Infra</strong> on the active agent and choose from verified Monad providers (Chainstack, Crouton, Ack3, Envio).</li>
+                  <li>Click <strong>Procure Tooling</strong> on the active agent. Prompt what your team needs or browse verified Monad sponsors (Chainstack, Crouton, Ack3, Envio).</li>
                   <li>The agent executes autonomously on Monad Testnet, delivering provisioned credentials directly to you.</li>
                 </ol>
               </AccordionContent>
