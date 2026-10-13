@@ -7,11 +7,10 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { parseUserOpError } from "@/lib/error-parser";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle, CheckCircle2, Loader2, UploadCloud, ArrowRight, ExternalLink } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, UploadCloud, ShieldAlert } from "lucide-react";
 import { parseEther } from "viem";
 import { getTxExplorerUrl, TOKEN_SYMBOL } from "@/lib/chain";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,100 +20,85 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
 type Props = {
   delegationId: string;
   remainingBalanceEth: string;
-  onExecute: (details: { toAddress: string; amountEth: string; purpose: string; isFlagged: boolean }) => Promise<string>;
+  onExecute: (details: { toAddress: string; amountEth: string; purpose?: string; isFlagged?: boolean }) => Promise<string>;
   onVerifyReceipt: (txHash: string, imageBase64: string) => Promise<any>;
 };
 
 export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, onVerifyReceipt }: Props) {
-  const [step, setStep] = useState<"input" | "review" | "receipt" | "done">("input");
+  const [step, setStep] = useState<"input" | "receipt" | "done">("input");
   
   const [toAddress, setToAddress] = useState("");
   const [amountEth, setAmountEth] = useState("");
-  const [purpose, setPurpose] = useState("");
-  
-  const [isFlagged, setIsFlagged] = useState(false);
-  const [reasoning, setReasoning] = useState("");
   
   const [txHash, setTxHash] = useState<string | null>(null);
   const [receiptImage, setReceiptImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   
-  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isExecuting, setIsExecuting] = useState(false);
   const [isSubmittingReceipt, setIsSubmittingReceipt] = useState(false);
   const [verificationResult, setVerificationResult] = useState<any>(null);
 
-  const handleEvaluate = async () => {
-    const trimmedToAddress = toAddress.trim();
-    const trimmedPurpose = purpose.trim();
-    
-    if (!trimmedToAddress || !amountEth || !trimmedPurpose) {
-      setError("Please fill in all fields.");
-      return;
+  const validateInputs = (): boolean => {
+    const trimmedTo = toAddress.trim();
+    if (!trimmedTo || !amountEth) {
+      setError("Please fill in recipient address and amount.");
+      return false;
     }
-    
-    if (!/^0x[a-fA-F0-9]{40}$/.test(trimmedToAddress)) {
-      setError("Invalid recipient address.");
-      return;
+
+    if (!/^0x[a-fA-F0-9]{40}$/.test(trimmedTo)) {
+      setError("Please enter a valid recipient address (0x...).");
+      return false;
     }
-    
-    let parsedAmount;
+
+    let parsedAmount: bigint;
     try {
       parsedAmount = parseEther(amountEth);
+      if (parsedAmount <= 0n) {
+        setError(`Amount must be greater than 0 ${TOKEN_SYMBOL}.`);
+        return false;
+      }
     } catch {
-      setError(`Invalid ${TOKEN_SYMBOL} amount`);
-      return;
+      setError(`Invalid ${TOKEN_SYMBOL} amount format.`);
+      return false;
     }
 
     try {
       const remaining = parseEther(remainingBalanceEth);
       if (parsedAmount > remaining) {
-        setError("Insufficient delegated balance.");
-        return;
+        setError(`Amount exceeds your remaining delegated balance (${remainingBalanceEth} ${TOKEN_SYMBOL}).`);
+        return false;
       }
     } catch {
-      // Ignore if parsing fails
+      // Ignore parse failure on remaining balance
     }
 
     setError(null);
-    setIsEvaluating(true);
-    
-    try {
-      const res = await fetch("/api/wallet/policy-check", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ purpose, amountEth, delegationId }),
-      });
-      const data = await res.json();
-      
-      if (res.ok) {
-        setIsFlagged(!data.isCompliant);
-        setReasoning(data.reasoning);
-        setStep("review");
-      } else {
-        setError(data.error || "Evaluation failed");
-      }
-    } catch (err) {
-      console.error(err);
-      setError("Failed to evaluate policy");
-    } finally {
-      setIsEvaluating(false);
+    return true;
+  };
+
+  const handleStartExecute = () => {
+    if (validateInputs()) {
+      setIsConfirmOpen(true);
     }
   };
 
-  const handleExecute = async (e?: React.MouseEvent) => {
+  const handleExecute = async () => {
     setIsExecuting(true);
     setError(null);
     try {
-      const hash = await onExecute({ toAddress, amountEth, purpose, isFlagged });
+      const hash = await onExecute({
+        toAddress: toAddress.trim(),
+        amountEth: amountEth.trim(),
+      });
       setTxHash(hash);
       setStep("receipt");
+      setIsConfirmOpen(false);
       toast.success("Expense Executed Successfully", {
         description: `${amountEth} ${TOKEN_SYMBOL} sent to ${toAddress.slice(0, 6)}...${toAddress.slice(-4)} • Monad Testnet`,
         action: {
@@ -129,6 +113,7 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
       toast.error("Expense Execution Failed", {
         description: parsed,
       });
+      setIsConfirmOpen(false);
     } finally {
       setIsExecuting(false);
     }
@@ -148,25 +133,26 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
 
   const handleSubmitReceipt = async () => {
     if (!txHash || !receiptImage) return;
+
     setIsSubmittingReceipt(true);
     try {
       const result = await onVerifyReceipt(txHash, receiptImage);
       setVerificationResult(result);
       setStep("done");
-      if (result?.isCompliant) {
+      if (result?.verified) {
         toast.success("Receipt Verified", {
-          description: "Qwen AI verified the receipt against company policy.",
+          description: "Qwen AI verified your receipt against company expense policy.",
         });
       } else {
         toast.warning("Receipt Flagged", {
-          description: result?.reasoning || "The receipt does not match company policy.",
+          description: result?.reasoning || "Expense flagged for employer policy review.",
         });
       }
     } catch (err) {
       console.error(err);
-      setError("Failed to verify receipt");
+      setError("Failed to verify receipt with AI");
       toast.error("Verification Failed", {
-        description: "Failed to verify receipt with AI.",
+        description: "Could not process receipt with AI vision.",
       });
     } finally {
       setIsSubmittingReceipt(false);
@@ -174,167 +160,170 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
   };
 
   return (
-    <Card className="w-full max-w-lg mx-auto shadow-sm border-border">
+    <Card className="w-full max-w-lg mx-auto shadow-xs border-border/80 bg-card">
       <CardHeader>
-        <CardTitle>Delegated Balance Spend</CardTitle>
-        <CardDescription>
-          Spend funds from your remaining delegated balance. Your intended purpose will be verified against the company policy by Qwen AI.
+        <CardTitle className="text-base font-semibold text-foreground">
+          Direct Corporate Spend
+        </CardTitle>
+        <CardDescription className="text-xs text-muted-foreground">
+          Settle vendor invoices or direct business expenses from your delegated corporate allowance on Monad Testnet.
         </CardDescription>
       </CardHeader>
       <CardContent>
         {step === "input" && (
           <div className="space-y-4">
             {error && (
-              <Alert className="border-foreground">
+              <Alert className="border-destructive/60 bg-destructive/10 text-destructive py-2.5">
                 <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
+                <AlertTitle className="text-xs font-semibold">Validation Error</AlertTitle>
+                <AlertDescription className="text-xs mt-0.5">{error}</AlertDescription>
               </Alert>
             )}
+
+            {/* Audit & Flagging Policy Threat Banner */}
+            <Alert className="border-border/80 bg-muted/40 py-2.5">
+              <ShieldAlert className="h-4 w-4 text-foreground" />
+              <AlertTitle className="text-xs font-semibold text-foreground">Post-Spend Compliance Audit</AlertTitle>
+              <AlertDescription className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                Receipt upload is optional, but all transactions are logged on-chain. Expenses without matching receipts or violating company guidelines are automatically flagged for employer review.
+              </AlertDescription>
+            </Alert>
+
             <div className="space-y-2">
-              <Label htmlFor="ds-to">To Address</Label>
+              <Label htmlFor="ds-to" className="text-xs font-medium">Recipient Address</Label>
               <Input
                 id="ds-to"
                 placeholder="0x..."
                 value={toAddress}
                 onChange={(e) => setToAddress(e.target.value)}
-                className="font-mono text-sm"
-                disabled={isEvaluating}
+                className="font-mono text-xs"
+                disabled={isExecuting}
               />
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="ds-amount">Amount ({TOKEN_SYMBOL})</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="ds-amount" className="text-xs font-medium">Amount ({TOKEN_SYMBOL})</Label>
+                <span className="text-[11px] font-mono text-muted-foreground">
+                  Available: {remainingBalanceEth} {TOKEN_SYMBOL}
+                </span>
+              </div>
               <Input
                 id="ds-amount"
                 type="number"
                 step="0.0001"
-                placeholder="0.01"
+                placeholder="0.00"
                 value={amountEth}
                 onChange={(e) => setAmountEth(e.target.value)}
-                disabled={isEvaluating}
+                disabled={isExecuting}
+                className="font-mono text-xs"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="ds-purpose">Purpose</Label>
-              <Input
-                id="ds-purpose"
-                placeholder="e.g. Client dinner at Dorsia"
-                value={purpose}
-                onChange={(e) => setPurpose(e.target.value)}
-                disabled={isEvaluating}
-              />
-            </div>
-            <Button
-              onClick={handleEvaluate}
-              disabled={!toAddress || !amountEth || !purpose || isEvaluating}
-              className="w-full mt-4"
-            >
-              {isEvaluating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {isEvaluating ? "Evaluating..." : "Review Spend"}
-              {!isEvaluating && <ArrowRight className="ml-2 h-4 w-4" />}
-            </Button>
-          </div>
-        )}
 
-        {step === "review" && (
-          <div className="space-y-6">
-            {error && (
-              <Alert className="border-foreground">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <div className="rounded-md bg-muted p-4 space-y-2 text-sm border">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">To:</span>
-                <span className="font-mono">{toAddress.slice(0, 6)}...{toAddress.slice(-4)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Amount:</span>
-                <span className="font-semibold">{amountEth} {TOKEN_SYMBOL}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Purpose:</span>
-                <span className="text-right max-w-[200px] truncate" title={purpose}>{purpose}</span>
-              </div>
-            </div>
-            
-            <Alert className={isFlagged ? "border-foreground" : "border-border"}>
-              {isFlagged ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />}
-              <AlertTitle>{isFlagged ? "Policy Violation Flagged" : "Compliant with Policy"}</AlertTitle>
-              <AlertDescription className="mt-2 text-sm leading-relaxed">
-                {reasoning}
-                {isFlagged && <div className="mt-3 font-semibold text-foreground">You may proceed, but this transaction will be flagged for employer review.</div>}
-              </AlertDescription>
-            </Alert>
-
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setStep("input")} className="flex-1" disabled={isExecuting}>
-                Back
+            <AlertDialog open={isConfirmOpen} onOpenChange={setIsConfirmOpen}>
+              <Button
+                onClick={handleStartExecute}
+                disabled={!toAddress || !amountEth || isExecuting}
+                className="w-full mt-2 text-xs"
+              >
+                {isExecuting ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                {isExecuting ? "Executing on Monad..." : "Execute Spend"}
               </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button className="flex-1" disabled={isExecuting}>
-                    {isExecuting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                    {isExecuting ? "Executing..." : "Execute Spend"}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Confirm Direct Spend</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      You are about to send <strong className="text-foreground">{amountEth} {TOKEN_SYMBOL}</strong> to <strong className="break-all font-mono text-xs text-foreground">{toAddress}</strong>.
-                      This is an irreversible on-chain transaction.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={handleExecute}>
-                      Yes, execute spend
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
+
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Confirm Direct Spend</AlertDialogTitle>
+                  <AlertDialogDescription className="text-xs leading-relaxed">
+                    You are authorizing a payout of <strong className="text-foreground">{amountEth} {TOKEN_SYMBOL}</strong> to{" "}
+                    <strong className="break-all font-mono text-[11px] text-foreground">{toAddress}</strong> on Monad Testnet.
+                    <br /><br />
+                    This transaction executes directly from the company's delegated balance and is irreversible. On-chain caveats and per-transaction limits apply.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={isExecuting}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleExecute}
+                    disabled={isExecuting}
+                    className="text-xs"
+                  >
+                    {isExecuting ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                    Confirm & Execute
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         )}
 
         {step === "receipt" && (
-          <div className="space-y-6">
+          <div className="space-y-5">
             {error && (
-              <Alert className="border-foreground">
+              <Alert className="border-destructive/60 bg-destructive/10 text-destructive py-2.5">
                 <AlertTriangle className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>{error}</AlertDescription>
+                <AlertTitle className="text-xs font-semibold">Error</AlertTitle>
+                <AlertDescription className="text-xs mt-0.5">{error}</AlertDescription>
               </Alert>
             )}
-            <Alert className="border-border">
-              <CheckCircle2 className="h-4 w-4 text-foreground" />
-              <AlertTitle>Transaction Successful</AlertTitle>
-              <AlertDescription className="text-muted-foreground font-mono text-xs break-all mt-1">
-                Tx Hash: <a href={getTxExplorerUrl(txHash)} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">{txHash}</a>
-              </AlertDescription>
-            </Alert>
 
-            <div className="border rounded-lg p-6 text-center border-dashed bg-muted/20">
-              <div className="mx-auto bg-background rounded-full h-12 w-12 flex items-center justify-center mb-4 shadow-sm border border-border">
+            <div className="rounded-lg border border-border/80 bg-muted/30 p-3.5 space-y-2 text-xs font-mono">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground font-sans">Recipient:</span>
+                <span className="font-semibold text-foreground">{toAddress.slice(0, 8)}...{toAddress.slice(-6)}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground font-sans">Settled Amount:</span>
+                <span className="font-semibold text-foreground">{amountEth} {TOKEN_SYMBOL}</span>
+              </div>
+              {txHash && (
+                <div className="flex justify-between items-center pt-2 border-t border-border/60">
+                  <span className="text-muted-foreground font-sans">Monad Tx:</span>
+                  <a
+                    href={getTxExplorerUrl(txHash)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-foreground underline hover:opacity-80"
+                  >
+                    {txHash.slice(0, 10)}...{txHash.slice(-8)}
+                  </a>
+                </div>
+              )}
+            </div>
+
+            <div className="border border-dashed border-border rounded-lg p-5 text-center bg-muted/15">
+              <div className="mx-auto bg-background rounded-full h-10 w-10 flex items-center justify-center mb-2.5 shadow-2xs border border-border">
                 <UploadCloud className="h-5 w-5 text-muted-foreground" />
               </div>
-              <h3 className="text-sm font-medium mb-1">Upload Receipt (Optional)</h3>
-              <p className="text-xs text-muted-foreground mb-4">
-                Provide a receipt for Qwen AI to verify against your stated purpose.
+              <h3 className="text-xs font-semibold text-foreground mb-1">Attach Receipt (Optional)</h3>
+              <p className="text-[11px] text-muted-foreground max-w-sm mx-auto mb-3.5 leading-relaxed">
+                Attach an invoice or receipt image for automated AI compliance verification. Unverified transactions will remain logged and subject to employer audit.
               </p>
-              <Input type="file" accept="image/*" onChange={handleFileUpload} className="max-w-xs mx-auto mb-4" disabled={isSubmittingReceipt} />
+              <Input
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={handleFileUpload}
+                className="max-w-xs mx-auto mb-3 text-xs cursor-pointer"
+                disabled={isSubmittingReceipt}
+              />
               {receiptImage && (
-                <Button onClick={handleSubmitReceipt} className="w-full max-w-xs" disabled={isSubmittingReceipt}>
-                  {isSubmittingReceipt ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                  {isSubmittingReceipt ? "Submitting..." : "Submit Receipt"}
+                <Button
+                  onClick={handleSubmitReceipt}
+                  className="w-full max-w-xs text-xs"
+                  disabled={isSubmittingReceipt}
+                >
+                  {isSubmittingReceipt ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
+                  {isSubmittingReceipt ? "Verifying with AI..." : "Verify Receipt with AI"}
                 </Button>
               )}
-              <div className="mt-4">
-                <Button variant="ghost" size="sm" onClick={() => setStep("done")} className="text-xs text-muted-foreground" disabled={isSubmittingReceipt}>
-                  Skip for now
+              <div className="mt-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setStep("done")}
+                  className="text-xs text-muted-foreground"
+                  disabled={isSubmittingReceipt}
+                >
+                  Skip receipt upload
                 </Button>
               </div>
             </div>
@@ -342,31 +331,39 @@ export function DirectSpendForm({ delegationId, remainingBalanceEth, onExecute, 
         )}
 
         {step === "done" && (
-          <div className="flex flex-col items-center justify-center py-8 space-y-6 text-center">
+          <div className="flex flex-col items-center justify-center py-6 space-y-5 text-center">
             {verificationResult && (
-              <Alert className={verificationResult.verified ? "border-border text-left" : "border-destructive text-destructive text-left"}>
-                {verificationResult.verified ? <CheckCircle2 className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
-                <AlertTitle>{verificationResult.verified ? "Receipt Verified" : "Flagged: Purpose Mismatch"}</AlertTitle>
-                <AlertDescription>{verificationResult.reasoning}</AlertDescription>
+              <Alert className="border-border/80 bg-muted/30 text-left py-2.5">
+                {verificationResult.verified ? (
+                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                ) : (
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                )}
+                <AlertTitle className="text-xs font-semibold">
+                  {verificationResult.verified ? "Receipt Verified Compliant" : "Flagged for Employer Review"}
+                </AlertTitle>
+                <AlertDescription className="text-xs text-muted-foreground mt-0.5">
+                  {verificationResult.reasoning}
+                </AlertDescription>
               </Alert>
             )}
             
-            <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center border border-border">
-              <CheckCircle2 className="h-8 w-8 text-foreground" />
+            <div className="h-12 w-12 rounded-full bg-muted/60 flex items-center justify-center border border-border/80">
+              <CheckCircle2 className="h-6 w-6 text-foreground" />
             </div>
-            <div className="space-y-2">
-              <h2 className="text-xl font-semibold text-foreground">All Done!</h2>
-              <p className="text-sm text-muted-foreground">Your transaction and receipt have been logged.</p>
+            <div className="space-y-1">
+              <h2 className="text-sm font-semibold text-foreground">Spend Logged Successfully</h2>
+              <p className="text-xs text-muted-foreground">The transaction has been broadcast and added to your company's ledger.</p>
             </div>
             <Button
               variant="outline"
-              className="w-full"
+              className="w-full text-xs"
               onClick={() => {
                 setToAddress("");
                 setAmountEth("");
-                setPurpose("");
                 setTxHash(null);
                 setReceiptImage(null);
+                setVerificationResult(null);
                 setStep("input");
               }}
             >

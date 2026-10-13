@@ -264,6 +264,11 @@ export async function activateSmartAccount(input: {
     ))
     .returning();
 
+  await db
+    .update(users)
+    .set({ smartAccountAddress })
+    .where(eq(users.id, profile.user.id));
+
   return {
     target: "user" as const,
     smartAccountAddress: user.smartAccountAddress,

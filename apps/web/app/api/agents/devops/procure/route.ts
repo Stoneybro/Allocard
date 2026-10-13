@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { requireEmployeeCompany, requireSessionUser } from "@/lib/auth-guard";
-import { delegations, agentBookings, users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { delegations, agentBookings, users, employeeProfiles } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
 import { createPublicClient, createWalletClient, http, parseUnits, encodeFunctionData, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { chain, AUSD_ADDRESS, AUSD_DECIMALS, ERC20_ABI } from "@/lib/chain";
@@ -65,13 +65,26 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Parent delegation (company -> employee) not found" }, { status: 404 });
     }
 
-    const [employee] = await db
+    const [profile] = await db
+      .select()
+      .from(employeeProfiles)
+      .where(
+        and(
+          eq(employeeProfiles.userId, sessionUser.id),
+          eq(employeeProfiles.companyId, companyId),
+        ),
+      )
+      .limit(1);
+
+    const [user] = await db
       .select()
       .from(users)
       .where(eq(users.id, sessionUser.id))
       .limit(1);
 
-    if (!employee || !employee.smartAccountAddress) {
+    const employeeSmartAccountAddress = profile?.smartAccountAddress || user?.smartAccountAddress;
+
+    if (!employeeSmartAccountAddress) {
       return NextResponse.json({ error: "Employee smart account not found" }, { status: 404 });
     }
 

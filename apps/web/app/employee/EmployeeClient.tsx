@@ -825,7 +825,7 @@ export function EmployeeClient({
   }, [selectedDelegation, auth, caveatForm, availableMaxEth, dashboardState?.inboundDelegation]);
 
   // Task 8: Direct Spend execution
-  const handleExecuteSpend = async (details: { toAddress: string; amountEth: string; purpose: string; isFlagged: boolean }) => {
+  const handleExecuteSpend = async (details: { toAddress: string; amountEth: string; purpose?: string; isFlagged?: boolean }) => {
     if (auth.status !== "authenticated" || !auth.address || !dashboardState?.employee?.smartAccountAddress) {
       throw new Error("Smart account not activated.");
     }

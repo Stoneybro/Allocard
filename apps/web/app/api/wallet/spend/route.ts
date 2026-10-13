@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       txHash,
     } = await req.json();
 
-    if (!companyId || !employeeId || !delegationId || !toAddress || !amountEth || !purpose || !txHash) {
+    if (!companyId || !employeeId || !delegationId || !toAddress || !amountEth || !txHash) {
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -57,8 +57,8 @@ export async function POST(req: NextRequest) {
         delegationId,
         toAddress,
         amountEth: amountEth.toString(),
-        purpose,
-        isFlagged,
+        purpose: purpose?.trim() || "Direct corporate expense",
+        isFlagged: Boolean(isFlagged),
         txHash,
       })
       .returning();
