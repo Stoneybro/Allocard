@@ -23,12 +23,19 @@ export function LandingPageClient({
   const router = useRouter();
   const auth = useAuth();
   const [isRouting, startRouting] = useTransition();
-  const [userInitiatedLogin, setUserInitiatedLogin] = useState(false);
+  const [signingInTarget, setSigningInTarget] = useState<"nav" | "hero" | null>(null);
   const pendingClickRef = useRef(false);
 
   const isAuthenticated = Boolean(
     initialWalletAddress || auth.status === "authenticated"
   );
+
+  // Clear any legacy stuck flag from sessionStorage immediately
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("allocard_user_logging_in");
+    }
+  }, []);
 
   const navigateToDashboard = useCallback(() => {
     startRouting(async () => {
@@ -55,46 +62,41 @@ export function LandingPageClient({
 
   const { login } = useLogin({
     onComplete: () => {
-      sessionStorage.setItem("allocard_user_logging_in", "true");
-      setUserInitiatedLogin(true);
-      navigateToDashboard();
+      if (auth.status === "authenticated") {
+        setSigningInTarget(null);
+        navigateToDashboard();
+      }
     },
     onError: () => {
-      sessionStorage.removeItem("allocard_user_logging_in");
-      setUserInitiatedLogin(false);
+      setSigningInTarget(null);
+      pendingClickRef.current = false;
     },
   });
 
-  // When a user explicitly signs in, automatically route to the dashboard.
-  // When a user simply opens or reloads the page with saved credentials, do NOT auto-route.
+  // When a user initiates sign in, auto-route as soon as their wallet & session are ready.
+  // Existing authenticated users who simply visit the landing page do NOT auto-route.
   useEffect(() => {
-    const isLoggingIn =
-      userInitiatedLogin ||
-      (typeof window !== "undefined" &&
-        sessionStorage.getItem("allocard_user_logging_in") === "true");
-
-    if (!isLoggingIn) return;
+    if (!signingInTarget) return;
 
     if (auth.status === "authenticated") {
-      sessionStorage.removeItem("allocard_user_logging_in");
-      setUserInitiatedLogin(false);
+      setSigningInTarget(null);
+      pendingClickRef.current = false;
       navigateToDashboard();
     } else if (auth.status === "unauthenticated" && pendingClickRef.current) {
       pendingClickRef.current = false;
       login();
     }
-  }, [userInitiatedLogin, auth.status, navigateToDashboard, login]);
+  }, [signingInTarget, auth.status, login, navigateToDashboard]);
 
-  const handleConnect = () => {
-    if (isRouting) return;
+  const handleConnect = (target: "nav" | "hero" = "hero") => {
+    if (isRouting || signingInTarget) return;
 
     if (isAuthenticated) {
       navigateToDashboard();
       return;
     }
 
-    sessionStorage.setItem("allocard_user_logging_in", "true");
-    setUserInitiatedLogin(true);
+    setSigningInTarget(target);
 
     if (auth.status === "unauthenticated") {
       login();
@@ -106,13 +108,23 @@ export function LandingPageClient({
     }
   };
 
-  const buttonLabel = (() => {
-    if (isRouting) return "Opening dashboard...";
-    if (isAuthenticated) return "Go to Dashboard";
+  const isNavSigningIn = signingInTarget === "nav";
+  const isHeroSigningIn = signingInTarget === "hero";
+  const isBusy = isRouting || Boolean(signingInTarget);
+
+  const navButtonLabel = (() => {
+    if (isRouting && isNavSigningIn) return "Opening…";
+    if (isNavSigningIn) return "Signing in…";
+    if (isAuthenticated) return "Dashboard";
     return "Sign in";
   })();
 
-  const isBusy = isRouting;
+  const heroButtonLabel = (() => {
+    if (isRouting && isHeroSigningIn) return "Opening dashboard…";
+    if (isHeroSigningIn) return "Signing in…";
+    if (isAuthenticated) return "Go to Dashboard";
+    return "Get Started";
+  })();
 
   return (
     <div className="landing landing-restored min-h-screen font-sans antialiased">
@@ -142,11 +154,15 @@ export function LandingPageClient({
           </div>
           <button
             id="nav-cta"
-            onClick={handleConnect}
+            onClick={() => handleConnect("nav")}
             disabled={isBusy}
-            className="h-8 px-4 rounded-md bg-[#111] text-white text-sm font-medium hover:bg-[#333] transition-colors disabled:opacity-40 cursor-pointer"
+            className={`h-8 px-4 rounded-md text-sm font-medium transition-colors disabled:opacity-40 cursor-pointer ${
+              isAuthenticated
+                ? "bg-[#111] text-white hover:bg-[#333]"
+                : "border border-[#eaeaea] bg-white text-[#111] hover:bg-[#f7f7f7] hover:border-[#ccc]"
+            }`}
           >
-            {buttonLabel}
+            {navButtonLabel}
           </button>
         </div>
       </nav>
@@ -170,11 +186,11 @@ export function LandingPageClient({
           <div className="flex flex-col sm:flex-row gap-3 mb-6">
             <button
               id="hero-try-demo"
-              onClick={handleConnect}
+              onClick={() => handleConnect("hero")}
               disabled={isBusy}
-              className="h-10 px-6 rounded-md bg-[#111] text-white text-sm font-medium hover:bg-[#333] transition-colors disabled:opacity-40 cursor-pointer"
+              className="h-10 px-6 rounded-md bg-[#111] text-white text-sm font-medium hover:bg-[#333] transition-colors disabled:opacity-40 cursor-pointer shadow-xs"
             >
-              {buttonLabel}
+              {heroButtonLabel}
             </button>
             <a
               id="hero-view-github"
@@ -265,7 +281,7 @@ export function LandingPageClient({
             <div className="text-center mb-14">
               <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#999] mb-4">The Core Innovation</p>
               <h2 className="text-3xl sm:text-4xl font-bold tracking-[-0.03em] text-[#111] mb-4">
-                Authorization, not disbursement.
+                Permission, not money transfers.
               </h2>
               <p className="max-w-xl mx-auto text-sm text-[#666] leading-relaxed">
                 Allocard completely changes how corporate funds move. Instead of sending money to an employee or card, your company keeps all funds in its primary corporate treasury. You simply grant authorized permissions that dictate exactly what can be bought, up to what amount, and on what schedule. Funds only leave your company account at the exact second a verified purchase occurs.
@@ -314,7 +330,7 @@ export function LandingPageClient({
                   tag: "Instant AI Reimbursements",
                   pattern: "Employee snaps receipt · AI verifies · Instant payout",
                   title: "No more waiting weeks for expense reports.",
-                  body: "Employees upload a photo of their out-of-pocket receipt. Built-in vision AI reads the merchant, totals, and line items, verifies them against your natural language company policy, and disburses the exact reimbursement in seconds.",
+                  body: "Employees upload a photo of their out-of-pocket receipt. Built-in vision AI reads the merchant, totals, and line items, verifies them against your natural language company policy, and sends the exact reimbursement in seconds.",
                   engine: "Powered by Alibaba Cloud Qwen Vision and Qwen 3.8 Max for instant policy reasoning.",
                 },
                 {
@@ -462,11 +478,11 @@ export function LandingPageClient({
             <div className="flex flex-col sm:flex-row gap-3">
               <button
                 id="closing-try-demo"
-                onClick={handleConnect}
+                onClick={() => handleConnect("hero")}
                 disabled={isBusy}
-                className="h-10 px-6 rounded-md bg-[#111] text-white text-sm font-medium hover:bg-[#333] transition-colors disabled:opacity-40 cursor-pointer"
+                className="h-10 px-6 rounded-md bg-[#111] text-white text-sm font-medium hover:bg-[#333] transition-colors disabled:opacity-40 cursor-pointer shadow-xs"
               >
-                {buttonLabel}
+                {heroButtonLabel}
               </button>
               <a
                 id="closing-view-github"

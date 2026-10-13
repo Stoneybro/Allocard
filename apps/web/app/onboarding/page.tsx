@@ -94,90 +94,202 @@ export default function OnboardingPage() {
 
         </div>
       </header>
-      <div className="mx-auto flex max-w-lg flex-col gap-6 px-6 py-12 sm:py-16">
+      <div className="mx-auto flex max-w-5xl flex-col gap-6 px-6 py-12 sm:py-16">
+        {actionError && (
+          <Alert variant="destructive">
+            <AlertTitle>Could not complete that action</AlertTitle>
+            <AlertDescription>{actionError}</AlertDescription>
+          </Alert>
+        )}
 
-        {actionError && <Alert variant="destructive"><AlertTitle>Could not complete that action</AlertTitle><AlertDescription>{actionError}</AlertDescription></Alert>}
-
-        <div className="flex flex-col gap-6">
+        <div className={`grid gap-8 items-start ${
+          (loading || !!loadError || memberships.length > 0 || pending.length > 0) && !hasEmployerWorkspace
+            ? "grid-cols-1 md:grid-cols-2"
+            : "grid-cols-1 max-w-lg mx-auto w-full"
+        }`}>
           {(loading || !!loadError || memberships.length > 0 || pending.length > 0) && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Your companies</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-5" aria-busy={loading || auth.status === "connecting"}>
-              {loading || auth.status === "connecting" ? (
-                <div className="flex flex-col gap-3" role="status">
-                  <span className="sr-only">Loading your workspaces</span>
-                  <Skeleton className="h-20 w-full" /><Skeleton className="h-20 w-full" />
-                </div>
-              ) : loadError ? (
-                <Alert variant="destructive"><AlertTitle>Workspaces could not load</AlertTitle><AlertDescription>{loadError}</AlertDescription></Alert>
-              ) : (
-                <>
-                  {memberships.map((membership) => (
-                    <div key={membership.companyId} className="flex flex-col gap-3 rounded-lg border border-border p-4">
-                      <div className="flex items-center gap-3"><Building2 className="size-4 shrink-0 text-muted-foreground" /><h2 className="min-w-0 break-words text-sm font-semibold">{membership.companyName}</h2></div>
-                      <div className="flex flex-wrap gap-2">
-                        {(["employer", "employee"] as const).filter((role) => role === "employer" ? membership.canEmployer : membership.canEmployee).map((role) => {
-                          const key = membership.companyId + role;
-                          return <Button key={role} variant={role === "employer" ? "default" : "outline"} disabled={busy} onClick={() => performAction(key, async () => {
-                            await setWorkspaceContext({ walletAddress: address!, companyId: membership.companyId, role });
-                            router.push(role === "employer" ? "/employer" : "/employee");
-                          })}>{activeAction === key ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <ArrowRight data-icon="inline-start" />}{role === "employer" ? "Employer" : "Employee"}</Button>;
-                        })}
-                      </div>
+            <Card className="h-full flex flex-col justify-between">
+              <div>
+                <CardHeader>
+                  <CardTitle>Your companies</CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-5" aria-busy={loading || auth.status === "connecting"}>
+                  {loading || auth.status === "connecting" ? (
+                    <div className="flex flex-col gap-3" role="status">
+                      <span className="sr-only">Loading your workspaces</span>
+                      <Skeleton className="h-20 w-full" />
+                      <Skeleton className="h-20 w-full" />
                     </div>
-                  ))}
-                  {pending.length > 0 && <section className="flex flex-col gap-3" aria-label="Pending invitations">
-                    <p className="text-xs font-medium text-muted-foreground">Waiting for you</p>
-                    {pending.map((membership) => <div key={membership.id} className="flex flex-col gap-3 rounded-lg border border-border p-4">
-                      <div className="flex items-start justify-between gap-3"><h2 className="min-w-0 break-words text-sm font-semibold">{membership.companyName}</h2><Badge variant="secondary">Invitation</Badge></div>
-                      <Button variant="outline" disabled={busy} onClick={() => performAction(membership.id, async () => {
-                        await acceptEmployeeMembership({ walletAddress: address!, companyId: membership.companyId });
-                        await setWorkspaceContext({ walletAddress: address!, companyId: membership.companyId, role: "employee" });
-                        toast.success("Invitation Accepted", {
-                          description: `You have joined ${membership.companyName}.`,
-                        });
-                        router.push("/employee");
-                      })}>{activeAction === membership.id ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <ArrowRight data-icon="inline-start" />}Accept invitation</Button>
-                    </div>)}
-                  </section>}
-
-                </>
-              )}
-            </CardContent>
-            <CardFooter>
-              <Button variant="ghost" disabled={busy} onClick={() => setRefresh((value) => value + 1)}><RefreshCw data-icon="inline-start" />{loadError ? "Try again" : "Refresh access"}</Button>
-            </CardFooter>
-          </Card>
+                  ) : loadError ? (
+                    <Alert variant="destructive">
+                      <AlertTitle>Workspaces could not load</AlertTitle>
+                      <AlertDescription>{loadError}</AlertDescription>
+                    </Alert>
+                  ) : (
+                    <>
+                      {memberships.map((membership) => (
+                        <div key={membership.companyId} className="flex flex-col gap-3 rounded-lg border border-border p-4">
+                          <div className="flex items-center gap-3">
+                            <Building2 className="size-4 shrink-0 text-muted-foreground" />
+                            <h2 className="min-w-0 break-words text-sm font-semibold">{membership.companyName}</h2>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {(["employer", "employee"] as const)
+                              .filter((role) => (role === "employer" ? membership.canEmployer : membership.canEmployee))
+                              .map((role) => {
+                                const key = membership.companyId + role;
+                                return (
+                                  <Button
+                                    key={role}
+                                    variant={role === "employer" ? "default" : "outline"}
+                                    disabled={busy}
+                                    onClick={() =>
+                                      performAction(key, async () => {
+                                        await setWorkspaceContext({
+                                          walletAddress: address!,
+                                          companyId: membership.companyId,
+                                          role,
+                                        });
+                                        router.push(role === "employer" ? "/employer" : "/employee");
+                                      })
+                                    }
+                                  >
+                                    {activeAction === key ? (
+                                      <Loader2 className="animate-spin" data-icon="inline-start" />
+                                    ) : (
+                                      <ArrowRight data-icon="inline-start" />
+                                    )}
+                                    {role === "employer" ? "Employer" : "Employee"}
+                                  </Button>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      ))}
+                      {pending.length > 0 && (
+                        <section className="flex flex-col gap-3" aria-label="Pending invitations">
+                          <p className="text-xs font-medium text-muted-foreground">Waiting for you</p>
+                          {pending.map((membership) => (
+                            <div key={membership.id} className="flex flex-col gap-3 rounded-lg border border-border p-4">
+                              <div className="flex items-start justify-between gap-3">
+                                <h2 className="min-w-0 break-words text-sm font-semibold">{membership.companyName}</h2>
+                                <Badge variant="secondary">Invitation</Badge>
+                              </div>
+                              <Button
+                                variant="outline"
+                                disabled={busy}
+                                onClick={() =>
+                                  performAction(membership.id, async () => {
+                                    await acceptEmployeeMembership({
+                                      walletAddress: address!,
+                                      companyId: membership.companyId,
+                                    });
+                                    await setWorkspaceContext({
+                                      walletAddress: address!,
+                                      companyId: membership.companyId,
+                                      role: "employee",
+                                    });
+                                    toast.success("Invitation Accepted", {
+                                      description: `You have joined ${membership.companyName}.`,
+                                    });
+                                    router.push("/employee");
+                                  })
+                                }
+                              >
+                                {activeAction === membership.id ? (
+                                  <Loader2 className="animate-spin" data-icon="inline-start" />
+                                ) : (
+                                  <ArrowRight data-icon="inline-start" />
+                                )}
+                                Accept invitation
+                              </Button>
+                            </div>
+                          ))}
+                        </section>
+                      )}
+                    </>
+                  )}
+                </CardContent>
+              </div>
+              <CardFooter className="pt-2">
+                <Button variant="ghost" disabled={busy} onClick={() => setRefresh((value) => value + 1)}>
+                  <RefreshCw data-icon="inline-start" />
+                  {loadError ? "Try again" : "Refresh access"}
+                </Button>
+              </CardFooter>
+            </Card>
           )}
 
-          {!loading && !loadError && !hasEmployerWorkspace && <Card>
-            <CardHeader>
-              <CardTitle>Create a company</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <form className="flex flex-col gap-5" onSubmit={(event) => {
-                  event.preventDefault();
-                  if (busy || !address || companyName.trim().length < 2) return;
-                  performAction("create", async () => {
-                    await createEmployerAccount({ walletAddress: address, companyName: companyName.trim() });
-                    toast.success("Company Created", {
-                      description: `${companyName.trim()} workspace is ready.`,
-                    });
-                    router.push("/employer");
-                  });
-                }}>
-                  <fieldset disabled={busy} className="flex min-w-0 flex-col gap-3">
-                    <Label htmlFor="company-name">Company name</Label>
-                    <Input id="company-name" name="companyName" placeholder="Acme Labs" autoComplete="organization" required minLength={2} maxLength={80} value={companyName} onChange={(event) => setCompanyName(event.target.value)} />
-                  </fieldset>
-                  <Button size="lg" type="submit" disabled={busy || !!loadError || companyName.trim().length < 2}>{activeAction === "create" ? <Loader2 className="animate-spin" data-icon="inline-start" /> : <Building2 data-icon="inline-start" />}{activeAction === "create" ? "Creating company…" : "Create company"}</Button>
-                </form>
-            </CardContent>
-          </Card>}
+          {!loading && !loadError && !hasEmployerWorkspace && (
+            <Card className="h-full flex flex-col justify-between">
+              <div>
+                <CardHeader>
+                  <CardTitle>Create a company account</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <form
+                    className="flex flex-col gap-5"
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      if (busy || !address || companyName.trim().length < 2) return;
+                      const formattedName = companyName
+                        .trim()
+                        .split(" ")
+                        .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : ""))
+                        .join(" ");
+
+                      performAction("create", async () => {
+                        await createEmployerAccount({ walletAddress: address, companyName: formattedName });
+                        toast.success("Company Account Created", {
+                          description: `${formattedName} workspace is ready.`,
+                        });
+                        router.push("/employer");
+                      });
+                    }}
+                  >
+                    <fieldset disabled={busy} className="flex min-w-0 flex-col gap-3">
+                      <Label htmlFor="company-name">Company name</Label>
+                      <Input
+                        id="company-name"
+                        name="companyName"
+                        placeholder="Acme Labs"
+                        autoComplete="organization"
+                        required
+                        minLength={2}
+                        maxLength={80}
+                        value={companyName}
+                        onChange={(event) => setCompanyName(event.target.value)}
+                      />
+                    </fieldset>
+                    <Button
+                      size="lg"
+                      type="submit"
+                      disabled={busy || !!loadError || companyName.trim().length < 2}
+                    >
+                      {activeAction === "create" ? (
+                        <Loader2 className="animate-spin" data-icon="inline-start" />
+                      ) : (
+                        <Building2 data-icon="inline-start" />
+                      )}
+                      {activeAction === "create" ? "Creating company account…" : "Create company account"}
+                    </Button>
+                  </form>
+                </CardContent>
+              </div>
+            </Card>
+          )}
         </div>
-        {!loading && !loadError && memberships.length === 0 && pending.length === 0 && <p className="text-center text-sm leading-relaxed text-muted-foreground">Joining as an employee? Ask your employer to add {auth.status === "authenticated" && auth.email ? <span className="break-words font-medium text-foreground">{auth.email}</span> : "your email"} to their company.</p>}
+        {!loading && !loadError && memberships.length === 0 && pending.length === 0 && (
+          <p className="text-center text-sm leading-relaxed text-muted-foreground">
+            Joining as an employee? Ask your employer to add{" "}
+            {auth.status === "authenticated" && auth.email ? (
+              <span className="break-words font-medium text-foreground">{auth.email}</span>
+            ) : (
+              "your email"
+            )}{" "}
+            to their company.
+          </p>
+        )}
       </div>
     </main>
   );

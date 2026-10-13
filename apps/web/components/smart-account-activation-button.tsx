@@ -171,6 +171,11 @@ export function SmartAccountActivationButton({
         size="sm"
         onClick={handleActivate}
         disabled={isPending || !isWalletReady}
+        className={
+          !isPending && isWalletReady
+            ? "relative font-medium shadow-md transition-all duration-300 animate-pulse hover:animate-none hover:shadow-lg ring-2 ring-primary/50 ring-offset-2 ring-offset-background"
+            : ""
+        }
       >
         {isPending ? (
           <LoaderCircleIcon data-icon="inline-start" className="animate-spin" />

@@ -12,6 +12,7 @@ const wagmiConfig = createConfig({
   transports: {
     [chain.id]: http(),
   },
+  connectors: [],
 })
 
 export default function Web3Providers({
@@ -44,7 +45,7 @@ export default function Web3Providers({
         supportedChains: [chain],
         embeddedWallets: {
           showWalletUIs: false,
-          ethereum: { createOnLogin: 'all-users' },
+          ethereum: { createOnLogin: 'users-without-wallets' },
         },
       }}
     >

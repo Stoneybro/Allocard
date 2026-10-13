@@ -574,6 +574,8 @@ export function EmployeeClient({
   const [isAgoraDrawerOpen, setIsAgoraDrawerOpen] = useState(false);
   const [isProcurementAgentDrawerOpen, setIsProcurementAgentDrawerOpen] = useState(false);
   const [activeProcurementDelegationId, setActiveProcurementDelegationId] = useState<string | null>(null);
+  const [isRefreshingReimbursements, setIsRefreshingReimbursements] = useState(false);
+  const [isRefreshingAgora, setIsRefreshingAgora] = useState(false);
 
   // Open drawer for existing delegation (configure / view rules)
   const handleConfigureDelegation = useCallback(
@@ -1101,29 +1103,39 @@ export function EmployeeClient({
             role="employee"
             program={dashboardState.reimbursement}
             accountReady={Boolean(employee.smartAccountAddress)}
-            busy={isPending}
+            busy={isRefreshingReimbursements}
             onOpen={() => {
               setIsReimbursementDrawerOpen(true);
-              void refreshDashboard().catch(() => toast.error("Could not refresh reimbursement status"));
             }}
-            onRefresh={() => startTransition(async () => {
-              try { await refreshDashboard(); }
-              catch { toast.error("Could not refresh reimbursement status"); }
-            })}
+            onRefresh={async () => {
+              setIsRefreshingReimbursements(true);
+              try {
+                await refreshDashboard();
+              } catch {
+                toast.error("Could not refresh reimbursement status");
+              } finally {
+                setIsRefreshingReimbursements(false);
+              }
+            }}
           />
           <AgoraCrossBorderCard
             role="employee"
             program={dashboardState.agora}
             accountReady={Boolean(employee.smartAccountAddress)}
-            busy={isPending}
+            busy={isRefreshingAgora}
             onOpen={() => {
               setIsAgoraDrawerOpen(true);
-              void refreshDashboard().catch(() => toast.error("Could not refresh Agora remittance status"));
             }}
-            onRefresh={() => startTransition(async () => {
-              try { await refreshDashboard(); }
-              catch { toast.error("Could not refresh Agora remittance status"); }
-            })}
+            onRefresh={async () => {
+              setIsRefreshingAgora(true);
+              try {
+                await refreshDashboard();
+              } catch {
+                toast.error("Could not refresh Agora remittance status");
+              } finally {
+                setIsRefreshingAgora(false);
+              }
+            }}
           />
         </div>
 

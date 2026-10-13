@@ -173,7 +173,7 @@ export function ReimbursementDrawer({
         setResultMessage(data.veniceReasoning || "Claim approved by AI.");
         setStep("success");
         void refreshStatus();
-        toast.success("Reimbursement Disbursed Successfully", {
+        toast.success("Reimbursement Paid Successfully", {
           description: `${reviewAmountEth} ${TOKEN_SYMBOL} paid out to your account on Monad Testnet.`,
           action: data.txHash ? {
             label: "View Explorer",

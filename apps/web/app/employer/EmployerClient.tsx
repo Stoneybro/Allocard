@@ -447,6 +447,8 @@ export function EmployerClient({
 
   const [ethBalance, setEthBalance] = useState<string | undefined>(undefined);
   const [isToppingUp, setIsToppingUp] = useState(false);
+  const [isRefreshingReimbursements, setIsRefreshingReimbursements] = useState(false);
+  const [isRefreshingAgora, setIsRefreshingAgora] = useState(false);
 
   const fetchBalance = useCallback(async () => {
     if (!company?.smartAccountAddress) return;
@@ -759,7 +761,7 @@ export function EmployerClient({
     [runDashboardMutation, currentAuthAddress],
   );
 
-  const handleSmartAccountActivated = (smartAccountAddress: string | null) => {
+  const handleSmartAccountActivated = async (smartAccountAddress: string | null) => {
     if (!smartAccountAddress) return;
 
     toast.success("Safe Smart Account Deployed", {
@@ -782,6 +784,7 @@ export function EmployerClient({
           : currentProfile.company,
       };
     });
+
     setDashboardState((currentState) =>
       currentState
         ? {
@@ -790,6 +793,25 @@ export function EmployerClient({
           }
         : currentState,
     );
+
+    // Auto-seed treasury with 10,000 AUSD from Agora faucet
+    try {
+      const res = await fetch("/api/faucet/seed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ recipient: smartAccountAddress }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setEthBalance(data.balanceAUSD || "10000");
+        toast.success("Corporate Treasury Seeded with $10,000 AUSD", {
+          description: "10,000 Agora USD deposited to your company account from the testnet faucet.",
+        });
+      }
+    } catch (seedErr) {
+      console.warn("Auto-seed treasury notice:", seedErr);
+    }
+
     setTimeout(() => {
       void fetchBalance();
     }, 1500);
@@ -1095,23 +1117,35 @@ export function EmployerClient({
             role="employer"
             program={dashboardState.reimbursement}
             accountReady={Boolean(company.smartAccountAddress)}
-            busy={isPending || isRefreshing}
+            busy={isRefreshingReimbursements}
             onOpen={handleOpenReimbursementBudget}
-            onRefresh={() => startRefreshTransition(async () => {
-              try { updateDashboard(await getCompanyDashboardState(currentAuthAddress as string)); }
-              catch (caught) { toast.error(caught instanceof Error ? caught.message : "Could not refresh reimbursements"); }
-            })}
+            onRefresh={async () => {
+              setIsRefreshingReimbursements(true);
+              try {
+                updateDashboard(await getCompanyDashboardState(currentAuthAddress as string));
+              } catch (caught) {
+                toast.error(caught instanceof Error ? caught.message : "Could not refresh reimbursements");
+              } finally {
+                setIsRefreshingReimbursements(false);
+              }
+            }}
           />
           <AgoraCrossBorderCard
             role="employer"
             program={dashboardState.agora}
             accountReady={Boolean(company.smartAccountAddress)}
-            busy={isPending || isRefreshing}
+            busy={isRefreshingAgora}
             onOpen={handleOpenAgoraBudget}
-            onRefresh={() => startRefreshTransition(async () => {
-              try { updateDashboard(await getCompanyDashboardState(currentAuthAddress as string)); }
-              catch (caught) { toast.error(caught instanceof Error ? caught.message : "Could not refresh remittances"); }
-            })}
+            onRefresh={async () => {
+              setIsRefreshingAgora(true);
+              try {
+                updateDashboard(await getCompanyDashboardState(currentAuthAddress as string));
+              } catch (caught) {
+                toast.error(caught instanceof Error ? caught.message : "Could not refresh remittances");
+              } finally {
+                setIsRefreshingAgora(false);
+              }
+            }}
           />
         </div>
 

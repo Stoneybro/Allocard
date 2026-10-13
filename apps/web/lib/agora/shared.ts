@@ -60,7 +60,7 @@ export function agoraStatus(
 
 export function agoraStatusLabel(status: AgoraStatus): string {
   return {
-    not_configured: "Pool needed",
+    not_configured: "Budget needed",
     pending: "Setup in progress",
     ready: "Remittances active",
     paused: "Remittances paused",
@@ -71,7 +71,7 @@ export function agoraStatusLabel(status: AgoraStatus): string {
 
 export function agoraEmployeeMessage(status: AgoraStatus): string {
   return {
-    not_configured: "Your company needs to authorize an Agora Remittance Pool before international invoices can be settled. Ask your employer to set up the pool.",
+    not_configured: "Your company needs to authorize an Agora Remittance budget before international invoices can be settled. Ask your employer to set up the budget.",
     pending: "Your employer has started Agora Remittance setup. Invoices can be settled once authorized.",
     ready: "Upload international contractor invoices or remote travel bills. Settled directly in Agora AUSD at live mid-market FX with zero banking wire fees.",
     paused: "Your company has paused cross-border remittances. Ask your employer to authorize a new budget.",

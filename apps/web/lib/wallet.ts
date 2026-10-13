@@ -24,7 +24,11 @@ export function generateEmployeeReferenceId(address: string) {
 }
 
 export function formatCompanyName(name: string) {
-  return name.trim().replace(/\s+/g, " ");
+  const trimmed = name.trim().replace(/\s+/g, " ");
+  return trimmed
+    .split(" ")
+    .map((word) => (word ? word.charAt(0).toUpperCase() + word.slice(1) : ""))
+    .join(" ");
 }
 
 export function validateCompanyName(name: string) {

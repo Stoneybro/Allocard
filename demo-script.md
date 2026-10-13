@@ -31,11 +31,11 @@
 - **Voiceover:**
   > "Corporate expense cards are broken.
   > 
-  > Today, if you run a company, you are stuck with two bad options. You can hand an employee a corporate credit card with a high credit limit and hope they do not overspend. Or you can pre-fund a debit card with cash upfront, which locks up your working capital and gives up control. Either way, finance teams only find unauthorized charges weeks later during end-of-month reviews.
+  > Today, if you run a company, you are stuck with two bad options. You give employees corporate credit cards and chase them down after the fact when they overspend. Or you load debit cards with company cash upfront, locking up your money and losing control. In both cases, compliance only happens after the money has already left your account.
   > 
-  > Allocard solves this by replacing cash transfers with smart spending permissions.
+  > Allocard fixes this by giving your team smart spending permissions instead of handing over company money upfront.
   > 
-  > With Allocard, your money never leaves your company account until the exact moment a valid purchase occurs."
+  > Your money never leaves your company account until the exact moment a valid purchase occurs."
 
 ---
 
@@ -132,7 +132,7 @@
   > 
   > Our vision model reads the receipt in real time. It extracts the restaurant name, Metropolis Tech Bistro, the date, individual line items, and the total of forty-six dollars and eighty-seven cents.
   > 
-  > When we click Submit Claim, our policy model evaluates the expense against our company rules, confirms the budget, and disburses the reimbursement payout in Agora digital dollars directly on Monad in under two seconds.
+  > When we click Submit Claim, our policy model evaluates the expense against our company rules, confirms the budget, and sends the reimbursement payout in Agora digital dollars directly on Monad in under two seconds.
   > 
   > No paperwork, no manual manager review, and no delayed payouts."
 

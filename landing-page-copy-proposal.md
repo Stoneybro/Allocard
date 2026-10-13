@@ -115,13 +115,13 @@ Five horizontal pill badges highlighting consumer peace of mind:
 
 ---
 
-### 5. How It Works: Permission Over Disbursement
+### 5. How It Works: Permission Over Money Transfers
 **Theme:** Deep Obsidian Dark (`#0c0c0c`)  
 *Second contrast shift to emphasize Allocard's core technological breakthrough.*
 
 - **Eyebrow:** The Core Innovation
 - **Headline:**
-  ### Authorization, not disbursement.
+  ### Permission, not money transfers.
 - **Lead Description:**
   Allocard completely changes how corporate funds move. Instead of sending money to an employee or card, your company keeps all funds in its primary corporate treasury. You simply grant authorized permissions that dictate exactly what can be bought, up to what amount, and on what schedule. Funds only leave your company account at the exact second a verified purchase occurs.
 
@@ -150,7 +150,7 @@ Five horizontal pill badges highlighting consumer peace of mind:
 1. **Rail 1: Instant AI Reimbursements**
    *Pattern: Employee snaps receipt · AI verifies · Instant automated payout*  
    **Headline:** No more waiting weeks for expense reports.  
-   **Description:** Employees upload a photo of their out-of-pocket receipt. Built-in vision AI reads the merchant, totals, and line items, verifies them against your natural language company policy, and disburses the exact reimbursement in seconds.  
+   **Description:** Employees upload a photo of their out-of-pocket receipt. Built-in vision AI reads the merchant, totals, and line items, verifies them against your natural language company policy, and sends the exact reimbursement in seconds.  
    **AI Engine:** Powered by Alibaba Cloud Qwen Vision and Qwen 3.8 Max for instant policy reasoning.
 
 2. **Rail 2: Global Contractor Invoices (Agora Remittance)**

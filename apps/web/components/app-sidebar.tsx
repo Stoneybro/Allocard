@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import type { WorkspaceOption } from "@/app/actions/identity";
 import { isReimbursementAgent } from "@/lib/reimbursements/shared";
@@ -197,12 +198,11 @@ function AddEmployeeDialog({
       <DialogTrigger asChild>
         <Button
           type="button"
-          variant="outline"
           size="sm"
-          className="h-7 w-full text-xs font-medium gap-1.5 border-dashed hover:border-solid justify-center px-2"
+          className="h-8 w-full text-xs font-semibold gap-1.5 justify-center px-3 shadow-xs bg-primary text-primary-foreground hover:bg-primary/90 transition-all cursor-pointer"
         >
           <UserPlusIcon className="size-3.5" />
-          <span>Add employee</span>
+          <span>Add Employee</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
@@ -298,18 +298,17 @@ function CanvasSection({
   return (
     <SidebarGroup className="flex flex-col gap-0 pt-2">
       <SidebarGroupContent className="flex flex-col gap-4 px-2">
-        {/* Hint */}
-        {role !== "employee" && (
-          <Alert className="py-2 px-3 bg-muted/50 border-border/60">
-            <AlertDescription className="text-[11px] text-muted-foreground leading-snug">
-              Drag or click an employee to add them to the canvas and configure their spending allowance.
-            </AlertDescription>
-          </Alert>
-        )}
-
         {/* ── Employees — employer only ──────────────────────────────── */}
         {role !== "employee" && (
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-2.5">
+            {/* Prominent Add Employee action in the sidebar - placed above Employees text */}
+            {onInviteEmployeeByEmail && (
+              <AddEmployeeDialog
+                onInviteEmployeeByEmail={onInviteEmployeeByEmail}
+                pendingEmployees={pendingEmployees}
+              />
+            )}
+
             {/* Sub-label row */}
             <div className="flex items-center justify-between gap-2 px-1">
               <span className="flex items-center gap-1.5 text-[11px] font-semibold text-foreground/80">
@@ -339,13 +338,12 @@ function CanvasSection({
               </div>
             </div>
 
-            {/* Add Employee action in the sidebar */}
-            {onInviteEmployeeByEmail && (
-              <AddEmployeeDialog
-                onInviteEmployeeByEmail={onInviteEmployeeByEmail}
-                pendingEmployees={pendingEmployees}
-              />
-            )}
+            {/* Drag & click instruction hint */}
+            <Alert className="py-2 px-3 bg-muted/50 border-border/60">
+              <AlertDescription className="text-[11px] text-muted-foreground leading-snug">
+                Drag or click an employee to add them to the canvas and configure their spending allowance.
+              </AlertDescription>
+            </Alert>
 
             {/* Prominent list — interactive draggable & clickable cards */}
             {employees.length === 0 ? (
@@ -516,6 +514,36 @@ function CanvasSection({
 // Logout footer
 // ---------------------------------------------------------------------------
 
+function SidebarLogoutButton() {
+  const auth = useAuth();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      if (auth.status === "authenticated") {
+        await auth.disconnect();
+      }
+      router.push("/");
+    } catch (err) {
+      console.warn("Logout error:", err);
+      window.location.assign("/");
+    }
+  };
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      onClick={handleLogout}
+      className="w-full justify-start text-xs font-medium text-destructive border-destructive/25 bg-destructive/5 hover:bg-destructive/15 hover:text-destructive hover:border-destructive/40 cursor-pointer transition-colors px-2.5 h-8 gap-2 rounded-md"
+    >
+      <LogOutIcon className="size-3.5 text-destructive shrink-0" />
+      <span>Log out</span>
+    </Button>
+  );
+}
+
 function LogoutMenuItem() {
   const auth = useAuth();
 
@@ -661,8 +689,8 @@ export function AppSidebar({
       </SidebarContent>
 
       {/* ── FOOTER ─────────────────────────────────────────────────────── */}
-      <SidebarFooter>
-        {/* Footer content removed */}
+      <SidebarFooter className="border-t border-border/40 p-2">
+        <SidebarLogoutButton />
       </SidebarFooter>
 
     </Sidebar>
