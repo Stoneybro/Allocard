@@ -241,12 +241,12 @@ export function LandingPageClient({
             <span className="text-xs text-[#666] font-medium">Monad Metropolis · Product & Consumer Track</span>
           </div>
 
-          <h1 className="text-5xl sm:text-7xl font-bold tracking-[-0.04em] leading-[1] max-w-4xl mb-6 text-[#111]">
-            Corporate cards<br className="hidden sm:block" /> without the corporate risk.
+          <h1 className="text-5xl sm:text-7xl font-bold tracking-[-0.04em] leading-[1.05] max-w-4xl mb-6 text-[#111]">
+            The corporate expense system<br className="hidden sm:block" /> for teams and autonomous AI.
           </h1>
 
           <p className="max-w-xl text-base sm:text-lg text-[#666] leading-relaxed mb-10">
-            Give your team the freedom to pay for business expenses without ever handing over company funds in advance. Allocard lets you authorize exact spending permissions while 100% of your treasury remains securely in your company account.
+            Give employees and AI agents permission to spend within rules you control. No shared cards, no pre-funded wallets, and no paperwork.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 mb-6">
@@ -273,7 +273,7 @@ export function LandingPageClient({
           </div>
 
           <p className="text-xs text-[#999] mb-12">
-            Free to start · Built for teams of 2 to 20,000 · 1-click Google or email sign-in
+            No seed phrases · 1-click Google or email sign-in · Gasless on Monad
           </p>
 
           <div className="w-full max-w-5xl rounded-xl border border-[#eaeaea] overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.06)] bg-white">
@@ -311,25 +311,25 @@ export function LandingPageClient({
             <div>
               <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#999] mb-4">The Problem</p>
               <h2 className="text-3xl sm:text-4xl font-bold tracking-[-0.03em] leading-[1.1] text-[#111] mb-5">
-                You only discover spend violations after your money is already gone.
+                Giving employees and AI agents cards or pre-funded wallets puts your capital at risk.
               </h2>
               <p className="text-[#666] leading-relaxed text-sm">
-                Traditional corporate cards from banks and fintech providers force you to choose between two bad options: handing employees broad credit lines or pre-funding cards with cash. In both cases, you lose custody, and rules are only enforced during end-of-month accounting audits.
+                Traditional setups force you to hand out shared credit cards or transfer funds directly into employee wallets. Both models give up custody of company capital before anything is even purchased.
               </p>
             </div>
             <div className="grid grid-cols-1 gap-3 pt-1">
               {[
                 {
-                  title: "Prepaid cards bleed cash upfront",
-                  body: "You have to transfer company funds into cards before employees can buy anything. That capital sits idle outside your control and cannot be deployed elsewhere.",
+                  title: "Shared cards lead to runaway charges",
+                  body: "Broad credit limits rely on trust. Forgotten subscriptions and unapproved charges only surface weeks later during end-of-month reviews.",
                 },
                 {
-                  title: "Credit limits invite surprise overspends",
-                  body: "Broad credit lines trust employees not to overspend. When an unauthorized charge or accidental renewal happens, you only find out when the credit card bill arrives weeks later.",
+                  title: "Upfront transfers lose treasury custody",
+                  body: "Sending tokens directly to employee wallets puts company capital at risk. If a private key leaks or money is misspent, the funds are already gone.",
                 },
                 {
-                  title: "External providers hold you hostage",
-                  body: "Legacy card providers charge heavy foreign exchange spreads, take days to process international wires, and can freeze your corporate account at their discretion.",
+                  title: "AI agents cannot safely hold funds",
+                  body: "Giving an autonomous bot an open credit card or pre-funded wallet is dangerous. One loop or bad prompt can drain your account.",
                 },
               ].map(({ title, body }) => (
                 <div key={title} className="p-4 rounded-lg border border-[#eaeaea] bg-[#fafafa]">
@@ -347,25 +347,25 @@ export function LandingPageClient({
             <div className="text-center mb-14">
               <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#999] mb-4">The Core Innovation</p>
               <h2 className="text-3xl sm:text-4xl font-bold tracking-[-0.03em] text-[#111] mb-4">
-                Permission, not money transfers.
+                Permissions under rules, not money transfers.
               </h2>
               <p className="max-w-xl mx-auto text-sm text-[#666] leading-relaxed">
-                Allocard completely changes how corporate funds move. Instead of sending money to an employee or card, your company keeps all funds in its primary corporate treasury. You simply grant authorized permissions that dictate exactly what can be bought, up to what amount, and on what schedule. Funds only leave your company account at the exact second a verified purchase occurs.
+                Instead of sending funds to an employee or card, your capital stays 100% in your company treasury. You grant cryptographic permissions that define exactly what can be bought, up to what cap, and on what schedule. Funds only leave your treasury when a valid transaction matches your rules.
               </p>
             </div>
 
             <div className="max-w-4xl mx-auto mb-16">
               <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#999] mb-4 text-center">
-                Complete spending controls, enforced automatically
+                Spending rules enforced onchain
               </p>
               <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-3">
                 {[
-                  { title: "Lifetime Spending Limits", desc: "Set a hard ceiling on what an employee can spend over their tenure." },
-                  { title: "Recurring Allowances", desc: "Automatically reset departmental budgets weekly, monthly, or quarterly." },
+                  { title: "Hard Spending Caps", desc: "Set strict lifetime or monthly budget limits that cannot be exceeded." },
+                  { title: "Rolling Periodic Budgets", desc: "Reset team allowances automatically weekly or monthly with zero manual top-ups." },
                   { title: "Per-Transaction Caps", desc: "Prevent any single checkout from exceeding approved policy limits." },
-                  { title: "Approved Vendor Whitelists", desc: "Restrict spending authority exclusively to verified vendors and services." },
-                  { title: "Instant Revocation", desc: "Freeze or cancel any spending permission with a single click. No phone calls to banks." },
-                  { title: "Multi-Assistant Permissions", desc: "Delegate micro-budgets to automated AI assistants that purchase tools on your behalf." },
+                  { title: "Approved Vendor Whitelists", desc: "Restrict spending authority exclusively to verified vendor contracts or addresses." },
+                  { title: "Instant 1-Click Revocation", desc: "Cancel or freeze any spending permission instantly with zero stranded cash." },
+                  { title: "AI Agent Sub-Delegations", desc: "Empower autonomous software agents to buy tools within strict mathematical caps." },
                 ].map(({ title, desc }) => (
                   <div key={title} className="p-4 rounded-lg border border-[#eaeaea] bg-white">
                     <p className="text-sm font-semibold text-[#111] mb-1">{title}</p>
@@ -383,42 +383,42 @@ export function LandingPageClient({
             <div className="text-center mb-14">
               <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#999] mb-4">Universal Spending Rails</p>
               <h2 className="text-3xl sm:text-4xl font-bold tracking-[-0.03em] text-[#111] mb-4">
-                Every way modern companies spend, unified in one system.
+                Every way modern companies spend, unified.
               </h2>
               <p className="max-w-lg mx-auto text-sm text-[#666] leading-relaxed">
-                Whether paying a local vendor, reimbursing a lunch, paying an overseas contractor, or letting an AI assistant purchase cloud tools, Allocard covers every corporate spending workflow.
+                One company treasury powers direct vendor payments, instant expense reimbursements, overseas contractor payouts, and autonomous AI procurement.
               </p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-5">
               {[
                 {
-                  tag: "Instant AI Reimbursements",
-                  pattern: "Employee snaps receipt · AI verifies · Instant payout",
-                  title: "No more waiting weeks for expense reports.",
-                  body: "Employees upload a photo of their out-of-pocket receipt. Built-in vision AI reads the merchant, totals, and line items, verifies them against your natural language company policy, and sends the exact reimbursement in seconds.",
-                  engine: "Powered by Alibaba Cloud Qwen Vision and Qwen 3.8 Max for instant policy reasoning.",
+                  tag: "Direct Spend",
+                  pattern: "Direct vendor payment · Gasless via Pimlico · Sub-second Monad",
+                  title: "Pay vendors directly from company treasury.",
+                  body: "Employees execute direct business payments within their delegated cap. The exact amount settles in under one second on Monad directly from the company account.",
+                  engine: "Submits as an ERC-4337 UserOperation with zero gas fees for employees.",
                 },
                 {
-                  tag: "Global Contractor Invoices",
-                  pattern: "Overseas invoice · Zero wire fees · Sub-second settlement",
+                  tag: "Instant AI Reimbursements",
+                  pattern: "Snap receipt · Vision AI extracts items · Instant payout",
+                  title: "No more waiting weeks for expense reports.",
+                  body: "Employees upload a photo of an out-of-pocket receipt. Vision AI reads the merchant, date, and items, validates policy compliance, and settles the claim in seconds.",
+                  engine: "Powered by Alibaba Cloud Qwen 2.5 VL with automated natural-language policy matching.",
+                },
+                {
+                  tag: "Global Remittances",
+                  pattern: "Overseas invoices · Live mid-market FX · Zero wire fees",
                   title: "Pay global talent without $45 bank wire fees.",
-                  body: "Settle contractor invoices across borders instantly using the Agora Digital Dollar (AUSD). Eliminates multi-day correspondent bank delays and expensive foreign transaction spreads.",
-                  engine: "Settles in under one second with automated invoice item verification.",
+                  body: "Settle international invoices instantly using Agora Digital Dollar (AUSD). Eliminates multi-day correspondent bank delays and expensive foreign exchange spreads.",
+                  engine: "Settles on Monad in sub-second finality with live multi-currency conversion.",
                 },
                 {
                   tag: "Cloud & Tooling Agent",
                   pattern: "Scoped micro-budget · AI scours plans · Autonomous procurement",
-                  title: "Let AI assistants find and buy tools for your team.",
-                  body: "Employees can assign a small portion of their authorized budget to intelligent software assistants. For example, our Cloud & Tooling Agent compares cloud infrastructure and dedicated RPC plans across providers and purchases the best plan autonomously within its exact cap.",
-                  engine: "Safeguarded by mathematical limits: impossible for the assistant to spend beyond its ceiling.",
-                },
-                {
-                  tag: "Direct Spend & Virtual Cards",
-                  pattern: "Direct vendor checkout · Coming soon: Physical and virtual VISA cards",
-                  title: "Settle invoices directly, anywhere cards are accepted.",
-                  body: "Employees can pay approved vendors directly from their authorized balance with optional receipt verification. Coming soon to mainnet: virtual and physical corporate VISA cards powered by MercuryOS, allowing your team to swipe at any retail counter or online checkout globally.",
-                  engine: "Direct authorized checkout with post-spend compliance verification.",
+                  title: "Autonomous tool procurement for your team.",
+                  body: "Employees assign a portion of their authorized budget to our Cloud & Tooling Agent to compare and purchase developer infrastructure across Monad ecosystem partners.",
+                  engine: "Cryptographically bound to its cap: impossible for the agent to overspend.",
                 },
               ].map(({ tag, pattern, title, body, engine }) => (
                 <div key={tag} className="p-6 rounded-xl border border-[#eaeaea] bg-[#fafafa] flex flex-col gap-3">
@@ -445,12 +445,12 @@ export function LandingPageClient({
         <section id="canvas" className="border-t border-[#eaeaea] bg-[#fafafa]">
           <div className="max-w-6xl mx-auto px-6 py-24">
             <div className="text-center mb-12">
-              <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#999] mb-4">Real-Time Governance</p>
+              <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#999] mb-4">Visual Spend Map</p>
               <h2 className="text-3xl sm:text-4xl font-bold tracking-[-0.03em] text-[#111] mb-4">
-                Your entire company spend flow, visual and live.
+                Your entire company spend, live on canvas.
               </h2>
               <p className="max-w-lg mx-auto text-sm text-[#666] leading-relaxed">
-                Forget rigid spreadsheets and fragmented accounting portals. Allocard provides a live visual canvas that maps every authorized dollar across your organization in real time.
+                Replace rigid spreadsheets with an interactive visual tree showing your company treasury, active employee allowances, and AI agent delegations in real time.
               </p>
             </div>
 
@@ -474,9 +474,9 @@ export function LandingPageClient({
 
             <div className="grid sm:grid-cols-3 gap-4 mt-6">
               {[
-                { title: "Treasury at the Center", body: "See your primary corporate account balance and all active spending branches at a glance." },
-                { title: "Team to Assistant Mapping", body: "Watch authorized allowances flow from your company to employees, and from employees to their automated purchasing assistants." },
-                { title: "Cascading Safety", body: "Revoking an employee's permission instantly terminates every assistant and micro-budget attached to them in one click." },
+                { title: "Central Treasury", body: "View your company balance and every active spending authorization in one central map." },
+                { title: "Composable Permissions", body: "Allowances flow from company to employees, and from employees to their AI assistants." },
+                { title: "Instant Cascading Revocation", body: "Revoking an employee instantly terminates all child budgets and agent permissions attached to them." },
               ].map(({ title, body }) => (
                 <div key={title} className="p-4 rounded-lg border border-[#eaeaea] bg-white">
                   <p className="text-sm font-semibold text-[#111] mb-1">{title}</p>
@@ -491,55 +491,55 @@ export function LandingPageClient({
         <section id="sovereignty" className="border-t border-[#eaeaea] bg-white">
           <div className="max-w-6xl mx-auto px-6 py-24">
             <div className="grid md:grid-cols-2 gap-12 items-start">
-              <div>
-                <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#999] mb-4">Built In-House</p>
-                <h2 className="text-3xl sm:text-4xl font-bold tracking-[-0.03em] text-[#111] mb-4">
-                  An in-house financial system you truly own.
-                </h2>
-                <p className="text-sm text-[#666] leading-relaxed mb-4">
-                  Allocard gives you the capabilities of a high-end corporate card provider without making you dependent on one. Everything is deployed directly on your company account with zero intermediaries.
-                </p>
-                <p className="text-sm text-[#666] leading-relaxed">
-                  Your funds stay in your custody. Your rules remain under your exclusive control. You get the speed of modern automation with the safety of absolute ownership.
-                </p>
-              </div>
+            <div>
+              <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#999] mb-4">Complete Ownership</p>
+              <h2 className="text-3xl sm:text-4xl font-bold tracking-[-0.03em] text-[#111] mb-4">
+                A corporate spend system you truly own.
+              </h2>
+              <p className="text-sm text-[#666] leading-relaxed mb-4">
+                Allocard delivers the power of modern corporate cards without handing custody to third parties. Your smart account runs directly on Monad with zero intermediaries.
+              </p>
+              <p className="text-sm text-[#666] leading-relaxed">
+                Your funds stay in your custody. Your rules remain under your control. You get the speed of modern automation with the safety of cryptographic guarantees.
+              </p>
+            </div>
 
-              <div className="grid grid-cols-1 gap-3">
-                {[
-                  {
-                    title: "Zero Custody Risk",
-                    body: "Allocard never holds your funds. Everything runs directly on your company's own smart account. We cannot freeze your balance or alter your rules.",
-                  },
-                  {
-                    title: "Private & Non-Intrusive AI",
-                    body: "Your internal company expense policies and receipts are evaluated privately with zero data retention using Alibaba Cloud Qwen AI.",
-                  },
-                  {
-                    title: "Complete Transparent Audit Trail",
-                    body: "Every single authorization, adjustment, and payment is permanently logged with tamper-proof mathematical certainty on Monad.",
-                  },
-                ].map(({ title, body }) => (
-                  <div key={title} className="p-4 rounded-lg border border-[#eaeaea] bg-[#fafafa]">
-                    <p className="text-sm font-semibold text-[#111] mb-1">{title}</p>
-                    <p className="text-sm text-[#666] leading-relaxed">{body}</p>
-                  </div>
-                ))}
-              </div>
+            <div className="grid grid-cols-1 gap-3">
+              {[
+                {
+                  title: "Zero Custody Risk",
+                  body: "Allocard never holds your funds. Everything runs on your company smart account. We cannot freeze your balance or alter your rules.",
+                },
+                {
+                  title: "Private Policy AI",
+                  body: "Company expense policies and receipts are evaluated privately with zero data retention using Alibaba Cloud Qwen AI.",
+                },
+                {
+                  title: "Tamper-Proof Audit Trail",
+                  body: "Every authorization, budget adjustment, and payment is permanently logged and verifiable on Monad.",
+                },
+              ].map(({ title, body }) => (
+                <div key={title} className="p-4 rounded-lg border border-[#eaeaea] bg-[#fafafa]">
+                  <p className="text-sm font-semibold text-[#111] mb-1">{title}</p>
+                  <p className="text-sm text-[#666] leading-relaxed">{body}</p>
+                </div>
+              ))}
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
         {/* ── Closing CTA ── */}
         <section id="cta" className="border-t border-[#eaeaea] bg-[#fafafa]">
           <div className="max-w-6xl mx-auto px-6 py-24 flex flex-col items-center text-center">
             <p className="text-xs font-semibold tracking-[0.15em] uppercase text-[#999] mb-5">
-              Ready in two minutes · No hardware or bank setup needed
+              Ready in two minutes · No seed phrases · No gas tokens needed
             </p>
             <h2 className="text-4xl sm:text-5xl font-bold tracking-[-0.03em] leading-[1.05] max-w-xl text-[#111] mb-5">
               Take total control of your company spend today.
             </h2>
             <p className="text-sm text-[#666] max-w-md mb-10 leading-relaxed">
-              Sign in with your Google account, create your company workspace, and issue your first spending permission in under sixty seconds.
+              Sign in with your Google account, activate your company smart account, and issue your first spending permission in under sixty seconds.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <button
