@@ -66,6 +66,33 @@ Company Treasury (Smart Account on Monad)
 
 ---
 
+## The Core Engine: MetaMask Delegation Toolkit
+
+Allocard is powered natively by the **MetaMask Smart Accounts Kit** (`Implementation.Hybrid`) and **MetaMask Delegation Core** (`@metamask/delegation-core`). 
+
+Instead of traditional models where companies either hand out shared credit cards or transfer crypto upfront into employee wallets, Allocard uses MetaMask delegations to treat spending budgets as programmable, cryptographically verifiable access tokens.
+
+### 1. Offchain Signing with Zero Upfront Capital
+Delegations are EIP-712 typed data structures signed offchain by the employer's smart account. Creating, adjusting, or distributing spending permissions costs zero gas. Because no tokens are transferred upfront, 100% of the company's capital remains in the central treasury.
+
+### 2. Onchain Caveat Enforcers
+MetaMask Delegation Core enforces company spending rules mathematically onchain before a transaction can execute:
+- **Periodic Budget Allowances (`erc20PeriodTransfer`):** Automatically resets an employee's authorized spending budget weekly or monthly without manual accounting top-ups.
+- **Per-Transaction Caps (`valueLte`):** Guarantees no single purchase exceeds approved departmental policy.
+- **Approved Merchant Whitelists (`allowedTargets`):** Restricts payment execution strictly to verified vendor contract addresses or wallets.
+- **Call Ceilings (`limitedCalls`):** Restricts the total number of times an authorization can be redeemed.
+
+### 3. Composable Redelegation (Empowering AI Agents)
+MetaMask's delegation model supports multi-hop redelegation. An employee who receives a spending delegation from the company can sub-delegate a slice of their authorized budget to an autonomous software assistant (such as our Cloud and Tooling Agent). 
+- The AI agent receives its own distinct spending authorization.
+- The agent's permissions can never exceed the parent employee's caveats.
+- The agent cannot divert funds to unapproved targets or exceed its assigned spending cap.
+
+### 4. Instant Cascading Revocation
+If an employee leaves or an authorization needs to be frozen, the employer can revoke the root delegation onchain in one click. Revoking a parent delegation instantly invalidates all child permissions and AI agent sub-delegations down the branch, with zero risk of stranded capital.
+
+---
+
 ## Tech Stack
 
 | Layer | Technology | Role |
