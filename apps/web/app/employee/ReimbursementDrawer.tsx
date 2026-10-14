@@ -110,7 +110,8 @@ export function ReimbursementDrawer({
 
   const handleLoadSample = async () => {
     try {
-      const res = await fetch("/SampleReciept.jpg");
+      let res = await fetch("/sample-receipt.jpg");
+      if (!res.ok) res = await fetch("/SampleReciept.jpg");
       const blob = await res.blob();
       const reader = new FileReader();
       reader.onload = () => {
@@ -181,9 +182,11 @@ export function ReimbursementDrawer({
           } : undefined,
         });
       } else {
-        setErrorMessage(`Rejected: ${data.veniceReasoning}`);
+        const reason = data.veniceReasoning || "Claim rejected by policy.";
+        const displayReason = reason.startsWith("Rejected:") ? reason : `Rejected: ${reason}`;
+        setErrorMessage(displayReason);
         setStep("error");
-        toast.error("Claim Rejected by Policy", { description: data.veniceReasoning });
+        toast.error("Claim Rejected by Policy", { description: reason.replace(/^Rejected:\s*/i, "") });
       }
     } catch (err: unknown) {
       const errorMsg = parseUserOpError(err);
