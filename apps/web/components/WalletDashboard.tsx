@@ -9,7 +9,7 @@ import {
 import { http } from 'viem'
 import { chain, CHAIN_NAME } from '@/lib/chain'
 
-import { publicClient, getPimlicoGasPrice } from '@/lib/client'
+import { publicClient, getPimlicoGasPrice, getPimlicoConfig } from '@/lib/client'
 import { createHybridSmartAccount } from '@/lib/smartAccount'
 import { useAuth } from '@/components/AuthProvider'
 
@@ -43,9 +43,7 @@ export default function WalletDashboard() {
     initialDeploymentState,
   )
 
-  const bundlerUrl = process.env.NEXT_PUBLIC_BUNDLER_RPC_URL
-  const paymasterUrl = process.env.NEXT_PUBLIC_PAYMASTER_RPC_URL
-  const sponsorId = process.env.NEXT_PUBLIC_PIMLICO_SPONSOR_ID
+  const { bundlerUrl, paymasterUrl, sponsorId } = getPimlicoConfig()
 
   const handleDisconnect = async () => {
     setDeployment(initialDeploymentState)

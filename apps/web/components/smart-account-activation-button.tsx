@@ -8,7 +8,7 @@ import { LoaderCircleIcon, RocketIcon } from "lucide-react";
 import { useWalletClient, useSwitchChain, useChainId } from "wagmi";
 import { activateSmartAccount } from "@/app/actions/identity";
 import { Button } from "@/components/ui/button";
-import { publicClient, getPimlicoGasPrice } from "@/lib/client";
+import { publicClient, getPimlicoGasPrice, getPimlicoConfig } from "@/lib/client";
 import { createHybridSmartAccount } from "@/lib/smartAccount";
 import { toast } from "sonner";
 
@@ -72,17 +72,7 @@ export function SmartAccountActivationButton({
           }
         }
 
-        const bundlerUrl = process.env.NEXT_PUBLIC_BUNDLER_RPC_URL;
-        const paymasterUrl = process.env.NEXT_PUBLIC_PAYMASTER_RPC_URL;
-        const sponsorId = process.env.NEXT_PUBLIC_PIMLICO_SPONSOR_ID;
-
-        if (!bundlerUrl) {
-          throw new Error("Missing NEXT_PUBLIC_BUNDLER_RPC_URL");
-        }
-
-        if (!paymasterUrl) {
-          throw new Error("Missing NEXT_PUBLIC_PAYMASTER_RPC_URL");
-        }
+        const { bundlerUrl, paymasterUrl, sponsorId } = getPimlicoConfig();
 
         const smartAccount = await createHybridSmartAccount(
           walletClient as Parameters<typeof createHybridSmartAccount>[0],

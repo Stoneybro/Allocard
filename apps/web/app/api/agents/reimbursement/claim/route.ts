@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getPimlicoGasPrice } from "@/lib/client";
+import { getPimlicoGasPrice, getPimlicoConfig } from "@/lib/client";
 import { requireEmployeeCompany, requireSessionUser } from "@/lib/auth-guard";
 import { claimRedemptions, employeeProfiles, companies } from "@/lib/db/schema";
 import { loadReimbursementProgram } from "@/lib/reimbursements/server";
@@ -147,11 +147,7 @@ export async function POST(req: NextRequest) {
       const publicClient = createPublicClient({ chain, transport: http() });
       const walletClient = createWalletClient({ account, chain, transport: http() });
       
-      const bundlerUrl = process.env.NEXT_PUBLIC_BUNDLER_RPC_URL;
-      const paymasterUrl = process.env.NEXT_PUBLIC_PAYMASTER_RPC_URL;
-      const sponsorId = process.env.NEXT_PUBLIC_PIMLICO_SPONSOR_ID;
-      if (!bundlerUrl) throw new Error("Missing NEXT_PUBLIC_BUNDLER_RPC_URL");
-      if (!paymasterUrl) throw new Error("Missing NEXT_PUBLIC_PAYMASTER_RPC_URL");
+      const { bundlerUrl, paymasterUrl, sponsorId } = getPimlicoConfig();
 
       // 5a. Re-create the Reimbursement Agent Smart Account (deterministic salt 1)
       const { toMetaMaskSmartAccount, Implementation, getSmartAccountsEnvironment } = await import("@metamask/smart-accounts-kit");

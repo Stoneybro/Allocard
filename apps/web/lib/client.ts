@@ -7,8 +7,13 @@ export const publicClient = createPublicClient({
   chain,
 })
 
+import { normalizePimlicoUrl, getPimlicoConfig } from './pimlico'
+
+export { normalizePimlicoUrl, getPimlicoConfig }
+
 export async function getPimlicoGasPrice(bundlerUrl: string) {
-  const response = await fetch(bundlerUrl, {
+  const normalizedUrl = normalizePimlicoUrl(bundlerUrl);
+  const response = await fetch(normalizedUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -19,6 +24,9 @@ export async function getPimlicoGasPrice(bundlerUrl: string) {
     }),
   });
   const data = await response.json();
+  if (!data?.result?.fast) {
+    throw new Error(`Failed to fetch gas price from Pimlico: ${data?.error?.message || JSON.stringify(data)}`);
+  }
   return {
     maxFeePerGas: BigInt(data.result.fast.maxFeePerGas),
     maxPriorityFeePerGas: BigInt(data.result.fast.maxPriorityFeePerGas),

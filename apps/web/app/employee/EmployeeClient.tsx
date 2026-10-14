@@ -99,7 +99,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { DirectSpendForm } from "./DirectSpendForm";
 import { createHybridSmartAccount } from "@/lib/smartAccount";
-import { publicClient, getPimlicoGasPrice } from "@/lib/client";
+import { publicClient, getPimlicoGasPrice, getPimlicoConfig } from "@/lib/client";
 import { cn } from "@/lib/utils";
 import { formatWalletAddress, generateEmployeeReferenceId } from "@/lib/wallet";
 import { useWalletClient, useSwitchChain } from "wagmi";
@@ -896,12 +896,7 @@ export function EmployeeClient({
     const { createBundlerClient, createPaymasterClient } = await import("viem/account-abstraction");
     const { createPublicClient, http, parseEther } = await import("viem");
 
-    const bundlerUrl = process.env.NEXT_PUBLIC_BUNDLER_RPC_URL;
-    if (!bundlerUrl) throw new Error("Missing NEXT_PUBLIC_BUNDLER_RPC_URL");
-
-    const paymasterUrl = process.env.NEXT_PUBLIC_PAYMASTER_RPC_URL;
-    if (!paymasterUrl) throw new Error("Missing NEXT_PUBLIC_PAYMASTER_RPC_URL");
-    const sponsorId = process.env.NEXT_PUBLIC_PIMLICO_SPONSOR_ID;
+    const { bundlerUrl, paymasterUrl, sponsorId } = getPimlicoConfig();
 
     const paymasterClient = createPaymasterClient({
       transport: http(paymasterUrl),

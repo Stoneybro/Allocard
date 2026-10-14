@@ -1,457 +1,182 @@
 <div align="center">
-  <img src="./apps/web/public/AllocardLogoWhite.svg" alt="Allocard Logo" width="150" />
-</div>
-<div align="center">
+  <img src="./apps/web/public/AllocardLogoWhite.svg" alt="Allocard Logo" width="120" />
   <h1>Allocard</h1>
+  <p><strong>The corporate expense system for teams and autonomous AI on Monad.</strong></p>
 
-  [![Live Demo](https://img.shields.io/badge/Live%20Demo-allocard.vercel.app-6366f1?style=for-the-badge&logo=vercel)](https://allocard.vercel.app/)
-  [![Video Demo](https://img.shields.io/badge/YouTube-Video_Demo-FF0000?style=for-the-badge&logo=youtube)](https://youtu.be/8Cbk6FIz9hg)
-  [![Network](https://img.shields.io/badge/Network-Monad%20Testnet-836EF9?style=for-the-badge)](https://testnet.monadexplorer.com/)
-  [![MetaMask](https://img.shields.io/badge/Built%20With-MetaMask%20Smart%20Accounts%20Kit-f6851b?style=for-the-badge)](https://metamask.io/)
-  [![GitHub](https://img.shields.io/badge/GitHub-Stoneybro%2FAllocard-181717?style=for-the-badge&logo=github)](https://github.com/Stoneybro/Allocard)
+  <p>
+    <a href="https://allocard.vercel.app/"><img src="https://img.shields.io/badge/Live%20Demo-allocard.vercel.app-6366f1?style=for-the-badge&logo=vercel" alt="Live Demo" /></a>
+    <a href="https://testnet.monadexplorer.com/"><img src="https://img.shields.io/badge/Network-Monad%20Testnet-836EF9?style=for-the-badge" alt="Network" /></a>
+    <a href="https://metamask.io/"><img src="https://img.shields.io/badge/Built%20With-MetaMask%20Delegation%20Toolkit-f6851b?style=for-the-badge" alt="MetaMask" /></a>
+    <a href="https://github.com/Stoneybro/Allocard"><img src="https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github" alt="GitHub" /></a>
+  </p>
 </div>
 
 ---
 
-## Quick Summary
+## Overview
 
-Corporate expense card providers like Brex and Ramp allow companies to issue their employees credit cards for business expenses with predefined rules and spending controls. 
+Traditional corporate cards and crypto setups force companies to choose between two bad options: handing employees shared credit cards (risking runaway charges), or transferring crypto upfront into employee wallets (losing custody of treasury funds).
 
-Allocard replicates this system with improvements. Using MetaMask's delegation features, we don't need to give employees direct access to funds. Instead, the company has a master smart account that holds all the expense funds. We then delegate funds to employees, which they can only spend under certain rules (caveats).
+**Allocard replaces shared cards and upfront transfers with programmable spending permissions.**
 
-Allocard takes it a step further with the use of MetaMask's redelegation. We empower employees with AI agents (powered by Qwen 3.8 Max and smart accounts) built for specific expenses like travel and procurement. Employees can choose an agent that fits their expense need and redelegate the funds they received from the company to that agent to sort out the expense (e.g., the agent automatically books a flight).
-
-Reimbursements are a built-in company feature with a permanent section on both dashboards. Employers authorize a shared reimbursement budget directly from that section; employees upload receipts and submit claims without adding an agent to either canvas or receiving a personal spending allowance. AI checks the receipt and claim, and the backend pays approved claims within the authorized budget. Missing setup, paused payouts, exhausted budgets and unavailable service have explicit status messages.
-
-Using MetaMask Smart Account ERC-7710 delegation, redelegation features, and Qwen 3.8 Max AI, Allocard replicates and improves on the current state of corporate expense card systems.
+Instead of pre-funding employee accounts, your money stays 100% in your company treasury. Employers issue cryptographic permissions with exact spending rules (caps, reset schedules, and merchant restrictions). Funds never enter the employee's personal wallet: capital moves directly from the company account to the vendor only when an authorized purchase occurs.
 
 ---
 
-## Table of Contents
-- [The Problem with Corporate Expense Cards](#the-problem-with-corporate-expense-cards)
-- [What Allocard Does Differently](#what-allocard-does-differently)
-- [How It Works](#how-it-works)
-- [MetaMask Delegation ERC-7710 Implementation](#metamask-delegation-erc-7710-implementation)
-- [Qwen 3.8 Max AI and the Agent System](#qwen-38-max-ai-and-the-agent-system)
-- [The Delegation Canvas](#the-delegation-canvas)
-- [App Walkthrough](#app-walkthrough)
-- [Hackathon Track Eligibility](#hackathon-track-eligibility)
-- [Demo Tips](#demo-tips)
-- [Tech Stack](#tech-stack)
-- [Local Setup](#local-setup)
-- [Architecture](#architecture)
+## Core Features
 
----
+### 1. Visual Spend Map (Delegation Canvas)
+Monitor and manage your entire company spend in real time. The interactive canvas maps your company treasury, active employee allowances, and sub-delegated AI agents in a single visual tree.
 
-## The Problem with Corporate Expense Cards
+### 2. Direct Vendor Spend
+Employees execute business payments directly within their delegated limit. Powered by ERC-4337 and Monad's high-throughput architecture, payments settle in under one second directly from the company treasury with zero gas fees for employees.
 
-Modern corporate card platforms like Brex and Ramp manage five things: per-user spend limits, real-time transaction logging, receipt compliance, virtual cards per vendor, and reimbursements for out-of-pocket purchases. They work. But they enforce every one of those rules through a centralized provider.
+### 3. Automated Receipt Auditing & AI Reimbursements
+If an employee pays for a business expense with personal funds, getting reimbursed is effortless. The employee uploads a photo of their receipt; vision AI reads the merchant, date, and line items, verifies company policy compliance, and settles the claim automatically.
 
-The deeper problem is how the money moves. Corporate cards pre-load funds or credit lines. The employee has access to more money than any single transaction needs. If they break the rules, the money moves before anyone catches it. Audits find violations after the fact.
+### 4. Autonomous AI Tooling Procurement
+Employees can allocate a portion of their authorized budget to autonomous software agents. Our Cloud and Tooling Agent evaluates requirements, scours verified Monad ecosystem partners (Chainstack, Crouton Digital, Ack3 AI, Envio), recommends the optimal plan, and executes the purchase onchain within its strict mathematical limit.
 
-The same problem applies to AI agents. Giving an agent a funded wallet means the agent can spend freely. Nothing in the wallet itself stops it from exceeding its intended scope. The faster the agent acts, the worse the problem gets.
+### 5. Global Offchain Remittances via Agora AUSD
+Allocard is not limited to onchain payments. Using the Agora Digital Dollar (AUSD), companies settle real-world international contractor invoices and foreign travel expenses at live mid-market exchange rates, saving $45 SWIFT bank wire fees on every payout.
 
----
-
-
-## What Allocard Does Differently
-
-Allocard does not pre-load funds. It issues a **delegation**: a signed, on-chain permission that lets a delegatee spend from the delegator's smart account up to the limits defined in the delegation's caveats.
-
-The Delegation Manager contract checks every caveat on each spend attempt. A transaction that exceeds any caveat rule reverts. Funds never move until a valid transaction passes every check.
-
-This maps directly onto the corporate card feature set:
-
-| Corporate Card Feature | Allocard Implementation |
-|---|---|
-| Per-user spending limit | `nativeTokenTransferAmount` caveat: lifetime ETH cap |
-| Monthly allowance reset | `nativeTokenPeriodTransfer` caveat: recurring allowance |
-| Per-transaction cap | `valueLte` caveat: maximum ETH per transaction |
-| Merchant restrictions | `allowedTargets` caveat: whitelist of recipient addresses |
-| Card cancellation | Delegation revocation: instant, cascades to all sub-delegations |
-| Receipt compliance | Qwen Vision OCR: receipt scanned and matched to claim |
-| Reimbursement | Reimbursement Agent: autonomous ETH transfer after policy check |
-| Virtual cards for agents | Agent delegations: each agent gets a scoped, revocable delegation |
-
-The difference is that every rule in this table is enforced at the contract level. There is no provider to call, no support ticket to raise, and no override available to anyone outside the delegation chain.
-
-### A Note on Fraud Protection
-
-Allocard cannot prevent sophisticated employee fraud. An employee could collaborate with a malicious merchant or submit a highly manipulated receipt. However, combining on-chain caveats with Qwen AI creates a strict defense layer. The smart contract blocks any transaction that exceeds hard limits. Qwen AI flags policy violations before funds move. Every spend generates a permanent, auditable on-chain record. This setup limits the impact of any fraudulent act and guarantees full visibility for the employer.
+### 6. 1-Click Consumer Onboarding via Privy
+No seed phrases, browser extensions, or gas tokens needed. Team members sign in with their corporate email or Google account. Privy automatically provisions embedded smart account signers behind the scenes.
 
 ---
 
 ## How It Works
 
-### Delegations and Caveats
-
-A delegation is a signed object:
-
 ```
-{
-  delegator:  <company smart account address>,
-  delegatee:  <employee or agent smart account address>,
-  caveats:    [array of spending rules],
-  signature:  <delegator's EIP-712 signature>
-}
-```
-
-Allocard uses six caveat types:
-
-| Caveat | What It Enforces |
-|---|---|
-| `nativeTokenTransferAmount` | Lifetime cumulative ETH spending cap |
-| `nativeTokenPeriodTransfer` | Recurring allowance, resets each period (hourly / daily / weekly / monthly) |
-| `valueLte` | Maximum ETH per single transaction |
-| `allowedTargets` | Whitelist of addresses that can receive funds |
-| `redeemer` | Locks which address can redeem the delegation |
-| `limitedCalls` | Maximum number of redemptions |
-
----
-
-## MetaMask Delegation ERC-7710 Implementation
-
-Allocard's corporate expense card system covers three fundamental spending modes: employees spending directly on business needs, agents spending on an employee's behalf, and employees getting reimbursed for out-of-pocket purchases. Allocard handles all three using ERC-7710 delegation and redelegation. Each mode maps to a distinct delegation pattern.
-
-**Pattern 1: Company to Employee to Agent (Redelegation, Agent Executes)**
-
-The employer creates a delegation from the company smart account to an employee's smart account. The employee then redelegates a subset of that authority to an AI agent's smart account. The agent receives an independent, scoped delegation and executes transactions on its own. The employee never needs to approve each individual spend. The agent only has access to what the employee chose to redelegate. The company's full budget is never exposed.
-
-This covers planned business spending: travel bookings and software procurement.
-
-```
-Company Smart Account  (e.g. 1 ETH lifetime, monthly reset)
-  |
-  └── Employee Smart Account  (e.g. 0.2 ETH lifetime, 0.05 ETH/month)
-        |
-        └── Travel Agent Smart Account  (e.g. 0.1 ETH, flights and hotels only)
-        |
-        └── Procurement Agent Smart Account  (e.g. 0.05 ETH, approved vendors only)
+Company Treasury (Smart Account on Monad)
+       │
+       ├── EIP-712 Delegation (MetaMask Delegation Core)
+       │     └─ Caveats: Spend Caps, Periodic Resets, Allowed Targets
+       │
+       ├── Employee Spending Permission (Privy Embedded Signer)
+       │     ├── Direct Spend (Sub-second Monad settlement via Pimlico)
+       │     └── Sub-Delegation to AI Agent (Mathematical limit)
+       │
+       └── Funds leave treasury ONLY when a valid onchain check passes
 ```
 
-**Pattern 2: Company to Agent to Employee (Delegation, Agent Pays Out)**
-
-The employer creates a delegation directly from the company smart account to the Reimbursement Agent's smart account. The employee does not hold a delegation in this pattern. Instead, they submit a claim to the agent. The agent evaluates the claim, and if it passes, the agent redeems the company delegation and transfers ETH to the employee's wallet.
-
-This covers reimbursements: employees who paid out of pocket and need to be paid back.
-
-```
-Company Smart Account  (e.g. 0.5 ETH lifetime for reimbursements)
-  |
-  └── Reimbursement Agent Smart Account
-        |
-        └── Pays out to Employee smart account on approved claims
-```
-
-**Pattern 3: Company to Employee, Employee Redeems Directly (Direct Spend)**
-
-The employer creates a delegation from the company smart account to the employee's smart account. The employee redeems that delegation themselves, specifying a merchant address as the recipient. No new delegation is created. No agent holds the authority. The employee is the delegatee and the one executing the transaction.
-
-This covers ad-hoc business purchases that the Travel or Procurement Agents do not handle: a one-off software license, a business lunch, a conference ticket. Before the transaction executes, Qwen AI checks the stated purpose against the company's expense policy. If Qwen flags a violation, the employee sees the reason and decides whether to proceed.
-```
-Company Smart Account
-  |
-  └── Employee Smart Account  (holds delegation, redeems directly)
-        |
-        └── Sends to Merchant Address  (no sub-delegation created)
-```
-
-Revoking a parent delegation revokes every delegation in its subtree. An employer can revoke an employee's delegation in one action, and every agent that employee delegated to loses access simultaneously.
-
----
-
-## Qwen 3.8 Max AI and the Agent System
-
-Allocard's agents are not chat assistants. Each agent holds a smart account, receives a scoped delegation, and executes on-chain transactions. Together, they cover the core workflows of a corporate expense card.
-
-### Agent Smart Accounts (Monad Testnet)
-
-- **Reimbursement Agent:** `0xD61C510c51a1DD4a73C4Dfeca6893aeEE6A731c1`
-- **Travel Agent:** `0x916BE00E5cCd1A3a7930f20dFDC55D21947B8903`
-- **Procurement Agent:** `0x1Cf7F91e72727AEfFb31603CBD3a7d5Ae03aa922`
-
-### Qwen 3.8 Max as the Decision Layer
-
-Every transaction in Allocard passes through Qwen 3.8 Max before it executes. Qwen evaluates policy and receipts in real time with private, zero-retention execution.
-
-Before Qwen evaluates any request, the app assembles three layers of context:
-- **Layer 1: On-chain caveats** — hard numeric limits from the delegation
-- **Layer 2: Company expense policy** — natural language rules the employer sets
-- **Layer 3: Per-delegation rules** — agent-specific additions, e.g. "economy flights only"
-
-Qwen reads all three together and returns a pass or reject decision with written reasoning. The two enforcement mechanisms are independent. If Qwen approves a request but the amount would still exceed an on-chain caveat, the Delegation Manager contract reverts the transaction. Qwen enforces policy. The contract enforces math. Neither can override the other.
-
-The agents below each call Qwen at a specific point in their flow. The model used, the inputs it receives, and the decision it makes differ for each one.
-
-### Reimbursements
-
-Not every business expense can be paid in advance. Sometimes an employee pays out of their own pocket first and claims it back later. Traditional corporate card platforms handle this with a manual reimbursement flow: the employee submits a receipt, a finance team reviews it, and the company pays them back over days or weeks.
-
-Allocard automates this entirely. The company creates a delegation directly to the Reimbursement Agent's smart account, allocating a reimbursement budget. When an employee submits a claim, no human reviews it. The agent does.
-
-How it works:
-
-1. The employer opens **Reimbursements → Set up reimbursement budget**, sets payment limits and authorizes the budget. Existing reimbursement delegations are reused automatically. The employee then opens **New reimbursement claim**, uploads a required receipt and reviews the claim details.
-2. If a receipt is uploaded, `qwen3-vl-plus` scans the image and extracts the merchant name, total amount, and date.
-3. `qwen3.8-max` reads the extracted receipt data alongside the claim description, the on-chain caveat limits, the company's expense policy, and any agent-specific rules. It returns a pass or reject decision with written reasoning.
-4. If the claim passes, the agent's backend signer redeems the company-to-agent delegation on-chain and transfers ETH directly to the employee's wallet. No finance team involved. No delay.
-5. The full audit record is stored: the prompt, the reasoning, a confidence score, and the transaction hash.
-
-The company sets the budget ceiling in the delegation's caveats. Qwen decides whether the individual claim fits policy. The contract ensures the ETH moved matches what was approved.
-
-### Pre-Spend Advisory
-
-The Travel and Procurement Agents cover planned, recurring business expenses. But employees sometimes need to pay a merchant that no agent covers. A one-off software license, a business lunch, a conference ticket. For these cases, employees can transfer ETH directly from their delegated smart account to any address.
-
-Before that transfer executes, Allocard runs a policy check. The employee enters the recipient address, the ETH amount, and a short description of the purpose. `qwen3.8-max` reads that description against the company's expense policy and returns a verdict with reasoning.
-
-The check is advisory. If Qwen flags a policy violation, the employee sees the reason and can choose to cancel or proceed. If they proceed, the transaction is flagged in the employer's activity log for review. This gives employees flexibility while preserving a full audit trail for the employer.
-
-### Travel Agent
-
-Business travel is one of the largest uncontrolled expense categories for companies. An employee might book flights on a personal card and expense them later, or have a company card with no real guardrails on what they book.
-
-With Allocard, an employee redelegates a portion of their budget to the Travel Agent's smart account. The caveats on that delegation define the exact budget available. The employee then opens the Travel Agent drawer and submits a travel request: destination, departure date, return date, and any specific requirements.
-
-`qwen3.8-max` reads the request alongside the caveat limits and company policy. It researches flight and hotel options, selects the best fit within the budget, and returns a proposed itinerary with an estimated ETH cost. The employee reviews the itinerary and clicks Approve.
-
-On approval, the agent's backend signer redeems the employee-to-agent delegation and transfers ETH to the employee's smart account. In a production deployment, this ETH would go to the vendor or airline directly. For this demo, there are no live merchant integrations, so the funds go to the employee's smart account instead. The important thing is that the full delegation flow completed on-chain: Qwen evaluated the request, the agent redeemed a real delegation, and ETH actually moved from the company's budget to a recipient address. The employee never had to touch the company's full budget. The agent only had access to what the employee delegated to it.
-
-### Procurement Agent
-
-Teams buy software subscriptions regularly. Without central visibility, companies end up with overlapping tools, duplicate subscriptions, and vendors that were never properly approved.
-
-The Procurement Agent addresses this. An employee redelegates a procurement budget to the agent and opens the Procurement Agent drawer. They specify the tool category (e.g. project management, design, analytics), the team size, and any additional requirements.
-
-`qwen3.8-max` receives the request and the list of tools the company already subscribes to. It checks for duplicates first. If the requested category is already covered by an existing tool, it flags this. If no duplicate exists, it researches vendors, compares pricing against the delegation budget, and returns a recommendation with estimated monthly ETH cost.
-
-On employee approval, the agent redeems the delegation and transfers ETH to the employee's smart account. In a production deployment, this ETH would go to the software vendor directly. For this demo, there are no live vendor integrations, so the funds go to the employee's smart account instead. The full on-chain flow completed: Qwen evaluated the request, the agent redeemed a real delegation, and ETH moved from the company's budget. The employer sees the full activity in the delegation tree and can revoke the agent's delegation at any time.
-
----
-
-## The Delegation Canvas
-
-![Delegation Canvas](./apps/web/public/delegationCanvas.png)
-
-The delegation canvas is the primary interface for both the employer and the employee. It renders the delegation tree as a live graph using React Flow. Every node on the canvas represents a smart account. Every edge represents an active or pending delegation between two accounts.
-
-### Employer Canvas
-
-The employer's canvas shows the full company delegation tree. It is the employer's view of all spending authority they have issued.
-
-The root node is the company's master smart account. It sits on the left side of the canvas. Delegation edges branch to the right, with employee nodes and agent nodes arranged as children.
-
-**What each node shows:**
-- The account name or wallet address
-- The smart account address (with a one-click copy button)
-- Delegation status: Active, Pending Configuration, or Revoked
-- The spending limit on active delegations
-
-**What the employer can do from the canvas:**
-- Drag an employee from the sidebar and drop them onto the canvas to start a new delegation
-- Click **Configure** on a pending node to open the caveat drawer and set spending rules
-- Click **View Rules** on an active node to inspect the current caveats
-- Click **Revoke** on any active node to revoke that delegation and all delegations in its subtree
-
-The employer can also see agent nodes that employees created through redelegation. These appear as child nodes branching from the employee node. They are read-only on the employer canvas because the employer's smart account did not sign them. The employer can still see them and can revoke the parent employee delegation to remove access at that level.
-
-Active delegation edges animate to show that spending authority is live. Revoked nodes appear faded. Pending nodes appear with a dashed edge.
-
-### Employee Canvas
-
-The employee's canvas shows their own spending authority and what they have delegated to agents.
-
-The root node is the employee's own smart account. It shows the employee's approved spending limit from the company and the company name. Agent nodes branch to the right, one for each agent the employee has created a delegation for.
-
-**What the employee can do from the canvas:**
-- Drag an agent from the sidebar and drop it onto the canvas to start a new redelegation
-- Click **Configure** on a pending agent node to set child caveats
-- Click the action button on an active agent node to open that agent's drawer (e.g. **Book Trip** for the Travel Agent, **Procure** for the Procurement Agent)
-- Click **Revoke** on any active agent node to revoke that redelegation
-
-The employee cannot see the employer's full company tree. They only see their own account and the agents they have delegated to.
-
----
-
-## App Walkthrough
-
-People sign in with Google or email. An employer adds an employee by their verified email; the employee accepts the pending company membership in Allocard. A person can hold several company memberships and switch company and role from the workspace selector.
-
-### Step 1: Employer Setup
-
-1. Open [allocard.vercel.app](https://allocard.vercel.app) and continue with Google or email.
-2. Create a company. Enter a company name and submit.
-3. Activate the company smart account. This deploys an ERC-4337 contract on Monad Testnet.
-4. Add an employee using their email address. They must sign in with that same verified email.
-
-At this point, no employees appear on the canvas yet. The employer cannot issue a delegation until an employee exists in the system.
-
-### Step 2: Employee Onboarding
-
-The employee can sign in in any browser context. Use a separate profile only when demoing two different people at the same time.
-
-1. Sign in with Google or email matching the address the employer added.
-2. Open the workspace selector and accept the pending company membership.
-3. Activate the employee smart account from the dashboard banner. This deploys a second ERC-4337 contract.
-
-The employee now appears in the employer's sidebar.
-
-### Step 3: Employer Issues a Delegation
-
-Switch to the employer workspace and refresh the employee list.
-
-1. The employee now appears in the sidebar under Employees.
-2. Drag the employee node from the sidebar onto the canvas.
-3. Click **Configure** on the new pending node.
-4. Set the spending rules: lifetime limit, optional recurring allowance, per-transaction cap, and allowed addresses.
-5. Click **Activate Delegation**. The MetaMask Smart Accounts Kit signs the delegation using the company smart account. It is stored in the database.
-6. The node on the canvas updates to Active. The delegation edge animates.
-
-The employee can now see their approved spending limit on their own canvas.
-
-### Step 4: Employee Redelegates to an Agent
-
-Switch back to the employee window.
-
-1. The canvas now shows the inbound delegation from the company with the approved limit.
-2. From the sidebar, drag an AI agent  (either procurement or travel) onto the canvas.
-3. Click **Configure** on the new pending agent node.
-4. Set child caveat values. Every field is capped at the parent delegation's limits.
-5. Click **Sign and Activate Delegation**. The delegation is signed in the browser using the employee's smart account.
-
-The employer can now see the agent node branching from the employee node on their canvas.
-
-### Step 5: Direct Spend Execution
-
-1. On the employee dashboard, open the **Direct Spend** tab.
-2. Enter a recipient address, amount, and the purpose of the expense.
-3. Click **Review Spend**. Allocard checks the delegation caveats and Qwen AI reviews the purpose.
-4. If the expense is valid, proceed with the transaction. The employee spends directly from delegated authority without holding company funds.
-
-### Step 6: Agent Execution (Travel / Procurement)
-
-1. Click **Book Trip** on the active Travel Agent node, or **Procure** on the Procurement Agent node.
-2. Enter a business request.
-3. The agent uses Qwen 3.8 Max AI to find suitable options. Once approved, the agent executes the purchase using its redelegated authority.
-
-### Step 7: Company to Agent (Reimbursements)
-
-1. Switch back to the employer dashboard.
-2. In the permanent **Reimbursements** section, select **Set up reimbursement budget**, configure limits and authorize the budget. No canvas node is needed.
-3. Switch to the employee dashboard and select **New reimbursement claim** under **Reimbursements**. If setup is incomplete, use **View reimbursement status** and refresh after the employer finishes setup.
-4. Upload a receipt and submit a reimbursement claim.
-5. Qwen Vision AI validates the receipt data against company policy. If approved, the agent executes the payment automatically to the employee's wallet.
-
-### Step 8: Master Canvas Monitoring
-
-1. Return to the employer canvas.
-2. Monitor the entire delegation tree, including employees, agents, and activity from a single interface.
-
----
-
-## Hackathon Track Eligibility
-
-| Track / Bounty | Status | Evidence |
-|---|---|---|
-| **Monad Metropolis: Consumer Products & Payments** | Eligible | Allocard is built to make corporate crypto spending feel completely native and familiar: zero seed phrases, zero manual gas handling, and intuitive employee onboarding. The company master smart account retains treasury custody while issuing ERC-7710 scoped delegations with programmable caveats (spending limits, allowed merchants, recurring allowances). |
-| **Privy Sponsor Bounty** | Eligible | Allocard uses Privy embedded wallets and verified social/email authentication (`google` and `email`). Employees onboard seamlessly using their corporate email identity with session-managed security and zero onboarding friction. |
-| **MetaMask Smart Accounts Bounty** | Eligible | Deployed directly on Monad Testnet (`chainId: 10143`), Allocard integrates MetaMask Smart Accounts Kit with ERC-7710 delegation and sub-delegation to autonomous AI agents for travel, procurement, and policy-driven reimbursements. |
-| **Alibaba Cloud Bounty: Best Builds with Qwen 3.8 Max** | Eligible | Allocard integrates Alibaba Cloud's flagship **Qwen 3.8 Max** for autonomous agent policy intelligence and multi-step reasoning, paired with **Qwen Vision** (`qwen3-vl-plus`) for OCR parsing and verification of employee expense receipts. |
-
----
-
-## Demo Tips
-
-### Testing Both Roles at the Same Time
-
-Privy keeps one signed-in identity across workspaces. Use the sidebar selector to switch between companies and employer/employee roles. To demo two different people simultaneously, use separate browser contexts:
-
-| Setup | How |
-|---|---|
-| Normal window + private window | One person in each context, with separate signed-in identities. |
-| Two browser profiles | Use a separate profile for each person. |
-
-For a single-person demo, use **Add myself** and switch to the employee workspace. For two people, add the employee’s verified email and accept the membership in their browser context.
+1. **Company Treasury Setup:** The company deploys an ERC-4337 Hybrid Smart Account on Monad Testnet, funded in Agora AUSD (automatically seeded with 10,000 AUSD from our testnet faucet integration).
+2. **Programmable Caveats:** Employers configure spending rules (lifetime cap, recurring period, allowed merchant targets). These rules are signed offchain as EIP-712 delegations using MetaMask Delegation Core.
+3. **Execution at Checkout:** When an employee or agent makes a purchase, the transaction is submitted via an ERC-4337 bundler. Monad's Delegation Manager validates the signature and caveats onchain. If valid, the exact payment is transferred directly from the company treasury to the recipient.
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Framework | Next.js 15, React 19 |
-| UI | shadcn/ui, React Flow, Tailwind CSS |
-| Blockchain | Monad Testnet (10143), MetaMask Smart Accounts Kit (ERC-7710, ERC-4337), Viem |
-| AI | Alibaba Cloud Model Studio: Qwen 3.8 Max (`qwen3.8-max`) + Qwen Vision (`qwen3-vl-plus`) |
-| Auth | Privy (Google and email) with server-verified sessions |
-| Database | Neon (Postgres), Drizzle ORM |
-| Deployment | Vercel, Monad Testnet (10143) |
-| Package Manager | pnpm (monorepo) |
+| Layer | Technology | Role |
+| :--- | :--- | :--- |
+| **Network** | Monad Testnet (Chain ID 10143) | Sub-second transaction settlement and high-throughput execution |
+| **Smart Accounts** | MetaMask Smart Accounts Kit (`Implementation.Hybrid`) | Non-custodial company and employee smart accounts |
+| **Permissions** | `@metamask/delegation-core` | EIP-712 caveat enforcement (spend limits, periods, targets) |
+| **Account Abstraction** | Viem + Pimlico Bundler & Paymaster | Gasless UserOperations for team members |
+| **Stablecoin** | Agora Digital Dollar (AUSD) | Primary financial rail for payments and global remittances |
+| **Authentication** | Privy (`@privy-io/react-auth`, `@privy-io/wagmi`) | Embedded wallets with 1-click Google and email sign-in |
+| **AI Intelligence** | Alibaba Cloud Qwen (2.5 72B & 2.5 VL) | Autonomous sponsor plan matching & multi-modal receipt OCR |
+| **Frontend** | Next.js (App Router), Tailwind CSS, Radix UI | Fast, modern web interface |
+| **Canvas** | `@xyflow/react` | Interactive drag-and-drop delegation tree |
+| **Database** | Drizzle ORM + Neon Serverless PostgreSQL | Server-side session verification and state persistence |
 
 ---
 
-## Local Setup
+## Getting Started
 
-**Prerequisites:** Node.js 20+, pnpm 9+, Privy app credentials, and a Neon Postgres database.
+### Prerequisites
 
-Create `apps/web/.env.local`:
+- Node.js 20+
+- pnpm 9+
 
-```env
-NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id
-PRIVY_APP_ID=your_privy_app_id
-PRIVY_APP_SECRET=your_privy_app_secret
-NEXT_PUBLIC_BUNDLER_RPC_URL=https://api.pimlico.io/v2/10143/rpc?apikey=YOUR_PIMLICO_API_KEY
-NEXT_PUBLIC_PAYMASTER_RPC_URL=https://api.pimlico.io/v2/10143/rpc?apikey=YOUR_PIMLICO_API_KEY
-NEXT_PUBLIC_PIMLICO_SPONSOR_ID=your_pimlico_sponsor_id
-DATABASE_URL=your_neon_postgres_connection_string
-DASHSCOPE_API_KEY=your_dashscope_api_key
-DASHSCOPE_BASE_URL=your_dashscope_compatible_mode_url
-AGENTS_PRIVATE_KEY=your_agents_private_key
-AGENT_REIMBURSEMENT_SMART_ACCOUNT=0xD61C510c51a1DD4a73C4Dfeca6893aeEE6A731c1
-AGENT_TRAVEL_SMART_ACCOUNT=0x916BE00E5cCd1A3a7930f20dFDC55D21947B8903
-AGENT_PROCUREMENT_SMART_ACCOUNT=0x1Cf7F91e72727AEfFb31603CBD3a7d5Ae03aa922
-SESSION_SECRET=generate_a_random_secret_at_least_32_characters_long
-```
+### Installation
 
-Install and run:
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/Stoneybro/Allocard.git
+   cd Allocard
+   ```
 
-```bash
-pnpm install
-cd apps/web
-pnpm dev
-```
+2. Install dependencies:
+   ```bash
+   pnpm install
+   ```
 
-Open [http://localhost:3000](http://localhost:3000).
+3. Set up environment variables:
+   Create a `.env.local` file in `apps/web/`:
+   ```env
+   # Privy Authentication
+   NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id
+   PRIVY_APP_ID=your_privy_app_id
+   PRIVY_APP_SECRET=your_privy_app_secret
+   SESSION_SECRET=your_32_char_session_secret
 
----
+   # Pimlico Account Abstraction (Monad Testnet)
+   NEXT_PUBLIC_BUNDLER_RPC_URL=https://api.pimlico.io/v2/10143/rpc?apikey=your_pimlico_api_key
+   NEXT_PUBLIC_PAYMASTER_RPC_URL=https://api.pimlico.io/v2/10143/rpc?apikey=your_pimlico_api_key
+   NEXT_PUBLIC_PIMLICO_SPONSOR_ID=your_policy_id
 
-## Architecture
+   # Database (Neon PostgreSQL)
+   DATABASE_URL=postgresql://user:password@endpoint.neon.tech/allocard?sslmode=require
 
-```
-Browser
-  Privy Auth (Google & Email embedded wallets)
-  MetaMask Smart Accounts Kit (signing)
-  React Flow (delegation canvas)
-        |
-Next.js App Router
-  /employer     Employer dashboard, delegation management
-  /employee     Employee dashboard, redelegation, agent picker
-  /api/agents   Agent execution (reimbursement, travel, procurement)
-  /api/wallet   Direct spend and pre-spend policy check
-        |
- ┌──────────────────────────┐    ┌─────────────────────────────────┐
- │   Neon Postgres           │    │   Qwen 3.8 Max AI               │
- │   Drizzle ORM             │    │   Alibaba Cloud Model Studio    │
- │   Delegation records      │    │   text (3.8-max) + vision (vl)  │
- │   Audit trail             │    └─────────────────────────────────┘
- └──────────────────────────┘
-        |
-Delegation Manager Contract (Monad Testnet)
-  ERC-7710 delegation validation
-  Caveat enforcer execution
-  On-chain MON transfer
-```
+   # Alibaba Cloud Model Studio (Qwen AI)
+   DASHSCOPE_API_KEY=your_dashscope_api_key
+   ```
+
+4. Push the database schema:
+   ```bash
+   cd apps/web
+   pnpm db:push
+   ```
+
+5. Start the development server:
+   ```bash
+   pnpm dev
+   ```
+
+Open [http://localhost:3000](http://localhost:3000) to view the application.
 
 ---
 
-*Built for the Monad Metropolis Hackathon. Track: Consumer Products & Payments. Network: Monad Testnet (10143). Standards: ERC-7710, ERC-4337.*
+## Hackathon Submission Tracks
+
+- **Monad Metropolis Hackathon:** Product & Consumer Track
+- **Agora Bounty:** Best Cross-Border Payments App on Monad (Agora Payments Bounty)
+- **Privy Bounty:** Meaningful Web2-to-Web3 Embedded Onboarding
+
+---
+
+## Project Structure
+
+```
+Allocard/
+├── apps/
+│   └── web/
+│       ├── app/               # Next.js App Router (Landing, Employer, Employee, API)
+│       ├── components/        # UI components, cards, drawers, canvas nodes
+│       ├── lib/
+│       │   ├── agora/         # Live mid-market FX rates & remittance program logic
+│       │   ├── ai.ts          # Qwen 2.5 72B & VL receipt OCR and sponsor evaluation
+│       │   ├── chain.ts       # Monad Testnet config & Agora AUSD contract addresses
+│       │   ├── client.ts      # Viem, Pimlico bundler, and public client utilities
+│       │   ├── db/            # Drizzle ORM schema and database connection
+│       │   ├── delegation.ts  # MetaMask delegation caveats and signing utilities
+│       │   └── smartAccount.ts# MetaMask Hybrid Smart Account factory
+│       └── public/            # Static assets, logos, and sample receipts
+├── demo-script.md             # 3-minute video recording walkthrough & TTS narrative
+└── package.json
+```
+
+---
+
+## Author
+
+Built by **Zion Livingstone** ([Next Studios](https://github.com/Stoneybro))  
+Previous Work: Complyr (Onchain audit infrastructure using fully homomorphic encryption)
+
+---
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).

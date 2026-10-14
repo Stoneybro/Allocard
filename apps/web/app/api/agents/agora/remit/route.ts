@@ -4,7 +4,7 @@ import { requireEmployeeCompany, requireSessionUser } from "@/lib/auth-guard";
 import { agentBookings } from "@/lib/db/schema";
 import { loadAgoraProgram } from "@/lib/agora/server";
 import { agoraEmployeeMessage } from "@/lib/agora/shared";
-import { getPimlicoGasPrice } from "@/lib/client";
+import { getPimlicoGasPrice, getPimlicoConfig } from "@/lib/client";
 import { TOKEN_SYMBOL, AUSD_ADDRESS, AUSD_DECIMALS, ERC20_ABI, chain } from "@/lib/chain";
 import { z } from "zod";
 import { createWalletClient, http, parseUnits, encodeFunctionData, type Hex, createPublicClient } from "viem";
@@ -75,11 +75,7 @@ export async function POST(req: NextRequest) {
     const pkey = process.env.AGENTS_PRIVATE_KEY;
     if (!pkey) throw new Error("Server missing agent credentials");
 
-    const bundlerUrl = process.env.NEXT_PUBLIC_BUNDLER_RPC_URL;
-    const paymasterUrl = process.env.NEXT_PUBLIC_PAYMASTER_RPC_URL;
-    const sponsorId = process.env.NEXT_PUBLIC_PIMLICO_SPONSOR_ID;
-    if (!bundlerUrl) throw new Error("Missing NEXT_PUBLIC_BUNDLER_RPC_URL");
-    if (!paymasterUrl) throw new Error("Missing NEXT_PUBLIC_PAYMASTER_RPC_URL");
+    const { bundlerUrl, paymasterUrl, sponsorId } = getPimlicoConfig();
 
     const account = privateKeyToAccount(pkey.startsWith("0x") ? (pkey as Hex) : `0x${pkey}`);
     const publicClient = createPublicClient({ chain, transport: http() });

@@ -6,7 +6,7 @@ import { eq, and } from "drizzle-orm";
 import { createPublicClient, createWalletClient, http, parseEther, parseUnits, encodeFunctionData, type Hex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { chain, AUSD_ADDRESS, AUSD_DECIMALS, ERC20_ABI } from "@/lib/chain";
-import { getPimlicoGasPrice } from "@/lib/client";
+import { getPimlicoGasPrice, getPimlicoConfig } from "@/lib/client";
 
 export async function POST(req: Request) {
   try {
@@ -104,11 +104,7 @@ export async function POST(req: Request) {
       const publicClient = createPublicClient({ chain, transport: http() });
       const walletClient = createWalletClient({ account, chain, transport: http() });
       
-      const bundlerUrl = process.env.NEXT_PUBLIC_BUNDLER_RPC_URL;
-      const paymasterUrl = process.env.NEXT_PUBLIC_PAYMASTER_RPC_URL;
-      const sponsorId = process.env.NEXT_PUBLIC_PIMLICO_SPONSOR_ID;
-      if (!bundlerUrl) throw new Error("Missing NEXT_PUBLIC_BUNDLER_RPC_URL");
-      if (!paymasterUrl) throw new Error("Missing NEXT_PUBLIC_PAYMASTER_RPC_URL");
+      const { bundlerUrl, paymasterUrl, sponsorId } = getPimlicoConfig();
 
       // Re-create Travel Agent Smart Account (deterministic salt 2)
       const { toMetaMaskSmartAccount, Implementation, getSmartAccountsEnvironment } = await import("@metamask/smart-accounts-kit");
